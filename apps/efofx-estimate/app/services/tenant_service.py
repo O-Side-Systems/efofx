@@ -16,33 +16,49 @@ logger = logging.getLogger(__name__)
 
 class TenantService:
     """Service for handling tenant management."""
-    
+
     def __init__(self):
         self.collection = get_tenants_collection()
-    
+
     async def get_tenant(self, tenant_id: str) -> Optional[Tenant]:
-        """Get tenant by ID."""
+        """Get tenant by ObjectId (legacy). Prefer get_by_tenant_id for UUID lookups."""
         try:
             from bson import ObjectId
             tenant_data = await self.collection.find_one({"_id": ObjectId(tenant_id)})
-            
+
             if tenant_data:
                 return Tenant(**tenant_data)
             return None
-            
+
         except Exception as e:
             logger.error(f"Error getting tenant: {e}")
             raise
-    
+
+    async def get_by_tenant_id(self, tenant_id: str) -> Optional[dict]:
+        """Get tenant document by UUID tenant_id field."""
+        try:
+            return await self.collection.find_one({"tenant_id": tenant_id})
+        except Exception as e:
+            logger.error(f"Error getting tenant by tenant_id: {e}")
+            raise
+
+    async def get_by_email(self, email: str) -> Optional[dict]:
+        """Get tenant document by email address."""
+        try:
+            return await self.collection.find_one({"email": email})
+        except Exception as e:
+            logger.error(f"Error getting tenant by email: {e}")
+            raise
+
     async def get_tenant_by_api_key(self, api_key: str) -> Optional[Tenant]:
-        """Get tenant by API key."""
+        """Get tenant by API key (legacy plaintext lookup — superseded by hashed key auth)."""
         try:
             tenant_data = await self.collection.find_one({"api_key": api_key})
-            
+
             if tenant_data:
                 return Tenant(**tenant_data)
             return None
-            
+
         except Exception as e:
             logger.error(f"Error getting tenant by API key: {e}")
             raise

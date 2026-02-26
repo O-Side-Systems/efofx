@@ -5,88 +5,85 @@ This module defines all configuration settings using Pydantic BaseSettings
 for environment variable management and validation.
 """
 
-from pydantic_settings import BaseSettings
 from pydantic import Field
+from pydantic_settings import BaseSettings, SettingsConfigDict
 from typing import List, Optional
-import os
 
 
 class Settings(BaseSettings):
     """Application settings with environment variable support."""
 
+    model_config = SettingsConfigDict(
+        env_file=".env",
+        case_sensitive=False,
+        populate_by_name=True,
+    )
+
     # Application
-    DEBUG: bool = Field(default=False, env="DEBUG")
-    APP_NAME: str = Field(default="efOfX Estimation Service", env="APP_NAME")
-    VERSION: str = Field(default="1.0.0", env="VERSION")
-    ENVIRONMENT: str = Field(default="development", env="ENVIRONMENT")
+    DEBUG: bool = False
+    APP_NAME: str = "efOfX Estimation Service"
+    VERSION: str = "1.0.0"
+    ENVIRONMENT: str = "development"
 
     # Server
-    HOST: str = Field(default="0.0.0.0", env="HOST")
-    PORT: int = Field(default=8000, env="PORT")
+    HOST: str = "0.0.0.0"
+    PORT: int = 8000
 
     # Security
-    SECRET_KEY: str = Field(..., env="SECRET_KEY")
-    JWT_SECRET_KEY: str = Field(..., env="JWT_SECRET_KEY")
-    JWT_ALGORITHM: str = Field(default="HS256", env="JWT_ALGORITHM")
-    JWT_EXPIRATION_HOURS: int = Field(default=24, env="JWT_EXPIRATION_HOURS")
-    ENCRYPTION_KEY: str = Field(..., env="ENCRYPTION_KEY")
+    SECRET_KEY: str
+    JWT_SECRET_KEY: str
+    JWT_ALGORITHM: str = "HS256"
+    JWT_EXPIRATION_HOURS: int = 24
+    ENCRYPTION_KEY: str
     MASTER_ENCRYPTION_KEY: str = Field(
-        ..., env="MASTER_ENCRYPTION_KEY",
         description="Fernet master key for BYOK per-tenant key encryption"
     )
-    ALLOWED_HOSTS: List[str] = Field(default=["*"], env="ALLOWED_HOSTS")
-    ALLOWED_ORIGINS: List[str] = Field(default=["*"], env="ALLOWED_ORIGINS")
+    ALLOWED_HOSTS: List[str] = ["*"]
+    ALLOWED_ORIGINS: List[str] = ["*"]
 
     # Database
-    MONGO_URI: str = Field(..., env="MONGO_URI")
-    MONGO_DB_NAME: str = Field(default="efofx_estimate", env="MONGO_DB_NAME")
+    MONGO_URI: str
+    MONGO_DB_NAME: str = "efofx_estimate"
 
     # OpenAI
-    OPENAI_API_KEY: Optional[str] = Field(default=None, env="OPENAI_API_KEY")
-    OPENAI_MODEL: str = Field(default="gpt-4o-mini", env="OPENAI_MODEL")
-    OPENAI_MAX_TOKENS: int = Field(default=4000, env="OPENAI_MAX_TOKENS")
-    OPENAI_TEMPERATURE: float = Field(default=0.7, env="OPENAI_TEMPERATURE")
+    OPENAI_API_KEY: Optional[str] = None
+    OPENAI_MODEL: str = "gpt-4o-mini"
+    OPENAI_MAX_TOKENS: int = 4000
+    OPENAI_TEMPERATURE: float = 0.7
 
     # Estimation
-    MAX_ESTIMATION_SESSIONS: int = Field(default=100, env="MAX_ESTIMATION_SESSIONS")
-    SESSION_TIMEOUT_MINUTES: int = Field(default=30, env="SESSION_TIMEOUT_MINUTES")
+    MAX_ESTIMATION_SESSIONS: int = 100
+    SESSION_TIMEOUT_MINUTES: int = 30
 
     # File Upload
-    MAX_FILE_SIZE: int = Field(default=10 * 1024 * 1024, env="MAX_FILE_SIZE")  # 10MB
-    ALLOWED_IMAGE_TYPES: List[str] = Field(
-        default=["image/jpeg", "image/png", "image/webp"],
-        env="ALLOWED_IMAGE_TYPES"
-    )
+    MAX_FILE_SIZE: int = 10 * 1024 * 1024  # 10MB
+    ALLOWED_IMAGE_TYPES: List[str] = ["image/jpeg", "image/png", "image/webp"]
 
     # Logging
-    LOG_LEVEL: str = Field(default="INFO", env="LOG_LEVEL")
-    LOG_FORMAT: str = Field(default="json", env="LOG_FORMAT")
+    LOG_LEVEL: str = "INFO"
+    LOG_FORMAT: str = "json"
 
     # Rate Limiting
-    RATE_LIMIT_ENABLED: bool = Field(default=True, env="RATE_LIMIT_ENABLED")
-    RATE_LIMIT_PER_MINUTE: int = Field(default=60, env="RATE_LIMIT_PER_MINUTE")
+    RATE_LIMIT_ENABLED: bool = True
+    RATE_LIMIT_PER_MINUTE: int = 60
 
     # Valkey / Redis (for rate limiting — used in plan 02-03)
-    VALKEY_URL: str = Field(default="redis://localhost:6379", env="VALKEY_URL")
+    VALKEY_URL: str = "redis://localhost:6379"
 
     # SMTP (for email verification)
-    SMTP_USERNAME: Optional[str] = Field(default=None, env="SMTP_USERNAME")
-    SMTP_PASSWORD: Optional[str] = Field(default=None, env="SMTP_PASSWORD")
-    SMTP_SERVER: str = Field(default="localhost", env="SMTP_SERVER")
-    SMTP_PORT: int = Field(default=587, env="SMTP_PORT")
-    SMTP_FROM: str = Field(default="noreply@efofx.ai", env="SMTP_FROM")
+    SMTP_USERNAME: Optional[str] = None
+    SMTP_PASSWORD: Optional[str] = None
+    SMTP_SERVER: str = "localhost"
+    SMTP_PORT: int = 587
+    SMTP_FROM: str = "noreply@efofx.ai"
 
-    # Application base URL (for verification links)
-    APP_BASE_URL: str = Field(default="http://localhost:8000", env="APP_BASE_URL")
+    # Application base URL (for verification links in emails)
+    APP_BASE_URL: str = "http://localhost:8000"
 
     # Error Tracking (Optional - Sentry removed but keeping config for backwards compatibility)
-    SENTRY_DSN: Optional[str] = Field(default=None, env="SENTRY_DSN")
-    SENTRY_ENVIRONMENT: Optional[str] = Field(default=None, env="SENTRY_ENVIRONMENT")
-    SENTRY_TRACES_SAMPLE_RATE: Optional[float] = Field(default=None, env="SENTRY_TRACES_SAMPLE_RATE")
-
-    class Config:
-        env_file = ".env"
-        case_sensitive = False
+    SENTRY_DSN: Optional[str] = None
+    SENTRY_ENVIRONMENT: Optional[str] = None
+    SENTRY_TRACES_SAMPLE_RATE: Optional[float] = None
 
 
 # Global settings instance

@@ -2,10 +2,14 @@
 Pytest configuration and fixtures for efOfX Estimation Service.
 
 This module provides shared fixtures and configuration for all tests.
+
+Session-scoped async fixtures use loop_scope="session" to share a single
+event loop for the entire test session (required for test_db and other
+session-scoped async fixtures).
 """
 
 import pytest
-import asyncio
+import pytest_asyncio
 from typing import AsyncGenerator
 from fastapi.testclient import TestClient
 from motor.motor_asyncio import AsyncIOMotorClient
@@ -14,17 +18,9 @@ from app.core.config import settings
 from app.db.mongodb import connect_to_mongo, close_mongo_connection
 
 
-@pytest.fixture(scope="session")
-def event_loop():
-    """Create an instance of the default event loop for the test session."""
-    loop = asyncio.get_event_loop_policy().new_event_loop()
-    yield loop
-    loop.close()
-
-
-@pytest.fixture(scope="session")
+@pytest_asyncio.fixture(scope="session", loop_scope="session")
 async def test_db():
-    """Create test database connection."""
+    """Create test database connection (session-scoped)."""
     # Use test database
     settings.MONGO_DB_NAME = "efofx_estimate_test"
     await connect_to_mongo()
@@ -32,7 +28,7 @@ async def test_db():
     await close_mongo_connection()
 
 
-@pytest.fixture
+@pytest_asyncio.fixture(loop_scope="function")
 async def client(test_db) -> AsyncGenerator[TestClient, None]:
     """Create test client with database connection."""
     # Import app here to avoid database initialization at module level
@@ -151,4 +147,4 @@ def sample_feedback():
             "estimated_cost": 45000.0,
             "variance_percentage": 2.2
         }
-    } 
+    }

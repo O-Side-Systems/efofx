@@ -15,6 +15,7 @@ import os
 
 from app.core.config import settings
 from app.api.routes import api_router
+from app.api.auth import router as auth_router
 from app.db.mongodb import connect_to_mongo, close_mongo_connection, health_check as db_health_check
 
 # Configure logging
@@ -77,6 +78,7 @@ async def add_process_time_header(request: Request, call_next):
 
 # Include API routes
 app.include_router(api_router, prefix="/api/v1")
+app.include_router(auth_router, prefix="/api/v1")
 
 @app.get("/health")
 async def health_check():

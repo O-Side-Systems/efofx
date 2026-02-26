@@ -1,16 +1,20 @@
 """
-Tests for auth API endpoints: registration, email verification, profile management.
+Tests for auth API endpoints: registration, email verification, profile management,
+login (JWT), and token refresh.
 
 Uses per-test Motor client pattern (avoids event-loop conflicts with session-scoped
 fixtures in asyncio strict mode). SMTP is mocked to prevent real email sends.
 """
 
+import hashlib
+from datetime import datetime, timedelta, timezone
+from unittest.mock import AsyncMock, patch
+
+import jwt  # PyJWT 2.x
 import pytest
 import pytest_asyncio
-from unittest.mock import AsyncMock, patch
-from datetime import datetime, timezone, timedelta
+from httpx import ASGITransport, AsyncClient
 from motor.motor_asyncio import AsyncIOMotorClient
-from httpx import AsyncClient, ASGITransport
 
 from app.core.config import settings
 from app.core.constants import DB_COLLECTIONS
@@ -57,7 +61,7 @@ async def client(test_app):
 
 
 # ---------------------------------------------------------------------------
-# Helper fixtures
+# Helper functions
 # ---------------------------------------------------------------------------
 
 VALID_REGISTER_PAYLOAD = {
@@ -78,8 +82,45 @@ async def _register(client, payload=None):
     return response
 
 
+async def _register_and_verify(client, mongo_client, payload=None):
+    """Register a tenant and verify their email. Returns (api_key, tenant_id)."""
+    reg_response = await _register(client, payload)
+    assert reg_response.status_code == 201
+    tenant_id = reg_response.json()["tenant_id"]
+    api_key = reg_response.json()["api_key"]
+
+    db = mongo_client[TEST_DB]
+    token_doc = await db[DB_COLLECTIONS["VERIFICATION_TOKENS"]].find_one(
+        {"tenant_id": tenant_id}
+    )
+    if token_doc:
+        await client.get(f"/api/v1/auth/verify?token={token_doc['token']}")
+
+    return api_key, tenant_id
+
+
+async def _login(client, email=None, password=None):
+    """Log in and return the HTTP response."""
+    return await client.post(
+        "/api/v1/auth/login",
+        json={
+            "email": email or VALID_REGISTER_PAYLOAD["email"],
+            "password": password or VALID_REGISTER_PAYLOAD["password"],
+        },
+    )
+
+
+async def _login_and_get_tokens(client, mongo_client):
+    """Register, verify, and log in. Returns (access_token, refresh_token, tenant_id)."""
+    _, tenant_id = await _register_and_verify(client, mongo_client)
+    login_response = await _login(client)
+    assert login_response.status_code == 200
+    data = login_response.json()
+    return data["access_token"], data["refresh_token"], tenant_id
+
+
 # ---------------------------------------------------------------------------
-# Registration tests
+# Registration tests (preserved from plan 02-01)
 # ---------------------------------------------------------------------------
 
 
@@ -137,7 +178,7 @@ async def test_register_short_company_name(client):
 
 
 # ---------------------------------------------------------------------------
-# Email verification tests
+# Email verification tests (preserved from plan 02-01)
 # ---------------------------------------------------------------------------
 
 
@@ -209,7 +250,7 @@ async def test_email_verification_expired_token(client, mongo_client):
 
 
 # ---------------------------------------------------------------------------
-# API key behavior tests
+# API key behavior tests (preserved from plan 02-01)
 # ---------------------------------------------------------------------------
 
 
@@ -247,8 +288,8 @@ async def test_api_key_shown_once(client, mongo_client):
 
 
 @pytest.mark.asyncio
-async def test_unverified_tenant_blocked(client):
-    """Unverified tenant calling profile endpoint returns 403."""
+async def test_unverified_tenant_api_key_blocked(client):
+    """Unverified tenant calling profile endpoint with API key returns 403."""
     reg_response = await _register(client)
     assert reg_response.status_code == 201
 
@@ -263,31 +304,20 @@ async def test_unverified_tenant_blocked(client):
 
 
 # ---------------------------------------------------------------------------
-# Profile management tests
+# Profile management tests (preserved from plan 02-01)
 # ---------------------------------------------------------------------------
 
 
 @pytest_asyncio.fixture
 async def verified_tenant(client, mongo_client):
     """Fixture: register and verify a tenant, return (api_key, tenant_id)."""
-    reg_response = await _register(client)
-    assert reg_response.status_code == 201
-    tenant_id = reg_response.json()["tenant_id"]
-    api_key = reg_response.json()["api_key"]
-
-    db = mongo_client[TEST_DB]
-    token_doc = await db[DB_COLLECTIONS["VERIFICATION_TOKENS"]].find_one(
-        {"tenant_id": tenant_id}
-    )
-    if token_doc:
-        await client.get(f"/api/v1/auth/verify?token={token_doc['token']}")
-
+    api_key, tenant_id = await _register_and_verify(client, mongo_client)
     return api_key, tenant_id
 
 
 @pytest.mark.asyncio
 async def test_update_profile(client, verified_tenant):
-    """PATCH /auth/profile with valid JWT -> 200, updated fields."""
+    """PATCH /auth/profile with valid API key -> 200, updated fields."""
     api_key, tenant_id = verified_tenant
 
     update_payload = {
@@ -329,3 +359,283 @@ async def test_profile_requires_auth(client):
     """GET /auth/profile without auth returns 403 or 401."""
     response = await client.get("/api/v1/auth/profile")
     assert response.status_code in (401, 403)
+
+
+# ---------------------------------------------------------------------------
+# Login tests
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.asyncio
+async def test_login_success(client, mongo_client):
+    """Register, verify email, login -> 200 with access_token and refresh_token."""
+    await _register_and_verify(client, mongo_client)
+    response = await _login(client)
+
+    assert response.status_code == 200
+    data = response.json()
+    assert "access_token" in data
+    assert "refresh_token" in data
+    assert data["token_type"] == "bearer"
+    assert data["expires_in"] == 1200  # 20 minutes in seconds
+    assert data["access_token"]  # non-empty
+    assert data["refresh_token"]  # non-empty
+
+
+@pytest.mark.asyncio
+async def test_login_wrong_password(client, mongo_client):
+    """Register, verify, login with wrong password -> 401 'Invalid credentials'."""
+    await _register_and_verify(client, mongo_client)
+    response = await _login(client, password="wrong-password-!!")
+
+    assert response.status_code == 401
+    assert response.json()["detail"] == "Invalid credentials"
+
+
+@pytest.mark.asyncio
+async def test_login_nonexistent_email(client):
+    """Login with unknown email -> 401 'Invalid credentials' (no enumeration)."""
+    response = await _login(client, email="nobody@nowhere.example")
+
+    assert response.status_code == 401
+    assert response.json()["detail"] == "Invalid credentials"
+
+
+@pytest.mark.asyncio
+async def test_login_unverified_tenant(client):
+    """Register (no verify), login -> 403 'Email not verified'."""
+    await _register(client)
+    response = await _login(client)
+
+    assert response.status_code == 403
+    assert "not verified" in response.json()["detail"].lower()
+
+
+@pytest.mark.asyncio
+async def test_login_inactive_tenant(client, mongo_client):
+    """Deactivated tenant login -> 401 'Invalid credentials'."""
+    _, tenant_id = await _register_and_verify(client, mongo_client)
+
+    # Deactivate the tenant directly in DB
+    db = mongo_client[TEST_DB]
+    await db[DB_COLLECTIONS["TENANTS"]].update_one(
+        {"tenant_id": tenant_id},
+        {"$set": {"is_active": False}},
+    )
+
+    response = await _login(client)
+    assert response.status_code == 401
+    assert response.json()["detail"] == "Invalid credentials"
+
+
+# ---------------------------------------------------------------------------
+# JWT claims validation tests
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.asyncio
+async def test_jwt_claims_complete(client, mongo_client):
+    """Decode the access_token from login, verify it contains required claims."""
+    await _register_and_verify(client, mongo_client)
+    login_response = await _login(client)
+    access_token = login_response.json()["access_token"]
+
+    payload = jwt.decode(
+        access_token,
+        settings.JWT_SECRET_KEY,
+        algorithms=["HS256"],
+    )
+
+    assert "sub" in payload
+    assert "tenant_id" in payload
+    assert "role" in payload
+    assert "exp" in payload
+    assert "iat" in payload
+    assert payload["role"] == "owner"
+    # For single-user tenants, sub == tenant_id
+    assert payload["sub"] == payload["tenant_id"]
+
+
+@pytest.mark.asyncio
+async def test_expired_token_returns_401(client, mongo_client):
+    """Create token with past expiry, call protected endpoint -> 401 'Token expired'."""
+    _, tenant_id = await _register_and_verify(client, mongo_client)
+
+    # Mint a token that is already expired
+    past = datetime.now(timezone.utc) - timedelta(minutes=5)
+    payload = {
+        "sub": tenant_id,
+        "tenant_id": tenant_id,
+        "role": "owner",
+        "iat": past - timedelta(minutes=20),
+        "exp": past,
+    }
+    expired_token = jwt.encode(payload, settings.JWT_SECRET_KEY, algorithm="HS256")
+
+    response = await client.get(
+        "/api/v1/auth/profile",
+        headers={"Authorization": f"Bearer {expired_token}"},
+    )
+    assert response.status_code == 401
+    assert response.json()["detail"] == "Token expired"
+
+
+@pytest.mark.asyncio
+async def test_missing_token_returns_401(client):
+    """Call protected endpoint with no Authorization header -> 401 'Authentication required'."""
+    response = await client.get("/api/v1/auth/profile")
+    assert response.status_code == 401
+    assert response.json()["detail"] == "Authentication required"
+
+
+@pytest.mark.asyncio
+async def test_invalid_token_returns_401(client):
+    """Call protected endpoint with garbage token -> 401 'Invalid token'."""
+    response = await client.get(
+        "/api/v1/auth/profile",
+        headers={"Authorization": "Bearer this.is.garbage"},
+    )
+    assert response.status_code == 401
+    assert response.json()["detail"] == "Invalid token"
+
+
+@pytest.mark.asyncio
+async def test_unverified_tenant_jwt_blocked(client, mongo_client):
+    """Create valid JWT for unverified tenant, call protected endpoint -> 403."""
+    # Register but do NOT verify email
+    reg_response = await _register(client)
+    assert reg_response.status_code == 201
+    tenant_id = reg_response.json()["tenant_id"]
+
+    # Manually mint a valid JWT for the unverified tenant
+    now = datetime.now(timezone.utc)
+    payload = {
+        "sub": tenant_id,
+        "tenant_id": tenant_id,
+        "role": "owner",
+        "iat": now,
+        "exp": now + timedelta(minutes=20),
+    }
+    valid_token = jwt.encode(payload, settings.JWT_SECRET_KEY, algorithm="HS256")
+
+    response = await client.get(
+        "/api/v1/auth/profile",
+        headers={"Authorization": f"Bearer {valid_token}"},
+    )
+    assert response.status_code == 403
+
+
+# ---------------------------------------------------------------------------
+# Token refresh tests
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.asyncio
+async def test_refresh_token_success(client, mongo_client):
+    """Login, use refresh_token to get new access_token -> 200."""
+    access_token, refresh_token, _ = await _login_and_get_tokens(client, mongo_client)
+
+    response = await client.post(
+        "/api/v1/auth/refresh",
+        json={"refresh_token": refresh_token},
+    )
+    assert response.status_code == 200
+    data = response.json()
+    assert "access_token" in data
+    assert data["token_type"] == "bearer"
+    assert data["expires_in"] == 1200
+    # New access token must be non-empty and decodable with the correct claims
+    assert data["access_token"]
+    payload = jwt.decode(
+        data["access_token"],
+        settings.JWT_SECRET_KEY,
+        algorithms=["HS256"],
+    )
+    assert "tenant_id" in payload
+    assert "sub" in payload
+    assert "role" in payload
+
+
+@pytest.mark.asyncio
+async def test_refresh_token_rotation(client, mongo_client):
+    """After refresh, old refresh_token no longer works -> 401."""
+    _, refresh_token, _ = await _login_and_get_tokens(client, mongo_client)
+
+    # First use succeeds and rotates the token
+    first_response = await client.post(
+        "/api/v1/auth/refresh",
+        json={"refresh_token": refresh_token},
+    )
+    assert first_response.status_code == 200
+
+    # Second use of the SAME old refresh token must fail
+    second_response = await client.post(
+        "/api/v1/auth/refresh",
+        json={"refresh_token": refresh_token},
+    )
+    assert second_response.status_code == 401
+
+
+@pytest.mark.asyncio
+async def test_refresh_token_invalid(client):
+    """POST /auth/refresh with invalid token -> 401."""
+    response = await client.post(
+        "/api/v1/auth/refresh",
+        json={"refresh_token": "totally-invalid-refresh-token"},
+    )
+    assert response.status_code == 401
+
+
+@pytest.mark.asyncio
+async def test_refresh_token_expired(client, mongo_client):
+    """Expired refresh token -> 401."""
+    _, refresh_token, _ = await _login_and_get_tokens(client, mongo_client)
+
+    # Manually expire the refresh token in DB
+    token_hash = hashlib.sha256(refresh_token.encode()).hexdigest()
+    db = mongo_client[TEST_DB]
+    past = datetime.now(timezone.utc) - timedelta(days=1)
+    await db[DB_COLLECTIONS["REFRESH_TOKENS"]].update_one(
+        {"token_hash": token_hash},
+        {"$set": {"expires_at": past}},
+    )
+
+    response = await client.post(
+        "/api/v1/auth/refresh",
+        json={"refresh_token": refresh_token},
+    )
+    assert response.status_code == 401
+
+
+# ---------------------------------------------------------------------------
+# API key auth tests
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.asyncio
+async def test_api_key_auth_success(client, mongo_client):
+    """Use raw API key from registration as Bearer token on protected endpoint -> 200."""
+    api_key, tenant_id = await _register_and_verify(client, mongo_client)
+
+    response = await client.get(
+        "/api/v1/auth/profile",
+        headers={"Authorization": f"Bearer {api_key}"},
+    )
+    assert response.status_code == 200
+    data = response.json()
+    assert data["tenant_id"] == tenant_id
+
+
+@pytest.mark.asyncio
+async def test_api_key_auth_invalid(client, mongo_client):
+    """Use wrong API key -> 401."""
+    # Register so there is at least one tenant to avoid empty DB edge case
+    await _register_and_verify(client, mongo_client)
+
+    # Construct a fake key with valid structure but wrong secret suffix
+    fake_key = "sk_live_" + "a" * 32 + "_fakerandombytes"
+    response = await client.get(
+        "/api/v1/auth/profile",
+        headers={"Authorization": f"Bearer {fake_key}"},
+    )
+    assert response.status_code == 401

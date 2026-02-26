@@ -9,7 +9,7 @@ from fastapi import APIRouter, Depends, HTTPException, UploadFile, File
 from typing import List, Optional
 import logging
 
-from app.core.security import get_current_tenant, check_rate_limit
+from app.core.security import get_current_tenant
 from app.core.constants import API_MESSAGES, HTTP_STATUS
 from app.models.tenant import Tenant
 from app.models.estimation import EstimationRequest, EstimationResponse
@@ -47,7 +47,6 @@ async def start_estimation(
 ):
     """Start a new estimation session."""
     try:
-        check_rate_limit(str(tenant.id))
         response = await estimation_service.start_estimation(request, tenant)
         return response
     except Exception as e:
@@ -85,7 +84,6 @@ async def upload_image(
 ):
     """Upload image for estimation session."""
     try:
-        check_rate_limit(str(tenant.id))
         result = await estimation_service.upload_image(session_id, file, tenant)
         return {"message": "Image uploaded successfully", "image_url": result}
     except Exception as e:
@@ -105,7 +103,6 @@ async def send_chat_message(
 ):
     """Send a chat message for estimation."""
     try:
-        check_rate_limit(str(tenant.id))
         response = await chat_service.send_message(request, tenant)
         return response
     except Exception as e:
@@ -143,7 +140,6 @@ async def submit_feedback(
 ):
     """Submit feedback for an estimation."""
     try:
-        check_rate_limit(str(tenant.id))
         result = await feedback_service.submit_feedback(feedback, tenant)
         return {"message": "Feedback submitted successfully", "feedback_id": result}
     except Exception as e:

@@ -8,7 +8,7 @@ progress:
   total_phases: 2
   completed_phases: 1
   total_plans: 7
-  completed_plans: 3
+  completed_plans: 4
 ---
 
 # Project State
@@ -23,11 +23,11 @@ See: .planning/PROJECT.md (updated 2026-02-26)
 ## Current Position
 
 Phase: 2 of 6 (Multi-Tenant Foundation)
-Plan: 3 of 5 in current phase (in progress)
-Status: Phase 2 in progress — Plans 02-01 (partial), 02-03 complete; 02-02, 02-04, 02-05 pending
-Last activity: 2026-02-26 — Plan 02-03 complete: TenantAwareCollection + compound indexes + all service refactors
+Plan: 4 of 5 in current phase (in progress)
+Status: Phase 2 in progress — Plans 02-01, 02-03 complete; 02-02, 02-04, 02-05 pending
+Last activity: 2026-02-26 — Plan 02-01 complete: contractor registration, email verification, API key generation, profile management
 
-Progress: [███░░░░░░░] 25%
+Progress: [████░░░░░░] 33%
 
 ## Performance Metrics
 
@@ -41,7 +41,7 @@ Progress: [███░░░░░░░] 25%
 | Phase | Plans | Total | Avg/Plan |
 |-------|-------|-------|----------|
 | 01-prerequisites | 2 | 6 min | 3 min |
-| 02-multi-tenant-foundation | 1 of 5 | 8 min | 8 min |
+| 02-multi-tenant-foundation | 2 of 5 | 19 min | 10 min |
 
 **Recent Trend:**
 - Last 5 plans: 5 min avg
@@ -71,6 +71,9 @@ Recent decisions affecting current work:
 - [Phase 02]: TenantAwareCollection enforced at construction — ValueError on empty/None tenant_id makes mis-use impossible
 - [Phase 02]: Per-operation collection instantiation (not stored in __init__) — avoids tenant_id drift across request lifecycle
 - [Phase 02]: get_tenant_collection() is the single mandatory entry point for all tenant-scoped MongoDB access; deprecated get_*_collection() helpers retained only for tenants collection (non-tenant-scoped)
+- [02-01]: Use BcryptHasher explicitly — PasswordHash.recommended() tries argon2 first but argon2 not installed; bcrypt is the Phase 1 dep
+- [02-01]: api_key_last6 stored alongside hashed_api_key to enable masked display (sk-...abc123) without reversing bcrypt hash
+- [02-01]: API key format sk_live_{tenant_id_no_dashes}_{random} enables O(1) tenant lookup by parsing first 32 chars — avoids full-collection bcrypt scan
 
 ### Pending Todos
 
@@ -84,5 +87,5 @@ None yet.
 ## Session Continuity
 
 Last session: 2026-02-26
-Stopped at: Completed 02-03-PLAN.md — TenantAwareCollection + compound indexes + all service refactors done; next is 02-02 (JWT auth), 02-04 (BYOK), 02-05 (rate limiting)
+Stopped at: Completed 02-01-PLAN.md — contractor registration, email verification, API key generation, profile management done; next is 02-02 (JWT auth), 02-04 (BYOK), 02-05 (rate limiting)
 Resume file: None

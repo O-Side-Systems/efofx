@@ -1,6 +1,6 @@
 # Story 2.5: Apply Regional & Complexity Adjustments
 
-Status: backlog
+Status: done
 
 ## Story
 
@@ -36,15 +36,15 @@ So that estimates account for location and project-specific factors.
 
 ## Tasks / Subtasks
 
-- [ ] Implement `apply_adjustments()` function
-- [ ] Map complexity input to multiplier (simple=0.8, standard=1.0, complex=1.5)
-- [ ] Implement risk factor calculation
-- [ ] Apply multiplicative adjustments to costs
-- [ ] Apply complexity adjustment to timeline
-- [ ] Return breakdown showing all factors
-- [ ] Handle missing complexity/risk (default to 1.0)
-- [ ] Store adjustment factors in estimate document
-- [ ] Test with various adjustment combinations
+- [x] Implement `apply_adjustments()` function
+- [x] Map complexity input to multiplier (simple=0.8, standard=1.0, complex=1.5)
+- [x] Implement risk factor calculation
+- [x] Apply multiplicative adjustments to costs
+- [x] Apply complexity adjustment to timeline
+- [x] Return breakdown showing all factors
+- [x] Handle missing complexity/risk (default to 1.0)
+- [x] Store adjustment factors in estimate document
+- [x] Test with various adjustment combinations
 
 ## Dev Notes
 
@@ -72,16 +72,65 @@ Story 2.4 (baseline calculation works)
 
 ### Agent Model Used
 
-<!-- To be filled by dev agent -->
+claude-sonnet-4-5-20250929
 
 ### Debug Log References
 
-<!-- To be filled by dev agent during implementation -->
+Implementation completed in single session. All acceptance criteria met:
+- ✓ Implemented apply_adjustments() in app/services/rcf_engine.py
+- ✓ Maps complexity to multipliers: simple (0.8), standard (1.0), complex (1.5)
+- ✓ Maps risk to multipliers: low (1.0), medium (1.15), high (1.3)
+- ✓ Applies multiplicative formula: final_cost = baseline × complexity × risk
+- ✓ Applies complexity to timeline: final_timeline = baseline_timeline × complexity
+- ✓ Risk does NOT affect timeline (as per requirements)
+- ✓ Returns comprehensive breakdown with all factors and values
+- ✓ Defaults to standard/low (1.0) when inputs not provided
+- ✓ Handles case-insensitive inputs and invalid values
+- ✓ 13 unit tests passing covering all adjustment combinations
 
 ### Completion Notes List
 
-<!-- To be filled by dev agent upon completion -->
+**Implementation Summary:**
+Added adjustment function to `app/services/rcf_engine.py`:
+
+1. **Function: apply_adjustments(baseline_estimate, complexity, risk_level)**
+   - Takes baseline estimate and applies complexity/risk multipliers
+   - Complexity: simple (0.8x), standard (1.0x), complex (1.5x)
+   - Risk: low (1.0x), medium (1.15x), high (1.3x)
+
+2. **Adjustment Formula:**
+   - Cost: final = baseline × complexity × risk
+   - Timeline: final = baseline × complexity (risk doesn't affect timeline)
+   - Breakdown: Each category adjusted proportionally with rounding handling
+
+3. **Response Structure:**
+   - Preserves baseline values for comparison
+   - Includes both factors (complexity_factor, risk_factor)
+   - Provides adjusted P50/P80 costs and timelines
+   - Includes human-readable adjustment summary
+   - Adjusted cost breakdown sums exactly to adjusted P50
+
+4. **Input Handling:**
+   - Case-insensitive (COMPLEX, complex, Complex all work)
+   - Defaults: complexity='standard', risk_level='low'
+   - Invalid inputs default to 1.0 (no adjustment)
+
+**Test Coverage:**
+- 13 comprehensive unit tests
+- Tests for all complexity levels, risk levels, and combinations
+- Tests for breakdown adjustment, variance recalculation, edge cases
+- All tests passing
+
+All acceptance criteria satisfied and ready for code review.
 
 ### File List
 
-<!-- NEW/MODIFIED/DELETED files will be listed here by dev agent -->
+**NEW:**
+- None
+
+**MODIFIED:**
+- apps/efofx-estimate/app/services/rcf_engine.py (added apply_adjustments function and COMPLEXITY_MULTIPLIERS constant)
+- apps/efofx-estimate/tests/services/test_rcf_engine.py (added TestAdjustments class with 13 tests)
+
+**DELETED:**
+- None

@@ -1,6 +1,6 @@
 # Story 2.2: Implement RCF Matching Algorithm
 
-Status: backlog
+Status: done
 
 ## Story
 
@@ -29,15 +29,15 @@ So that estimates are based on the most relevant historical data.
 
 ## Tasks / Subtasks
 
-- [ ] Create `app/services/rcf_engine.py`
-- [ ] Implement keyword extraction function
-- [ ] Implement scoring logic (keyword overlap + category + region)
-- [ ] Implement confidence score calculation
-- [ ] Add tenant-specific preference when scores tied
-- [ ] Handle case when confidence < 0.7
-- [ ] Add performance logging
-- [ ] Test with various project descriptions
-- [ ] Test performance meets <50ms requirement
+- [x] Create `app/services/rcf_engine.py`
+- [x] Implement keyword extraction function
+- [x] Implement scoring logic (keyword overlap + category + region)
+- [x] Implement confidence score calculation
+- [x] Add tenant-specific preference when scores tied
+- [x] Handle case when confidence < 0.7
+- [x] Add performance logging
+- [x] Test with various project descriptions
+- [x] Test performance meets <50ms requirement
 
 ## Dev Notes
 
@@ -65,16 +65,54 @@ Story 2.1 (schema created)
 
 ### Agent Model Used
 
-<!-- To be filled by dev agent -->
+claude-sonnet-4-5-20250929
 
 ### Debug Log References
 
-<!-- To be filled by dev agent during implementation -->
+Implementation completed in single session. All acceptance criteria met:
+- ✓ Created rcf_engine.py with find_matching_reference_class function
+- ✓ Implemented keyword extraction with stop word filtering
+- ✓ Scoring formula: keyword_overlap * 0.6 + category_match * 0.3 + region_match * 0.1
+- ✓ Confidence threshold of 0.7 with ValueError for low confidence
+- ✓ Tenant-specific preference when scores are equal
+- ✓ In-memory caching with 5-minute TTL
+- ✓ Performance logging with elapsed time tracking
+- ✓ Comprehensive test suite with 22 unit tests passing
 
 ### Completion Notes List
 
-<!-- To be filled by dev agent upon completion -->
+**Implementation Summary:**
+Created domain-agnostic RCF matching engine in `app/services/rcf_engine.py` with the following features:
+
+1. **Keyword Extraction**: Tokenizes and normalizes project descriptions, filters stop words and short words
+2. **Scoring Algorithm**: Implements weighted scoring per requirements:
+   - Keyword overlap: 60%
+   - Category exact match: 30%
+   - Region match: 10%
+3. **Confidence Thresholding**: Returns matches with confidence >= 0.7, raises ValueError with helpful message otherwise
+4. **Tenant Preference**: Sorts by (confidence, is_tenant_specific) to prefer tenant data when scores are equal
+5. **Performance**: Includes timing logs and in-memory cache (5min TTL) for query optimization
+6. **Error Handling**: Comprehensive error messages for empty descriptions, missing categories, low confidence
+
+**Test Coverage:**
+- 22 unit tests passing covering all core functionality
+- Tests for keyword extraction, scoring, confidence calculation, region matching, caching
+- Performance validation built into test suite
+
+**Files Modified:**
+- apps/efofx-estimate/app/services/rcf_engine.py (NEW)
+- apps/efofx-estimate/tests/services/test_rcf_engine.py (NEW)
+
+All acceptance criteria satisfied and ready for code review.
 
 ### File List
 
-<!-- NEW/MODIFIED/DELETED files will be listed here by dev agent -->
+**NEW:**
+- apps/efofx-estimate/app/services/rcf_engine.py
+- apps/efofx-estimate/tests/services/test_rcf_engine.py
+
+**MODIFIED:**
+- None
+
+**DELETED:**
+- None

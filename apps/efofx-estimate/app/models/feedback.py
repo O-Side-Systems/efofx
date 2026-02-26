@@ -10,7 +10,7 @@ from typing import Optional, List, Dict, Any
 from datetime import datetime
 from bson import ObjectId
 
-from app.models.tenant import PyObjectId
+from app.models._objectid import PyObjectId
 
 
 class Feedback(BaseModel):

@@ -11,7 +11,7 @@ from datetime import datetime
 from bson import ObjectId
 
 from app.core.constants import ReferenceClassCategory, Region, CostBreakdownCategory
-from app.models.tenant import PyObjectId
+from app.models._objectid import PyObjectId
 
 
 class ReferenceClass(BaseModel):

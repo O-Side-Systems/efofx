@@ -30,30 +30,34 @@ class Settings(BaseSettings):
     JWT_ALGORITHM: str = Field(default="HS256", env="JWT_ALGORITHM")
     JWT_EXPIRATION_HOURS: int = Field(default=24, env="JWT_EXPIRATION_HOURS")
     ENCRYPTION_KEY: str = Field(..., env="ENCRYPTION_KEY")
+    MASTER_ENCRYPTION_KEY: str = Field(
+        ..., env="MASTER_ENCRYPTION_KEY",
+        description="Fernet master key for BYOK per-tenant key encryption"
+    )
     ALLOWED_HOSTS: List[str] = Field(default=["*"], env="ALLOWED_HOSTS")
     ALLOWED_ORIGINS: List[str] = Field(default=["*"], env="ALLOWED_ORIGINS")
-    
+
     # Database
     MONGO_URI: str = Field(..., env="MONGO_URI")
     MONGO_DB_NAME: str = Field(default="efofx_estimate", env="MONGO_DB_NAME")
-    
+
     # OpenAI
     OPENAI_API_KEY: Optional[str] = Field(default=None, env="OPENAI_API_KEY")
     OPENAI_MODEL: str = Field(default="gpt-4o-mini", env="OPENAI_MODEL")
     OPENAI_MAX_TOKENS: int = Field(default=4000, env="OPENAI_MAX_TOKENS")
     OPENAI_TEMPERATURE: float = Field(default=0.7, env="OPENAI_TEMPERATURE")
-    
+
     # Estimation
     MAX_ESTIMATION_SESSIONS: int = Field(default=100, env="MAX_ESTIMATION_SESSIONS")
     SESSION_TIMEOUT_MINUTES: int = Field(default=30, env="SESSION_TIMEOUT_MINUTES")
-    
+
     # File Upload
     MAX_FILE_SIZE: int = Field(default=10 * 1024 * 1024, env="MAX_FILE_SIZE")  # 10MB
     ALLOWED_IMAGE_TYPES: List[str] = Field(
-        default=["image/jpeg", "image/png", "image/webp"], 
+        default=["image/jpeg", "image/png", "image/webp"],
         env="ALLOWED_IMAGE_TYPES"
     )
-    
+
     # Logging
     LOG_LEVEL: str = Field(default="INFO", env="LOG_LEVEL")
     LOG_FORMAT: str = Field(default="json", env="LOG_FORMAT")
@@ -61,6 +65,19 @@ class Settings(BaseSettings):
     # Rate Limiting
     RATE_LIMIT_ENABLED: bool = Field(default=True, env="RATE_LIMIT_ENABLED")
     RATE_LIMIT_PER_MINUTE: int = Field(default=60, env="RATE_LIMIT_PER_MINUTE")
+
+    # Valkey / Redis (for rate limiting — used in plan 02-03)
+    VALKEY_URL: str = Field(default="redis://localhost:6379", env="VALKEY_URL")
+
+    # SMTP (for email verification)
+    SMTP_USERNAME: Optional[str] = Field(default=None, env="SMTP_USERNAME")
+    SMTP_PASSWORD: Optional[str] = Field(default=None, env="SMTP_PASSWORD")
+    SMTP_SERVER: str = Field(default="localhost", env="SMTP_SERVER")
+    SMTP_PORT: int = Field(default=587, env="SMTP_PORT")
+    SMTP_FROM: str = Field(default="noreply@efofx.ai", env="SMTP_FROM")
+
+    # Application base URL (for verification links)
+    APP_BASE_URL: str = Field(default="http://localhost:8000", env="APP_BASE_URL")
 
     # Error Tracking (Optional - Sentry removed but keeping config for backwards compatibility)
     SENTRY_DSN: Optional[str] = Field(default=None, env="SENTRY_DSN")
@@ -73,4 +90,4 @@ class Settings(BaseSettings):
 
 
 # Global settings instance
-settings = Settings() 
+settings = Settings()

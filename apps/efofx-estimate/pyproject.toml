@@ -25,6 +25,7 @@ dependencies = [
     "motor==3.3.2",
     "pymongo==4.6.1",
     "pydantic==2.11.7",
+    "pydantic[email]>=2.11.0",
     "pydantic-settings==2.2.1",
     "openai>=2.20.0",
     "PyJWT==2.11.0",
@@ -32,6 +33,9 @@ dependencies = [
     "python-multipart==0.0.9",
     "python-dotenv==1.0.1",
     "python-dateutil==2.8.2",
+    "fastapi-mail==1.6.2",
+    "valkey>=6.1.0",
+    "slowapi==0.1.9",
 ]
 
 [project.optional-dependencies]
@@ -44,6 +48,7 @@ dev = [
     "flake8==7.0.0",
     "mypy==1.8.0",
     "pre-commit==3.6.2",
+    "fakeredis>=2.0.0",
 ]
 
 [project.urls]
@@ -109,6 +114,7 @@ testpaths = ["tests"]
 python_files = ["test_*.py"]
 python_classes = ["Test*"]
 python_functions = ["test_*"]
+asyncio_mode = "auto"
 addopts = [
     "--strict-markers",
     "--strict-config",

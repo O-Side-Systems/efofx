@@ -2,116 +2,72 @@
 Tenant model for efOfX Estimation Service.
 
 This module defines the tenant data model used for multitenancy support.
+The Tenant model uses tenant_id (UUID string) as the primary identifier,
+with bcrypt-hashed passwords and API keys, and Fernet-encrypted BYOK fields.
 """
 
 from pydantic import BaseModel, Field
-from typing import Optional, List, Dict, Any
-from datetime import datetime
-from bson import ObjectId
-
-
-class PyObjectId(ObjectId):
-    """Custom ObjectId for Pydantic compatibility."""
-    
-    @classmethod
-    def __get_pydantic_core_schema__(cls, source_type, handler):
-        from pydantic_core import core_schema
-        return core_schema.with_info_after_validator_function(
-            cls._validate,
-            handler(source_type),
-        )
-    
-    @classmethod
-    def _validate(cls, v, handler):
-        if isinstance(v, ObjectId):
-            return v
-        if isinstance(v, str):
-            if not ObjectId.is_valid(v):
-                raise ValueError("Invalid ObjectId")
-            return ObjectId(v)
-        raise ValueError("Invalid ObjectId")
+from typing import Optional, Dict, Any
+from datetime import datetime, timezone
 
 
 class Tenant(BaseModel):
     """Tenant model for multitenancy support."""
-    
-    id: Optional[PyObjectId] = Field(default_factory=PyObjectId, alias="_id")
-    name: str = Field(..., description="Tenant name")
-    api_key: str = Field(..., description="API key for authentication")
-    openai_api_key: Optional[str] = Field(None, description="Tenant-specific OpenAI API key")
-    regions: List[str] = Field(default=[], description="Allowed regions for estimation")
-    max_estimations_per_month: int = Field(default=1000, description="Monthly estimation limit")
-    is_active: bool = Field(default=True, description="Whether tenant is active")
-    created_at: datetime = Field(default_factory=datetime.utcnow)
-    updated_at: datetime = Field(default_factory=datetime.utcnow)
-    settings: Dict[str, Any] = Field(default_factory=dict, description="Tenant-specific settings")
-    
-    class Config:
-        allow_population_by_field_name = True
-        arbitrary_types_allowed = True
-        json_encoders = {ObjectId: str}
-        schema_extra = {
-            "example": {
-                "name": "Acme Construction",
-                "api_key": "sk_acme_123456789",
-                "openai_api_key": "sk-openai-tenant-key",
-                "regions": ["SoCal - Coastal", "NorCal - Bay Area"],
-                "max_estimations_per_month": 1000,
-                "is_active": True,
-                "settings": {
-                    "default_confidence_threshold": 0.7,
-                    "enable_image_upload": True
-                }
-            }
-        }
+
+    model_config = {"populate_by_name": True, "arbitrary_types_allowed": True}
+
+    tenant_id: str = Field(..., description="UUID string, primary identifier")
+    company_name: str = Field(..., description="Contractor company name")
+    email: str = Field(..., description="Unique email address for login")
+    hashed_password: str = Field(..., description="bcrypt hash of contractor password")
+    hashed_api_key: str = Field(..., description="bcrypt hash of the one-time API key")
+    api_key_last6: str = Field(default="", description="Last 6 chars of raw API key for display masking")
+    tier: str = Field(default="trial", description="Subscription tier: 'trial' or 'paid'")
+    email_verified: bool = Field(default=False, description="Whether email has been verified")
+    encrypted_openai_key: Optional[str] = Field(
+        default=None, description="Fernet ciphertext of tenant's BYOK OpenAI key"
+    )
+    is_active: bool = Field(default=True, description="Whether tenant account is active")
+    created_at: datetime = Field(
+        default_factory=lambda: datetime.now(timezone.utc),
+        description="Account creation timestamp",
+    )
+    updated_at: datetime = Field(
+        default_factory=lambda: datetime.now(timezone.utc),
+        description="Last update timestamp",
+    )
+    settings: Dict[str, Any] = Field(
+        default_factory=dict, description="Tenant-specific settings (branding, etc.)"
+    )
 
 
 class TenantCreate(BaseModel):
-    """Model for creating a new tenant."""
-    
-    name: str = Field(..., description="Tenant name")
-    api_key: str = Field(..., description="API key for authentication")
-    openai_api_key: Optional[str] = Field(None, description="Tenant-specific OpenAI API key")
-    regions: List[str] = Field(default=[], description="Allowed regions for estimation")
-    max_estimations_per_month: int = Field(default=1000, description="Monthly estimation limit")
-    settings: Dict[str, Any] = Field(default_factory=dict, description="Tenant-specific settings")
-    
-    class Config:
-        schema_extra = {
-            "example": {
-                "name": "Acme Construction",
-                "api_key": "sk_acme_123456789",
-                "openai_api_key": "sk-openai-tenant-key",
-                "regions": ["SoCal - Coastal", "NorCal - Bay Area"],
-                "max_estimations_per_month": 1000,
-                "settings": {
-                    "default_confidence_threshold": 0.7,
-                    "enable_image_upload": True
-                }
-            }
-        }
+    """Internal model for creating a new tenant (post-registration)."""
+
+    model_config = {"populate_by_name": True}
+
+    tenant_id: str
+    company_name: str
+    email: str
+    hashed_password: str
+    hashed_api_key: str
+    api_key_last6: str = ""
+    tier: str = "trial"
+    email_verified: bool = False
+    encrypted_openai_key: Optional[str] = None
+    is_active: bool = True
+    settings: Dict[str, Any] = Field(default_factory=dict)
 
 
 class TenantUpdate(BaseModel):
     """Model for updating an existing tenant."""
-    
-    name: Optional[str] = Field(None, description="Tenant name")
-    openai_api_key: Optional[str] = Field(None, description="Tenant-specific OpenAI API key")
-    regions: Optional[List[str]] = Field(None, description="Allowed regions for estimation")
-    max_estimations_per_month: Optional[int] = Field(None, description="Monthly estimation limit")
-    is_active: Optional[bool] = Field(None, description="Whether tenant is active")
-    settings: Optional[Dict[str, Any]] = Field(None, description="Tenant-specific settings")
-    
-    class Config:
-        schema_extra = {
-            "example": {
-                "name": "Acme Construction Updated",
-                "regions": ["SoCal - Coastal", "NorCal - Bay Area", "Arizona - Phoenix"],
-                "max_estimations_per_month": 2000,
-                "is_active": True,
-                "settings": {
-                    "default_confidence_threshold": 0.8,
-                    "enable_image_upload": True
-                }
-            }
-        } 
+
+    model_config = {"populate_by_name": True}
+
+    company_name: Optional[str] = None
+    encrypted_openai_key: Optional[str] = None
+    email_verified: Optional[bool] = None
+    is_active: Optional[bool] = None
+    tier: Optional[str] = None
+    settings: Optional[Dict[str, Any]] = None
+    updated_at: Optional[datetime] = None

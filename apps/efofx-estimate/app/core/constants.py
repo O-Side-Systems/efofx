@@ -122,6 +122,8 @@ DB_COLLECTIONS = {
     "ESTIMATES": "estimates",
     "FEEDBACK": "feedback",
     "CHAT_SESSIONS": "chat_sessions",
+    "VERIFICATION_TOKENS": "verification_tokens",
+    "REFRESH_TOKENS": "refresh_tokens",
 }
 
 

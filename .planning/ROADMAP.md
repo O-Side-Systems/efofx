@@ -31,11 +31,11 @@ Decimal phases appear between their surrounding integers in numeric order.
   3. `requirements.txt` contains PyJWT, pwdlib, and openai>=2.20.0 with no references to python-jose or passlib
   4. The RCF engine `rcf_engine.py` filters all queries by `tenant_id` — a query for tenant A returns zero results from tenant B's data
   5. DigitalOcean App Platform is running Python 3.11 and the app deploys cleanly
-**Plans**: TBD
+**Plans**: 2 plans
 
 Plans:
-- [ ] 01-01: Fix DB_COLLECTIONS NameError, cross-tenant query bug in rcf_engine.py, and LLM parsing stub
-- [ ] 01-02: Replace python-jose with PyJWT, passlib with pwdlib, upgrade openai v1 to v2, replace redis with valkey, bump Python runtime to 3.11
+- [ ] 01-01: Fix DB_COLLECTIONS NameError in security.py (PRQT-03) and cross-tenant query bug in rcf_engine.py with integration test (PRQT-02)
+- [ ] 01-02: Replace python-jose/passlib/openai v1 with PyJWT/pwdlib/openai v2 (PRQT-01), implement structured LLM output (PRQT-04), bump Python to 3.11 (PRQT-05)
 
 ### Phase 2: Multi-Tenant Foundation
 **Goal**: Contractors can register, authenticate, and have their data completely isolated from other tenants — the security layer every subsequent feature depends on

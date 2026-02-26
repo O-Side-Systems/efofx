@@ -5,10 +5,11 @@ This module defines all API endpoints and route handlers
 for the estimation service.
 """
 
-from fastapi import APIRouter, Depends, HTTPException, UploadFile, File
+from fastapi import APIRouter, Depends, HTTPException, Request, UploadFile, File
 from typing import List, Optional
 import logging
 
+from app.core.rate_limit import limiter, get_tenant_id_for_limit, get_tier_limit
 from app.core.security import get_current_tenant
 from app.core.constants import API_MESSAGES, HTTP_STATUS
 from app.models.tenant import Tenant
@@ -40,7 +41,9 @@ def get_feedback_service() -> FeedbackService:
 
 # Estimation endpoints
 @api_router.post("/estimate/start", response_model=EstimationResponse)
+@limiter.limit(get_tier_limit, key_func=get_tenant_id_for_limit)
 async def start_estimation(
+    http_request: Request,
     request: EstimationRequest,
     tenant: Tenant = Depends(get_current_tenant),
     estimation_service: EstimationService = Depends(get_estimation_service)
@@ -58,7 +61,9 @@ async def start_estimation(
 
 
 @api_router.get("/estimate/{session_id}", response_model=EstimationResponse)
+@limiter.limit(get_tier_limit, key_func=get_tenant_id_for_limit)
 async def get_estimation(
+    request: Request,
     session_id: str,
     tenant: Tenant = Depends(get_current_tenant),
     estimation_service: EstimationService = Depends(get_estimation_service)
@@ -76,7 +81,9 @@ async def get_estimation(
 
 
 @api_router.post("/estimate/{session_id}/upload")
+@limiter.limit(get_tier_limit, key_func=get_tenant_id_for_limit)
 async def upload_image(
+    request: Request,
     session_id: str,
     file: UploadFile = File(...),
     tenant: Tenant = Depends(get_current_tenant),
@@ -96,7 +103,9 @@ async def upload_image(
 
 # Chat endpoints
 @api_router.post("/chat/send", response_model=ChatResponse)
+@limiter.limit(get_tier_limit, key_func=get_tenant_id_for_limit)
 async def send_chat_message(
+    http_request: Request,
     request: ChatRequest,
     tenant: Tenant = Depends(get_current_tenant),
     chat_service: ChatService = Depends(get_chat_service)
@@ -114,7 +123,9 @@ async def send_chat_message(
 
 
 @api_router.get("/chat/{session_id}/history")
+@limiter.limit(get_tier_limit, key_func=get_tenant_id_for_limit)
 async def get_chat_history(
+    request: Request,
     session_id: str,
     tenant: Tenant = Depends(get_current_tenant),
     chat_service: ChatService = Depends(get_chat_service)
@@ -133,7 +144,9 @@ async def get_chat_history(
 
 # Feedback endpoints
 @api_router.post("/feedback/submit")
+@limiter.limit(get_tier_limit, key_func=get_tenant_id_for_limit)
 async def submit_feedback(
+    request: Request,
     feedback: FeedbackCreate,
     tenant: Tenant = Depends(get_current_tenant),
     feedback_service: FeedbackService = Depends(get_feedback_service)
@@ -151,7 +164,9 @@ async def submit_feedback(
 
 
 @api_router.get("/feedback/summary", response_model=FeedbackSummary)
+@limiter.limit(get_tier_limit, key_func=get_tenant_id_for_limit)
 async def get_feedback_summary(
+    request: Request,
     tenant: Tenant = Depends(get_current_tenant),
     feedback_service: FeedbackService = Depends(get_feedback_service)
 ):

@@ -82,6 +82,37 @@ async def add_process_time_header(request: Request, call_next):
     response.headers["X-Process-Time"] = str(process_time)
     return response
 
+
+@app.middleware("http")
+async def add_rate_limit_headers(request: Request, call_next):
+    """Inject X-RateLimit-Limit, X-RateLimit-Remaining, X-RateLimit-Reset headers.
+
+    slowapi sets request.state.view_rate_limit after checking limits via the
+    @limiter.limit decorator. This middleware reads that state and adds the
+    standardized rate limit headers to every response.
+
+    FastAPI endpoints return Pydantic models (not Response objects), so the
+    slowapi decorator cannot inject headers directly — this middleware handles it.
+    """
+    response = await call_next(request)
+
+    # view_rate_limit is set by slowapi's __evaluate_limits:
+    #   (RateLimitItem, [key, scope]) tuple, or None if no limit was checked
+    view_rate_limit = getattr(request.state, "view_rate_limit", None)
+    if view_rate_limit is not None and limiter.enabled:
+        try:
+            rate_limit_item, args = view_rate_limit
+            window_stats = limiter.limiter.get_window_stats(rate_limit_item, *args)
+            reset_in = 1 + window_stats[0]
+            response.headers["X-RateLimit-Limit"] = str(rate_limit_item.amount)
+            response.headers["X-RateLimit-Remaining"] = str(window_stats[1])
+            response.headers["X-RateLimit-Reset"] = str(reset_in)
+        except Exception:
+            # Swallow header injection errors — don't break the response
+            pass
+
+    return response
+
 # Include API routes
 app.include_router(api_router, prefix="/api/v1")
 app.include_router(auth_router, prefix="/api/v1")

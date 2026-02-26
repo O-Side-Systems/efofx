@@ -66,6 +66,9 @@ limiter = Limiter(
     default_limits=[DEFAULT_LIMIT],
     storage_uri=settings.VALKEY_URL,
     enabled=settings.RATE_LIMIT_ENABLED,
+    # headers_enabled=False (default): FastAPI endpoints return Pydantic models,
+    # not Response objects, so slowapi can't inject headers via the decorator.
+    # Rate limit headers are injected by the RateLimitHeaderMiddleware in main.py.
 )
 
 

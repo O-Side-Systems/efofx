@@ -7,8 +7,10 @@ app.core.security and supports both JWT bearer tokens and API key auth.
 """
 
 import logging
-from fastapi import APIRouter, BackgroundTasks, Depends, Query
+from fastapi import APIRouter, BackgroundTasks, Depends, Query, Request
+from slowapi.util import get_remote_address
 
+from app.core.rate_limit import limiter
 from app.core.security import get_current_tenant
 from app.models.auth import (
     LoginRequest,
@@ -49,13 +51,17 @@ router = APIRouter(prefix="/auth", tags=["auth"])
 
 
 @router.post("/register", response_model=RegisterResponse, status_code=201)
+@limiter.limit("10/hour", key_func=get_remote_address)
 async def register(
+    request: Request,
     body: RegisterRequest,
     background_tasks: BackgroundTasks,
 ) -> RegisterResponse:
     """Register a new contractor account.
 
     Returns a one-time API key. Store it securely — it cannot be retrieved again.
+
+    Rate limit: 10 registrations per hour per IP (anti-abuse).
     """
     return await register_tenant(body, background_tasks)
 
@@ -74,27 +80,35 @@ async def verify(
 
 
 @router.post("/login", response_model=LoginResponse)
-async def login(body: LoginRequest) -> LoginResponse:
+@limiter.limit("5/15minutes", key_func=get_remote_address)
+async def login(request: Request, body: LoginRequest) -> LoginResponse:
     """Log in with email and password.
 
     Returns JWT access token (20-minute expiry) and refresh token (14-day expiry).
 
+    Rate limit: 5 attempts per 15 minutes per IP (brute-force protection).
+
     Error responses:
     - 401: Invalid credentials (wrong password, nonexistent email, inactive account)
     - 403: Email not verified
+    - 429: Rate limit exceeded (too many login attempts)
     """
     return await login_tenant(body)
 
 
 @router.post("/refresh", response_model=TokenResponse)
-async def refresh(body: RefreshRequest) -> TokenResponse:
+@limiter.limit("30/minute", key_func=get_remote_address)
+async def refresh(request: Request, body: RefreshRequest) -> TokenResponse:
     """Exchange a refresh token for a new access token.
 
     Token rotation: the submitted refresh token is invalidated and a new one
     is issued alongside the new access token.
 
+    Rate limit: 30 per minute per IP (moderate protection).
+
     Error responses:
     - 401: Invalid or expired refresh token
+    - 429: Rate limit exceeded
     """
     return await refresh_access_token(body)
 

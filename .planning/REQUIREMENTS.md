@@ -34,10 +34,10 @@ Requirements for Epics 3-7. Each maps to roadmap phases.
 
 ### BYOK Encryption
 
-- [ ] **BYOK-01**: Contractor can store their OpenAI API key encrypted with per-tenant derived Fernet key
-- [ ] **BYOK-02**: Encrypted keys are decrypted per-request for LLM calls (never stored in plaintext)
-- [ ] **BYOK-03**: Contractor can rotate their OpenAI key without re-registration
-- [ ] **BYOK-04**: Trial tier tenants use platform fallback OpenAI key
+- [x] **BYOK-01**: Contractor can store their OpenAI API key encrypted with per-tenant derived Fernet key
+- [x] **BYOK-02**: Encrypted keys are decrypted per-request for LLM calls (never stored in plaintext)
+- [x] **BYOK-03**: Contractor can rotate their OpenAI key without re-registration
+- [x] **BYOK-04**: Trial tier tenants use platform fallback OpenAI key
 
 ### Rate Limiting
 
@@ -189,10 +189,10 @@ Which phases cover which requirements. Updated during roadmap creation.
 | ISOL-02 | Phase 2 | Complete |
 | ISOL-03 | Phase 2 | Complete |
 | ISOL-04 | Phase 2 | Complete |
-| BYOK-01 | Phase 2 | Pending |
-| BYOK-02 | Phase 2 | Pending |
-| BYOK-03 | Phase 2 | Pending |
-| BYOK-04 | Phase 2 | Pending |
+| BYOK-01 | Phase 2 | Complete |
+| BYOK-02 | Phase 2 | Complete |
+| BYOK-03 | Phase 2 | Complete |
+| BYOK-04 | Phase 2 | Complete |
 | RATE-01 | Phase 2 | Pending |
 | RATE-02 | Phase 2 | Pending |
 | RATE-03 | Phase 2 | Pending |

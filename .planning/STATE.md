@@ -3,12 +3,12 @@ gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
 status: unknown
-last_updated: "2026-02-26T23:17:08.163Z"
+last_updated: "2026-02-26T23:30:19.000Z"
 progress:
   total_phases: 2
   completed_phases: 1
   total_plans: 7
-  completed_plans: 5
+  completed_plans: 6
 ---
 
 # Project State
@@ -24,8 +24,8 @@ See: .planning/PROJECT.md (updated 2026-02-26)
 
 Phase: 2 of 6 (Multi-Tenant Foundation)
 Plan: 5 of 5 in current phase (in progress)
-Status: Phase 2 in progress — Plans 02-01, 02-02, 02-03 complete; 02-04, 02-05 pending
-Last activity: 2026-02-26 — Plan 02-02 complete: JWT login, refresh token rotation, rewritten get_current_tenant dependency
+Status: Phase 2 in progress — Plans 02-01, 02-02, 02-03, 02-04 complete; 02-05 pending
+Last activity: 2026-02-26 — Plan 02-04 complete: BYOK Fernet encryption with HKDF per-tenant key derivation, PUT /auth/openai-key, GET /auth/openai-key/status, 402 gate
 
 Progress: [████░░░░░░] 33%
 
@@ -41,7 +41,7 @@ Progress: [████░░░░░░] 33%
 | Phase | Plans | Total | Avg/Plan |
 |-------|-------|-------|----------|
 | 01-prerequisites | 2 | 6 min | 3 min |
-| 02-multi-tenant-foundation | 3 of 5 | 26 min | 9 min |
+| 02-multi-tenant-foundation | 4 of 5 | 31 min | 8 min |
 
 **Recent Trend:**
 - Last 5 plans: 6 min avg
@@ -78,6 +78,10 @@ Recent decisions affecting current work:
 - [Phase 02-multi-tenant-foundation]: Refresh token rotation: old token deleted before new issued — any reuse of consumed token returns 401
 - [Phase 02-multi-tenant-foundation]: AuthService class fully removed from security.py — standalone get_current_tenant supports JWT + API key dual auth
 - [Phase 02-multi-tenant-foundation]: [02-02]: check_rate_limit removed from routes.py (dead code from removed RateLimiter); slowapi replaces in plan 02-05
+- [02-04]: HKDF info string scoped to efofx-byok-{tenant_id} — per-tenant key derivation limits blast radius if master key is compromised
+- [02-04]: openai_key_last6 stored alongside ciphertext for masked display without decryption
+- [02-04]: PUT /auth/openai-key handles both initial store and rotation (simple overwrite, no version history per locked decision)
+- [02-04]: 402 Payment Required is the gate for missing BYOK key — no platform key fallback
 
 ### Pending Todos
 
@@ -91,5 +95,5 @@ None yet.
 ## Session Continuity
 
 Last session: 2026-02-26
-Stopped at: Completed 02-02-PLAN.md — JWT login, refresh token rotation, rewritten get_current_tenant; next is 02-04 (BYOK) and 02-05 (rate limiting)
+Stopped at: Completed 02-04-PLAN.md — BYOK Fernet encryption, PUT /auth/openai-key, GET /auth/openai-key/status, 402 gate; next is 02-05 (rate limiting with slowapi)
 Resume file: None

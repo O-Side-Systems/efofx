@@ -27,6 +27,9 @@ class Tenant(BaseModel):
     encrypted_openai_key: Optional[str] = Field(
         default=None, description="Fernet ciphertext of tenant's BYOK OpenAI key"
     )
+    openai_key_last6: Optional[str] = Field(
+        default=None, description="Last 6 chars of raw OpenAI key for masked display (sk-...abc123)"
+    )
     is_active: bool = Field(default=True, description="Whether tenant account is active")
     created_at: datetime = Field(
         default_factory=lambda: datetime.now(timezone.utc),
@@ -55,6 +58,7 @@ class TenantCreate(BaseModel):
     tier: str = "trial"
     email_verified: bool = False
     encrypted_openai_key: Optional[str] = None
+    openai_key_last6: Optional[str] = None
     is_active: bool = True
     settings: Dict[str, Any] = Field(default_factory=dict)
 

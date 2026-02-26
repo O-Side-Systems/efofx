@@ -8,12 +8,14 @@ routers, and configuration for the estimation service.
 from fastapi import FastAPI, Request, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.middleware.trustedhost import TrustedHostMiddleware
+from slowapi.errors import RateLimitExceeded
 from contextlib import asynccontextmanager
 import time
 import logging
 import os
 
 from app.core.config import settings
+from app.core.rate_limit import limiter, rate_limit_exceeded_handler
 from app.api.routes import api_router
 from app.api.auth import router as auth_router
 from app.db.mongodb import connect_to_mongo, close_mongo_connection, health_check as db_health_check
@@ -51,6 +53,10 @@ app = FastAPI(
     redoc_url="/redoc" if settings.DEBUG else None,
     lifespan=lifespan,
 )
+
+# Register rate limiter
+app.state.limiter = limiter
+app.add_exception_handler(RateLimitExceeded, rate_limit_exceeded_handler)
 
 # Add middleware
 app.add_middleware(

@@ -3,12 +3,12 @@ gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
 status: unknown
-last_updated: "2026-02-26T20:05:39.321Z"
+last_updated: "2026-02-26T23:03:01.791Z"
 progress:
-  total_phases: 1
+  total_phases: 2
   completed_phases: 1
-  total_plans: 2
-  completed_plans: 2
+  total_plans: 7
+  completed_plans: 3
 ---
 
 # Project State
@@ -22,12 +22,12 @@ See: .planning/PROJECT.md (updated 2026-02-26)
 
 ## Current Position
 
-Phase: 1 of 6 (Prerequisites)
-Plan: 2 of 2 in current phase (phase complete)
-Status: Phase 1 complete — ready for Phase 2
-Last activity: 2026-02-26 — Plan 01-02 complete: dependency migration (PyJWT, pwdlib, openai v2, structured outputs)
+Phase: 2 of 6 (Multi-Tenant Foundation)
+Plan: 3 of 5 in current phase (in progress)
+Status: Phase 2 in progress — Plans 02-01 (partial), 02-03 complete; 02-02, 02-04, 02-05 pending
+Last activity: 2026-02-26 — Plan 02-03 complete: TenantAwareCollection + compound indexes + all service refactors
 
-Progress: [██░░░░░░░░] 17%
+Progress: [███░░░░░░░] 25%
 
 ## Performance Metrics
 
@@ -41,9 +41,10 @@ Progress: [██░░░░░░░░] 17%
 | Phase | Plans | Total | Avg/Plan |
 |-------|-------|-------|----------|
 | 01-prerequisites | 2 | 6 min | 3 min |
+| 02-multi-tenant-foundation | 1 of 5 | 8 min | 8 min |
 
 **Recent Trend:**
-- Last 5 plans: 3 min avg
+- Last 5 plans: 5 min avg
 - Trend: Fast
 
 *Updated after each plan completion*
@@ -67,6 +68,9 @@ Recent decisions affecting current work:
 - [01-02]: generate_estimation() returns typed EstimationOutput (not Dict[str,Any]); callers needing dict use .model_dump()
 - [01-02]: gpt-4o-mini required for client.beta.chat.completions.parse() structured outputs
 - [01-02]: OpenAI structured output pattern established: always use beta.chat.completions.parse() with Pydantic response_format — never parse free-form LLM text
+- [Phase 02]: TenantAwareCollection enforced at construction — ValueError on empty/None tenant_id makes mis-use impossible
+- [Phase 02]: Per-operation collection instantiation (not stored in __init__) — avoids tenant_id drift across request lifecycle
+- [Phase 02]: get_tenant_collection() is the single mandatory entry point for all tenant-scoped MongoDB access; deprecated get_*_collection() helpers retained only for tenants collection (non-tenant-scoped)
 
 ### Pending Todos
 
@@ -80,5 +84,5 @@ None yet.
 ## Session Continuity
 
 Last session: 2026-02-26
-Stopped at: Completed 01-02-PLAN.md — Phase 1 complete, ready for Phase 2 (tenant isolation)
+Stopped at: Completed 02-03-PLAN.md — TenantAwareCollection + compound indexes + all service refactors done; next is 02-02 (JWT auth), 02-04 (BYOK), 02-05 (rate limiting)
 Resume file: None

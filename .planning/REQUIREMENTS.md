@@ -27,10 +27,10 @@ Requirements for Epics 3-7. Each maps to roadmap phases.
 
 ### Tenant Isolation
 
-- [ ] **ISOL-01**: Tenant isolation middleware enforces tenant_id on every MongoDB query automatically
-- [ ] **ISOL-02**: Zero cross-tenant data leakage — no query can return another tenant's data
-- [ ] **ISOL-03**: MongoDB compound indexes include tenant_id as first field for performance
-- [ ] **ISOL-04**: Platform-provided data (synthetic reference classes) accessible by all tenants
+- [x] **ISOL-01**: Tenant isolation middleware enforces tenant_id on every MongoDB query automatically
+- [x] **ISOL-02**: Zero cross-tenant data leakage — no query can return another tenant's data
+- [x] **ISOL-03**: MongoDB compound indexes include tenant_id as first field for performance
+- [x] **ISOL-04**: Platform-provided data (synthetic reference classes) accessible by all tenants
 
 ### BYOK Encryption
 
@@ -185,10 +185,10 @@ Which phases cover which requirements. Updated during roadmap creation.
 | AUTH-05 | Phase 2 | Pending |
 | AUTH-06 | Phase 2 | Pending |
 | AUTH-07 | Phase 2 | Pending |
-| ISOL-01 | Phase 2 | Pending |
-| ISOL-02 | Phase 2 | Pending |
-| ISOL-03 | Phase 2 | Pending |
-| ISOL-04 | Phase 2 | Pending |
+| ISOL-01 | Phase 2 | Complete |
+| ISOL-02 | Phase 2 | Complete |
+| ISOL-03 | Phase 2 | Complete |
+| ISOL-04 | Phase 2 | Complete |
 | BYOK-01 | Phase 2 | Pending |
 | BYOK-02 | Phase 2 | Pending |
 | BYOK-03 | Phase 2 | Pending |

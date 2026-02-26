@@ -92,3 +92,35 @@ class TokenResponse(BaseModel):
     access_token: str = Field(..., description="New JWT access token (20-minute expiry)")
     token_type: str = Field(default="bearer", description="Token type")
     expires_in: int = Field(..., description="Access token lifetime in seconds")
+
+
+# ---------------------------------------------------------------------------
+# BYOK (Bring Your Own Key) models (added in plan 02-04)
+# ---------------------------------------------------------------------------
+
+
+class StoreOpenAIKeyRequest(BaseModel):
+    """Request body for storing or rotating a BYOK OpenAI API key."""
+
+    openai_key: str = Field(
+        ...,
+        min_length=10,
+        description="OpenAI API key (sk-... or sk-proj-...). Must be valid and active.",
+    )
+
+
+class StoreOpenAIKeyResponse(BaseModel):
+    """Response for a successful BYOK key storage or rotation."""
+
+    masked_key: str = Field(..., description="Masked key showing last 6 chars, e.g. sk-...abc123")
+    message: str = Field(..., description="Status message")
+
+
+class OpenAIKeyStatusResponse(BaseModel):
+    """Response for GET /auth/openai-key/status — key presence and masked display."""
+
+    has_key: bool = Field(..., description="Whether a BYOK OpenAI API key is stored")
+    masked_key: Optional[str] = Field(
+        default=None,
+        description="Masked key (sk-...{last6}) if stored, else None",
+    )

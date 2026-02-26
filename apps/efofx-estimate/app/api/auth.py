@@ -13,11 +13,14 @@ from app.core.security import get_current_tenant
 from app.models.auth import (
     LoginRequest,
     LoginResponse,
+    OpenAIKeyStatusResponse,
     ProfileUpdateRequest,
     ProfileResponse,
     RefreshRequest,
     RegisterRequest,
     RegisterResponse,
+    StoreOpenAIKeyRequest,
+    StoreOpenAIKeyResponse,
     TokenResponse,
     VerifyEmailResponse,
 )
@@ -29,6 +32,10 @@ from app.services.auth_service import (
     register_tenant,
     update_profile,
     verify_email,
+)
+from app.services.byok_service import (
+    get_openai_key_status,
+    validate_and_store_openai_key,
 )
 
 logger = logging.getLogger(__name__)
@@ -112,3 +119,59 @@ async def update_my_profile(
 ) -> ProfileResponse:
     """Update the authenticated contractor's profile (company name and/or settings)."""
     return await update_profile(tenant.tenant_id, body)
+
+
+# ---------------------------------------------------------------------------
+# BYOK key management (plan 02-04)
+# ---------------------------------------------------------------------------
+
+
+@router.put("/openai-key", response_model=StoreOpenAIKeyResponse)
+async def store_openai_key(
+    body: StoreOpenAIKeyRequest,
+    tenant: Tenant = Depends(get_current_tenant),
+) -> StoreOpenAIKeyResponse:
+    """Store or rotate the authenticated contractor's BYOK OpenAI API key.
+
+    The key is validated against OpenAI's models.list() endpoint before storage.
+    It is then encrypted with a per-tenant HKDF-derived Fernet key and stored as
+    ciphertext in the tenant document. The plaintext key is never persisted.
+
+    This endpoint handles both initial storage and rotation (same behavior per
+    locked decision — new key immediately overwrites old, no version history).
+
+    Error responses:
+    - 400: Invalid OpenAI API key (rejected by OpenAI)
+    - 401: Not authenticated
+    - 403: Email not verified
+    - 422: Request body validation failure (key too short, etc.)
+    - 503: OpenAI service unavailable during key validation
+    """
+    masked_key = await validate_and_store_openai_key(tenant.tenant_id, body.openai_key)
+    return StoreOpenAIKeyResponse(
+        masked_key=masked_key,
+        message="OpenAI API key stored successfully",
+    )
+
+
+@router.get("/openai-key/status", response_model=OpenAIKeyStatusResponse)
+async def openai_key_status(
+    tenant: Tenant = Depends(get_current_tenant),
+) -> OpenAIKeyStatusResponse:
+    """Return BYOK key presence and masked display for the authenticated contractor.
+
+    Does NOT decrypt the key — reads only the openai_key_last6 field for display.
+
+    Returns:
+        has_key: Whether an OpenAI API key is currently stored.
+        masked_key: "sk-...{last6}" if stored, else None.
+    """
+    from app.db.mongodb import get_database
+    from app.core.constants import DB_COLLECTIONS
+
+    db = get_database()
+    tenant_doc = await db[DB_COLLECTIONS["TENANTS"]].find_one(
+        {"tenant_id": tenant.tenant_id}
+    )
+    status = get_openai_key_status(tenant_doc or {})
+    return OpenAIKeyStatusResponse(**status)

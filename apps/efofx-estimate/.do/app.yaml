@@ -102,7 +102,7 @@ services:
         scope: RUN_TIME
         type: SECRET
       - key: OPENAI_MODEL
-        value: "gpt-4"
+        value: "gpt-4o-mini"
       - key: OPENAI_MAX_TOKENS
         value: "4000"
       - key: OPENAI_TEMPERATURE

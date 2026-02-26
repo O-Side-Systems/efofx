@@ -8,7 +8,7 @@ for the estimation service including API key validation and tenant management.
 from fastapi import HTTPException, Depends, Request
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from typing import Optional, Dict, Any
-from jose import jwt
+import jwt  # PyJWT
 import logging
 from datetime import datetime, timedelta
 
@@ -46,7 +46,7 @@ class AuthService:
         try:
             payload = jwt.decode(token, self.secret_key, algorithms=[self.algorithm])
             return payload
-        except jwt.PyJWTError:
+        except jwt.InvalidTokenError:  # PyJWT base exception for all token errors
             raise HTTPException(
                 status_code=HTTP_STATUS["UNAUTHORIZED"],
                 detail="Invalid authentication credentials"

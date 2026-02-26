@@ -12,11 +12,11 @@ pydantic==2.11.7
 pydantic-settings==2.2.1
 
 # LLM integration
-openai==1.51.0
+openai>=2.20.0
 
 # Security and authentication
-python-jose[cryptography]==3.3.0
-passlib[bcrypt]==1.7.4
+PyJWT==2.11.0
+pwdlib[bcrypt]==0.3.0
 python-multipart==0.0.9
 cryptography>=41.0.0  # BYOK encryption (Fernet)
 
@@ -25,7 +25,7 @@ python-dotenv==1.0.1
 
 # Testing
 pytest==8.4.1
-pytest-asyncio==0.23.5
+pytest-asyncio==1.3.0
 httpx==0.27.0
 
 # Code quality and formatting
@@ -43,4 +43,4 @@ python-dateutil==2.8.2
 structlog>=24.0.0  # Structured logging
 
 # Rate limiting
-slowapi>=0.1.0  # Rate limiting middleware 
+slowapi>=0.1.0  # Rate limiting middleware

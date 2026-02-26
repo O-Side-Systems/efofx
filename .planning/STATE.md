@@ -3,12 +3,12 @@ gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
 status: unknown
-last_updated: "2026-02-26T23:03:01.791Z"
+last_updated: "2026-02-26T23:17:08.163Z"
 progress:
   total_phases: 2
   completed_phases: 1
   total_plans: 7
-  completed_plans: 4
+  completed_plans: 5
 ---
 
 # Project State
@@ -23,9 +23,9 @@ See: .planning/PROJECT.md (updated 2026-02-26)
 ## Current Position
 
 Phase: 2 of 6 (Multi-Tenant Foundation)
-Plan: 4 of 5 in current phase (in progress)
-Status: Phase 2 in progress — Plans 02-01, 02-03 complete; 02-02, 02-04, 02-05 pending
-Last activity: 2026-02-26 — Plan 02-01 complete: contractor registration, email verification, API key generation, profile management
+Plan: 5 of 5 in current phase (in progress)
+Status: Phase 2 in progress — Plans 02-01, 02-02, 02-03 complete; 02-04, 02-05 pending
+Last activity: 2026-02-26 — Plan 02-02 complete: JWT login, refresh token rotation, rewritten get_current_tenant dependency
 
 Progress: [████░░░░░░] 33%
 
@@ -41,10 +41,10 @@ Progress: [████░░░░░░] 33%
 | Phase | Plans | Total | Avg/Plan |
 |-------|-------|-------|----------|
 | 01-prerequisites | 2 | 6 min | 3 min |
-| 02-multi-tenant-foundation | 2 of 5 | 19 min | 10 min |
+| 02-multi-tenant-foundation | 3 of 5 | 26 min | 9 min |
 
 **Recent Trend:**
-- Last 5 plans: 5 min avg
+- Last 5 plans: 6 min avg
 - Trend: Fast
 
 *Updated after each plan completion*
@@ -74,6 +74,10 @@ Recent decisions affecting current work:
 - [02-01]: Use BcryptHasher explicitly — PasswordHash.recommended() tries argon2 first but argon2 not installed; bcrypt is the Phase 1 dep
 - [02-01]: api_key_last6 stored alongside hashed_api_key to enable masked display (sk-...abc123) without reversing bcrypt hash
 - [02-01]: API key format sk_live_{tenant_id_no_dashes}_{random} enables O(1) tenant lookup by parsing first 32 chars — avoids full-collection bcrypt scan
+- [Phase 02-multi-tenant-foundation]: SHA-256 (not bcrypt) for refresh token hashes — 384-bit entropy tokens are unguessable; SHA-256 enables O(1) MongoDB lookup
+- [Phase 02-multi-tenant-foundation]: Refresh token rotation: old token deleted before new issued — any reuse of consumed token returns 401
+- [Phase 02-multi-tenant-foundation]: AuthService class fully removed from security.py — standalone get_current_tenant supports JWT + API key dual auth
+- [Phase 02-multi-tenant-foundation]: [02-02]: check_rate_limit removed from routes.py (dead code from removed RateLimiter); slowapi replaces in plan 02-05
 
 ### Pending Todos
 
@@ -87,5 +91,5 @@ None yet.
 ## Session Continuity
 
 Last session: 2026-02-26
-Stopped at: Completed 02-01-PLAN.md — contractor registration, email verification, API key generation, profile management done; next is 02-02 (JWT auth), 02-04 (BYOK), 02-05 (rate limiting)
+Stopped at: Completed 02-02-PLAN.md — JWT login, refresh token rotation, rewritten get_current_tenant; next is 02-04 (BYOK) and 02-05 (rate limiting)
 Resume file: None

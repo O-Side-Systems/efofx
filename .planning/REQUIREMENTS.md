@@ -19,9 +19,9 @@ Requirements for Epics 3-7. Each maps to roadmap phases.
 
 - [x] **AUTH-01**: Contractor can register for an efOfX account with company name, email, and password
 - [x] **AUTH-02**: Contractor receives email verification after registration
-- [ ] **AUTH-03**: Contractor can log in with email/password and receive JWT access + refresh tokens
-- [ ] **AUTH-04**: JWT tokens contain tenant_id, user_id, and role claims with configurable expiration
-- [ ] **AUTH-05**: All protected API endpoints require valid JWT and extract tenant_id automatically
+- [x] **AUTH-03**: Contractor can log in with email/password and receive JWT access + refresh tokens
+- [x] **AUTH-04**: JWT tokens contain tenant_id, user_id, and role claims with configurable expiration
+- [x] **AUTH-05**: All protected API endpoints require valid JWT and extract tenant_id automatically
 - [x] **AUTH-06**: Contractor can update profile settings (name, branding, tier)
 - [x] **AUTH-07**: API key generated at registration (shown once, stored as bcrypt hash)
 
@@ -180,9 +180,9 @@ Which phases cover which requirements. Updated during roadmap creation.
 | PRQT-05 | Phase 1 | Complete |
 | AUTH-01 | Phase 2 | Complete |
 | AUTH-02 | Phase 2 | Complete |
-| AUTH-03 | Phase 2 | Pending |
-| AUTH-04 | Phase 2 | Pending |
-| AUTH-05 | Phase 2 | Pending |
+| AUTH-03 | Phase 2 | Complete |
+| AUTH-04 | Phase 2 | Complete |
+| AUTH-05 | Phase 2 | Complete |
 | AUTH-06 | Phase 2 | Complete |
 | AUTH-07 | Phase 2 | Complete |
 | ISOL-01 | Phase 2 | Complete |

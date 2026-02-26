@@ -9,11 +9,11 @@ Requirements for Epics 3-7. Each maps to roadmap phases.
 
 ### Prerequisites
 
-- [ ] **PRQT-01**: Abandoned dependencies replaced (python-jose → PyJWT, passlib → pwdlib, openai v1 → v2)
+- [x] **PRQT-01**: Abandoned dependencies replaced (python-jose → PyJWT, passlib → pwdlib, openai v1 → v2)
 - [x] **PRQT-02**: Cross-tenant data leak in rcf_engine.py fixed (tenant_id filtering on all queries)
 - [x] **PRQT-03**: DB_COLLECTIONS import NameError in security.py fixed
-- [ ] **PRQT-04**: LLM parsing stub replaced with real OpenAI structured output
-- [ ] **PRQT-05**: Python runtime bumped to 3.11 in DO App Platform config
+- [x] **PRQT-04**: LLM parsing stub replaced with real OpenAI structured output
+- [x] **PRQT-05**: Python runtime bumped to 3.11 in DO App Platform config
 
 ### Authentication & Tenancy
 
@@ -173,11 +173,11 @@ Which phases cover which requirements. Updated during roadmap creation.
 
 | Requirement | Phase | Status |
 |-------------|-------|--------|
-| PRQT-01 | Phase 1 | Pending |
+| PRQT-01 | Phase 1 | Complete |
 | PRQT-02 | Phase 1 | Complete |
 | PRQT-03 | Phase 1 | Complete |
-| PRQT-04 | Phase 1 | Pending |
-| PRQT-05 | Phase 1 | Pending |
+| PRQT-04 | Phase 1 | Complete |
+| PRQT-05 | Phase 1 | Complete |
 | AUTH-01 | Phase 2 | Pending |
 | AUTH-02 | Phase 2 | Pending |
 | AUTH-03 | Phase 2 | Pending |

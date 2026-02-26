@@ -12,7 +12,7 @@ Epics 1-2 delivered a working RCF estimation engine. Epics 3-7 transform that en
 
 Decimal phases appear between their surrounding integers in numeric order.
 
-- [ ] **Phase 1: Prerequisites** - Fix known bugs and replace abandoned dependencies before building anything new
+- [x] **Phase 1: Prerequisites** - Fix known bugs and replace abandoned dependencies before building anything new
 - [ ] **Phase 2: Multi-Tenant Foundation** - Tenant registration, JWT auth, hard isolation, BYOK encryption, and rate limiting (Epic 3)
 - [ ] **Phase 3: LLM Integration** - Real OpenAI integration with BYOK, prompt versioning, streaming chat, and narrative generation (Epic 4)
 - [ ] **Phase 4: White-Label Widget** - Embeddable Shadow DOM widget with branding, chat UI, lead capture, and estimate display (Epic 5)
@@ -35,7 +35,7 @@ Decimal phases appear between their surrounding integers in numeric order.
 
 Plans:
 - [x] 01-01: Fix DB_COLLECTIONS NameError in security.py (PRQT-03) and cross-tenant query bug in rcf_engine.py with integration test (PRQT-02)
-- [ ] 01-02: Replace python-jose/passlib/openai v1 with PyJWT/pwdlib/openai v2 (PRQT-01), implement structured LLM output (PRQT-04), bump Python to 3.11 (PRQT-05)
+- [x] 01-02: Replace python-jose/passlib/openai v1 with PyJWT/pwdlib/openai v2 (PRQT-01), implement structured LLM output (PRQT-04), bump Python to 3.11 (PRQT-05)
 
 ### Phase 2: Multi-Tenant Foundation
 **Goal**: Contractors can register, authenticate, and have their data completely isolated from other tenants — the security layer every subsequent feature depends on
@@ -135,7 +135,7 @@ Phases execute in strict dependency order: 1 → 2 → 3 → 4 → 5 → 6
 
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
-| 1. Prerequisites | 1/2 | In progress | - |
+| 1. Prerequisites | 2/2 | Complete | 2026-02-26 |
 | 2. Multi-Tenant Foundation | 0/5 | Not started | - |
 | 3. LLM Integration | 0/4 | Not started | - |
 | 4. White-Label Widget | 0/4 | Not started | - |

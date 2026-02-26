@@ -1,16 +1,21 @@
 """
 Authentication service for efOfX Estimation Service.
 
-Handles contractor registration, email verification, and profile management.
+Handles contractor registration, email verification, profile management,
+login (email/password -> JWT), and token refresh (rotation).
+
 API key shown exactly once at registration — bcrypt-hashed for storage.
+Refresh tokens stored as SHA-256 hashes for O(1) lookup with MongoDB TTL.
 """
 
+import hashlib
 import logging
 import secrets
 import uuid
 from datetime import datetime, timedelta, timezone
 from typing import Optional, Tuple
 
+import jwt  # PyJWT 2.x — encode() returns str, no .decode() needed
 from fastapi import HTTPException, BackgroundTasks
 from pwdlib import PasswordHash
 from pwdlib.hashers.bcrypt import BcryptHasher
@@ -19,10 +24,14 @@ from app.core.config import settings
 from app.core.constants import DB_COLLECTIONS
 from app.db.mongodb import get_database
 from app.models.auth import (
-    RegisterRequest,
-    RegisterResponse,
+    LoginRequest,
+    LoginResponse,
     ProfileUpdateRequest,
     ProfileResponse,
+    RefreshRequest,
+    RegisterRequest,
+    RegisterResponse,
+    TokenResponse,
     VerifyEmailResponse,
 )
 
@@ -30,6 +39,12 @@ logger = logging.getLogger(__name__)
 
 # Use bcrypt explicitly (argon2 not installed; bcrypt is the Phase 1 dependency)
 _password_hash = PasswordHash((BcryptHasher(),))
+
+# Access token lifetime in seconds (20 minutes)
+ACCESS_TOKEN_LIFETIME_SECONDS = 20 * 60
+
+# Refresh token lifetime (14 days)
+REFRESH_TOKEN_LIFETIME_DAYS = 14
 
 
 # ---------------------------------------------------------------------------
@@ -284,3 +299,162 @@ async def update_profile(tenant_id: str, body: ProfileUpdateRequest) -> ProfileR
         raise HTTPException(status_code=404, detail="Tenant not found")
 
     return await get_profile(tenant_id)
+
+
+# ---------------------------------------------------------------------------
+# JWT token creation (plan 02-02)
+# ---------------------------------------------------------------------------
+
+
+def create_access_token(tenant_id: str, user_id: str, role: str) -> str:
+    """Create a JWT access token with 20-minute expiry.
+
+    Payload: sub, tenant_id, role, iat, exp.
+    PyJWT 2.x encode() returns str directly — no .decode() needed.
+    All timestamps use datetime.now(timezone.utc) (NOT datetime.utcnow()).
+    """
+    now = datetime.now(timezone.utc)
+    payload = {
+        "sub": user_id,
+        "tenant_id": tenant_id,
+        "role": role,
+        "iat": now,
+        "exp": now + timedelta(seconds=ACCESS_TOKEN_LIFETIME_SECONDS),
+    }
+    return jwt.encode(payload, settings.JWT_SECRET_KEY, algorithm="HS256")
+
+
+def create_refresh_token() -> Tuple[str, str]:
+    """Create a raw refresh token and its SHA-256 hash for storage.
+
+    Returns (raw_token, sha256_hash).
+
+    Security: Uses secrets.token_urlsafe(48) — 384 bits of entropy — making
+    SHA-256 storage safe (no bcrypt needed; the token is unguessable).
+    SHA-256 enables O(1) lookup in MongoDB unlike bcrypt.
+    """
+    raw = secrets.token_urlsafe(48)
+    token_hash = hashlib.sha256(raw.encode()).hexdigest()
+    return raw, token_hash
+
+
+async def login_tenant(body: LoginRequest) -> LoginResponse:
+    """Authenticate a contractor and issue JWT access + refresh tokens.
+
+    Security decisions (locked from CONTEXT.md):
+    - Never reveal whether an email exists — always return 401 "Invalid credentials"
+      for any auth failure (wrong email, wrong password, inactive account).
+    - Unverified tenants get 403 (distinct from auth failure).
+    - Refresh tokens stored as SHA-256 hashes for O(1) lookup.
+    """
+    db = get_database()
+    tenants = db[DB_COLLECTIONS["TENANTS"]]
+
+    tenant_doc = await tenants.find_one({"email": body.email})
+
+    # Unknown email — return generic 401 (no enumeration)
+    if not tenant_doc:
+        raise HTTPException(status_code=401, detail="Invalid credentials")
+
+    # Inactive account — return generic 401 (no enumeration)
+    if not tenant_doc.get("is_active", True):
+        raise HTTPException(status_code=401, detail="Invalid credentials")
+
+    # Wrong password — return generic 401 (no enumeration)
+    if not _password_hash.verify(body.password, tenant_doc["hashed_password"]):
+        raise HTTPException(status_code=401, detail="Invalid credentials")
+
+    # Unverified email — distinct 403 (not an auth failure)
+    if not tenant_doc.get("email_verified", False):
+        raise HTTPException(status_code=403, detail="Email not verified. Check your inbox.")
+
+    tenant_id = tenant_doc["tenant_id"]
+
+    # Issue tokens
+    access_token = create_access_token(
+        tenant_id=tenant_id,
+        user_id=tenant_id,  # user_id = tenant_id for single-user tenants
+        role="owner",
+    )
+    raw_refresh_token, refresh_hash = create_refresh_token()
+
+    # Store refresh token hash in MongoDB with TTL
+    now = datetime.now(timezone.utc)
+    refresh_tokens = db[DB_COLLECTIONS["REFRESH_TOKENS"]]
+    await refresh_tokens.insert_one(
+        {
+            "token_hash": refresh_hash,
+            "tenant_id": tenant_id,
+            "expires_at": now + timedelta(days=REFRESH_TOKEN_LIFETIME_DAYS),
+            "created_at": now,
+        }
+    )
+
+    logger.info("Tenant logged in: tenant_id=%s", tenant_id)
+
+    return LoginResponse(
+        access_token=access_token,
+        refresh_token=raw_refresh_token,
+        token_type="bearer",
+        expires_in=ACCESS_TOKEN_LIFETIME_SECONDS,
+    )
+
+
+async def refresh_access_token(body: RefreshRequest) -> TokenResponse:
+    """Rotate a refresh token and issue new access + refresh tokens.
+
+    Token rotation: the submitted refresh token is deleted immediately and a
+    new pair is issued. Reusing an old token after rotation returns 401.
+
+    Lookup is O(1): SHA-256 hash of the raw token is the MongoDB document key.
+    """
+    # Compute SHA-256 of the submitted token for lookup
+    token_hash = hashlib.sha256(body.refresh_token.encode()).hexdigest()
+
+    db = get_database()
+    refresh_tokens = db[DB_COLLECTIONS["REFRESH_TOKENS"]]
+
+    token_doc = await refresh_tokens.find_one({"token_hash": token_hash})
+
+    if not token_doc:
+        raise HTTPException(status_code=401, detail="Invalid refresh token")
+
+    # Check expiry (belt-and-suspenders; MongoDB TTL also deletes expired docs)
+    expires_at = token_doc["expires_at"]
+    if expires_at.tzinfo is None:
+        expires_at = expires_at.replace(tzinfo=timezone.utc)
+    if datetime.now(timezone.utc) > expires_at:
+        # Delete the stale document and reject
+        await refresh_tokens.delete_one({"token_hash": token_hash})
+        raise HTTPException(status_code=401, detail="Invalid refresh token")
+
+    tenant_id = token_doc["tenant_id"]
+
+    # Rotate: delete the used token immediately (one-time use)
+    await refresh_tokens.delete_one({"token_hash": token_hash})
+
+    # Issue new tokens
+    new_access_token = create_access_token(
+        tenant_id=tenant_id,
+        user_id=tenant_id,
+        role="owner",
+    )
+    raw_new_refresh, new_hash = create_refresh_token()
+
+    now = datetime.now(timezone.utc)
+    await refresh_tokens.insert_one(
+        {
+            "token_hash": new_hash,
+            "tenant_id": tenant_id,
+            "expires_at": now + timedelta(days=REFRESH_TOKEN_LIFETIME_DAYS),
+            "created_at": now,
+        }
+    )
+
+    logger.info("Refresh token rotated for tenant_id=%s", tenant_id)
+
+    return TokenResponse(
+        access_token=new_access_token,
+        token_type="bearer",
+        expires_in=ACCESS_TOKEN_LIFETIME_SECONDS,
+    )

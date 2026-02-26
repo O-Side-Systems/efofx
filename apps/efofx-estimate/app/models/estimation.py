@@ -14,6 +14,52 @@ from app.core.constants import EstimationStatus, Region, CostBreakdownCategory
 from app.models.tenant import PyObjectId
 
 
+# ---------------------------------------------------------------------------
+# OpenAI Structured Output models
+# Used as response_format for client.beta.chat.completions.parse()
+# ---------------------------------------------------------------------------
+
+class CostCategoryEstimate(BaseModel):
+    """A single cost category with P50/P80 estimates."""
+
+    category: str = Field(description="Cost category name (e.g., 'Materials', 'Labor')")
+    p50_cost: float = Field(description="50th percentile cost estimate")
+    p80_cost: float = Field(description="80th percentile cost estimate")
+    percentage_of_total: float = Field(description="This category's share of total cost (0.0-1.0)")
+
+
+class AdjustmentFactor(BaseModel):
+    """A named adjustment multiplier applied to the estimate."""
+
+    name: str = Field(description="Adjustment name (e.g., 'Urban premium', 'Complexity multiplier')")
+    multiplier: float = Field(description="Multiplier value (e.g., 1.15 for 15% increase)")
+    reason: str = Field(description="Brief explanation of why this adjustment applies")
+
+
+class EstimationOutput(BaseModel):
+    """Structured LLM output for project estimation.
+
+    Used as response_format for OpenAI structured outputs via
+    client.beta.chat.completions.parse(response_format=EstimationOutput).
+    """
+
+    total_cost_p50: float = Field(description="50th percentile total cost estimate")
+    total_cost_p80: float = Field(description="80th percentile total cost estimate")
+    timeline_weeks_p50: int = Field(description="50th percentile timeline in weeks")
+    timeline_weeks_p80: int = Field(description="80th percentile timeline in weeks")
+    cost_breakdown: List[CostCategoryEstimate] = Field(
+        description="Cost breakdown by category with P50/P80 ranges"
+    )
+    adjustment_factors: List[AdjustmentFactor] = Field(
+        description="Named adjustment multipliers applied to this estimate"
+    )
+    confidence_score: float = Field(
+        ge=0, le=100, description="Confidence score 0-100 reflecting information completeness"
+    )
+    assumptions: List[str] = Field(description="Explicit assumptions the estimate is based on")
+    summary: str = Field(description="One-paragraph plain-language summary of the estimate")
+
+
 class EstimationRequest(BaseModel):
     """Model for estimation request."""
     

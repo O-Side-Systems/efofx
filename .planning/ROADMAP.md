@@ -34,7 +34,7 @@ Decimal phases appear between their surrounding integers in numeric order.
 **Plans**: 2 plans
 
 Plans:
-- [ ] 01-01: Fix DB_COLLECTIONS NameError in security.py (PRQT-03) and cross-tenant query bug in rcf_engine.py with integration test (PRQT-02)
+- [x] 01-01: Fix DB_COLLECTIONS NameError in security.py (PRQT-03) and cross-tenant query bug in rcf_engine.py with integration test (PRQT-02)
 - [ ] 01-02: Replace python-jose/passlib/openai v1 with PyJWT/pwdlib/openai v2 (PRQT-01), implement structured LLM output (PRQT-04), bump Python to 3.11 (PRQT-05)
 
 ### Phase 2: Multi-Tenant Foundation
@@ -135,7 +135,7 @@ Phases execute in strict dependency order: 1 → 2 → 3 → 4 → 5 → 6
 
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
-| 1. Prerequisites | 0/2 | Not started | - |
+| 1. Prerequisites | 1/2 | In progress | - |
 | 2. Multi-Tenant Foundation | 0/5 | Not started | - |
 | 3. LLM Integration | 0/4 | Not started | - |
 | 4. White-Label Widget | 0/4 | Not started | - |

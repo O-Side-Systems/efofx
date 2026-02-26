@@ -10,8 +10,8 @@ Requirements for Epics 3-7. Each maps to roadmap phases.
 ### Prerequisites
 
 - [ ] **PRQT-01**: Abandoned dependencies replaced (python-jose → PyJWT, passlib → pwdlib, openai v1 → v2)
-- [ ] **PRQT-02**: Cross-tenant data leak in rcf_engine.py fixed (tenant_id filtering on all queries)
-- [ ] **PRQT-03**: DB_COLLECTIONS import NameError in security.py fixed
+- [x] **PRQT-02**: Cross-tenant data leak in rcf_engine.py fixed (tenant_id filtering on all queries)
+- [x] **PRQT-03**: DB_COLLECTIONS import NameError in security.py fixed
 - [ ] **PRQT-04**: LLM parsing stub replaced with real OpenAI structured output
 - [ ] **PRQT-05**: Python runtime bumped to 3.11 in DO App Platform config
 
@@ -174,8 +174,8 @@ Which phases cover which requirements. Updated during roadmap creation.
 | Requirement | Phase | Status |
 |-------------|-------|--------|
 | PRQT-01 | Phase 1 | Pending |
-| PRQT-02 | Phase 1 | Pending |
-| PRQT-03 | Phase 1 | Pending |
+| PRQT-02 | Phase 1 | Complete |
+| PRQT-03 | Phase 1 | Complete |
 | PRQT-04 | Phase 1 | Pending |
 | PRQT-05 | Phase 1 | Pending |
 | AUTH-01 | Phase 2 | Pending |
@@ -251,4 +251,4 @@ Which phases cover which requirements. Updated during roadmap creation.
 
 ---
 *Requirements defined: 2026-02-26*
-*Last updated: 2026-02-26 after roadmap creation — all 70 requirements mapped*
+*Last updated: 2026-02-26 after 01-01 plan — PRQT-02 and PRQT-03 marked complete*

@@ -2,13 +2,13 @@
 gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
-status: unknown
-last_updated: "2026-02-26T23:30:19.000Z"
+status: active
+last_updated: "2026-02-26T23:35:35.000Z"
 progress:
-  total_phases: 2
-  completed_phases: 1
-  total_plans: 7
-  completed_plans: 6
+  total_phases: 6
+  completed_phases: 2
+  total_plans: 12
+  completed_plans: 7
 ---
 
 # Project State
@@ -18,16 +18,16 @@ progress:
 See: .planning/PROJECT.md (updated 2026-02-26)
 
 **Core value:** Trust through transparency — probabilistic estimates with explainable breakdowns that build contractor credibility with customers
-**Current focus:** Phase 1 — Prerequisites (complete)
+**Current focus:** Phase 2 — Multi-Tenant Foundation (complete); ready for Phase 3
 
 ## Current Position
 
-Phase: 2 of 6 (Multi-Tenant Foundation)
-Plan: 5 of 5 in current phase (in progress)
-Status: Phase 2 in progress — Plans 02-01, 02-02, 02-03, 02-04 complete; 02-05 pending
-Last activity: 2026-02-26 — Plan 02-04 complete: BYOK Fernet encryption with HKDF per-tenant key derivation, PUT /auth/openai-key, GET /auth/openai-key/status, 402 gate
+Phase: 2 of 6 (Multi-Tenant Foundation) — COMPLETE
+Plan: 5 of 5 in current phase (complete)
+Status: Phase 2 complete — All plans 02-01 through 02-05 done
+Last activity: 2026-02-26 — Plan 02-05 complete: slowapi rate limiting with Valkey backend, tier-based per-tenant limits, login brute-force protection, X-RateLimit headers via middleware
 
-Progress: [████░░░░░░] 33%
+Progress: [████████░░] 58%
 
 ## Performance Metrics
 
@@ -41,7 +41,7 @@ Progress: [████░░░░░░] 33%
 | Phase | Plans | Total | Avg/Plan |
 |-------|-------|-------|----------|
 | 01-prerequisites | 2 | 6 min | 3 min |
-| 02-multi-tenant-foundation | 4 of 5 | 31 min | 8 min |
+| 02-multi-tenant-foundation | 5 of 5 | 40 min | 8 min |
 
 **Recent Trend:**
 - Last 5 plans: 6 min avg
@@ -82,6 +82,9 @@ Recent decisions affecting current work:
 - [02-04]: openai_key_last6 stored alongside ciphertext for masked display without decryption
 - [02-04]: PUT /auth/openai-key handles both initial store and rotation (simple overwrite, no version history per locked decision)
 - [02-04]: 402 Payment Required is the gate for missing BYOK key — no platform key fallback
+- [02-05]: slowapi headers_enabled=True incompatible with FastAPI Pydantic model returns; custom add_rate_limit_headers middleware reads request.state.view_rate_limit to inject X-RateLimit-* headers instead
+- [02-05]: Rate limit test isolation: patch limiter._storage/_limiter to MemoryStorage on existing global instance (not new instance) — decorator captures global at import time
+- [02-05]: Login rate limit key function falls back to ip:{addr} for unauthenticated requests — enables brute-force protection per IP
 
 ### Pending Todos
 
@@ -95,5 +98,5 @@ None yet.
 ## Session Continuity
 
 Last session: 2026-02-26
-Stopped at: Completed 02-04-PLAN.md — BYOK Fernet encryption, PUT /auth/openai-key, GET /auth/openai-key/status, 402 gate; next is 02-05 (rate limiting with slowapi)
+Stopped at: Completed 02-05-PLAN.md — Phase 2 complete. slowapi rate limiting with Valkey backend, tier-based limits (trial 20/min, paid 100/min), login brute-force protection (5/15min per IP), X-RateLimit header middleware; 19 tests passing. Ready for Phase 3.
 Resume file: None

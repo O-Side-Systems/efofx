@@ -41,9 +41,9 @@ Requirements for Epics 3-7. Each maps to roadmap phases.
 
 ### Rate Limiting
 
-- [ ] **RATE-01**: Per-tenant rate limiting enforced based on tier (trial/pro/enterprise)
-- [ ] **RATE-02**: Rate limit headers returned in API responses (remaining, reset time)
-- [ ] **RATE-03**: Login endpoint rate limited (5 attempts per 15 minutes per IP)
+- [x] **RATE-01**: Per-tenant rate limiting enforced based on tier (trial/pro/enterprise)
+- [x] **RATE-02**: Rate limit headers returned in API responses (remaining, reset time)
+- [x] **RATE-03**: Login endpoint rate limited (5 attempts per 15 minutes per IP)
 
 ### LLM Integration
 
@@ -193,9 +193,9 @@ Which phases cover which requirements. Updated during roadmap creation.
 | BYOK-02 | Phase 2 | Complete |
 | BYOK-03 | Phase 2 | Complete |
 | BYOK-04 | Phase 2 | Complete |
-| RATE-01 | Phase 2 | Pending |
-| RATE-02 | Phase 2 | Pending |
-| RATE-03 | Phase 2 | Pending |
+| RATE-01 | Phase 2 | Complete |
+| RATE-02 | Phase 2 | Complete |
+| RATE-03 | Phase 2 | Complete |
 | LLM-01 | Phase 3 | Pending |
 | LLM-02 | Phase 3 | Pending |
 | LLM-03 | Phase 3 | Pending |

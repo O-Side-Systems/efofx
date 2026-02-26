@@ -12,7 +12,8 @@ from typing import List, Dict, Any, Optional
 
 from app.models.tenant import Tenant
 from app.models.chat import ChatRequest, ChatResponse, ChatMessage, ChatSession
-from app.db.mongodb import get_chat_sessions_collection
+from app.db.mongodb import get_tenant_collection
+from app.core.constants import DB_COLLECTIONS
 from app.services.llm_service import LLMService
 
 logger = logging.getLogger(__name__)
@@ -20,11 +21,14 @@ logger = logging.getLogger(__name__)
 
 class ChatService:
     """Service for handling chat functionality."""
-    
+
     def __init__(self):
         self.llm_service = LLMService()
-        self.sessions_collection = get_chat_sessions_collection()
-    
+
+    def _collection(self, tenant_id: str):
+        """Get tenant-scoped chat sessions collection."""
+        return get_tenant_collection(DB_COLLECTIONS["CHAT_SESSIONS"], tenant_id)
+
     async def send_message(self, request: ChatRequest, tenant: Tenant) -> ChatResponse:
         """Send a chat message and get response."""
         try:
@@ -55,8 +59,9 @@ class ChatService:
             session.context.update(assistant_response.get("context_updates", {}))
             session.updated_at = datetime.utcnow()
             
+            sessions_collection = self._collection(tenant.id)
             # Save to database (in production, you'd save messages separately)
-            await self.sessions_collection.update_one(
+            await sessions_collection.update_one(
                 {"session_id": session.session_id},
                 {"$set": {
                     "messages": session.messages,
@@ -82,10 +87,9 @@ class ChatService:
     async def get_chat_history(self, session_id: str, tenant: Tenant) -> List[Dict[str, Any]]:
         """Get chat history for a session."""
         try:
-            session_data = await self.sessions_collection.find_one({
-                "session_id": session_id,
-                "tenant_id": tenant.id
-            })
+            sessions_collection = self._collection(tenant.id)
+            # TenantAwareCollection auto-injects tenant_id — only session_id filter needed
+            session_data = await sessions_collection.find_one({"session_id": session_id})
             
             if not session_data:
                 raise ValueError("Chat session not found")
@@ -108,15 +112,14 @@ class ChatService:
     
     async def _get_or_create_session(self, session_id: Optional[str], tenant: Tenant) -> ChatSession:
         """Get existing session or create new one."""
+        sessions_collection = self._collection(tenant.id)
         if session_id:
-            session_data = await self.sessions_collection.find_one({
-                "session_id": session_id,
-                "tenant_id": tenant.id
-            })
-            
+            # TenantAwareCollection auto-injects tenant_id into filter
+            session_data = await sessions_collection.find_one({"session_id": session_id})
+
             if session_data:
                 return ChatSession(**session_data)
-        
+
         # Create new session
         new_session_id = f"chat_sess_{uuid.uuid4().hex[:12]}"
         session = ChatSession(
@@ -125,8 +128,8 @@ class ChatService:
             estimation_session_id="",  # Will be set when estimation starts
             context={"created_at": datetime.utcnow().isoformat()}
         )
-        
-        await self.sessions_collection.insert_one(session.dict(by_alias=True))
+
+        await sessions_collection.insert_one(session.dict(by_alias=True))
         return session
     
     async def _generate_chat_response(self, message: str, session: ChatSession) -> Dict[str, Any]:

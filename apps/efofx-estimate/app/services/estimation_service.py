@@ -12,10 +12,10 @@ from typing import Optional, List, Dict, Any
 from fastapi import UploadFile
 
 from app.core.config import settings
-from app.core.constants import EstimationStatus, API_MESSAGES, ESTIMATION_CONFIG
+from app.core.constants import EstimationStatus, API_MESSAGES, ESTIMATION_CONFIG, DB_COLLECTIONS
 from app.models.tenant import Tenant
 from app.models.estimation import EstimationRequest, EstimationResponse, EstimationSession, EstimationResult
-from app.db.mongodb import get_estimates_collection
+from app.db.mongodb import get_tenant_collection
 from app.services.llm_service import LLMService
 from app.services.reference_service import ReferenceService
 
@@ -24,18 +24,21 @@ logger = logging.getLogger(__name__)
 
 class EstimationService:
     """Service for handling estimation logic and sessions."""
-    
+
     def __init__(self):
         self.llm_service = LLMService()
         self.reference_service = ReferenceService()
-        self.collection = get_estimates_collection()
-    
+
+    def _collection(self, tenant_id: str):
+        """Get tenant-scoped estimates collection."""
+        return get_tenant_collection(DB_COLLECTIONS["ESTIMATES"], tenant_id)
+
     async def start_estimation(self, request: EstimationRequest, tenant: Tenant) -> EstimationResponse:
         """Start a new estimation session."""
         try:
             # Generate session ID
             session_id = f"sess_{uuid.uuid4().hex[:12]}"
-            
+
             # Create estimation session
             session = EstimationSession(
                 tenant_id=tenant.id,
@@ -47,11 +50,12 @@ class EstimationService:
                 confidence_threshold=request.confidence_threshold,
                 expires_at=datetime.utcnow() + timedelta(minutes=settings.SESSION_TIMEOUT_MINUTES)
             )
-            
+
+            collection = self._collection(tenant.id)
             # Save to database
-            await self.collection.insert_one(session.dict(by_alias=True))
+            await collection.insert_one(session.dict(by_alias=True))
             
-            # Start estimation process
+            # Start estimation process (pass collection to avoid re-creating it)
             result = await self._process_estimation(session, tenant)
             
             return EstimationResponse(
@@ -70,21 +74,19 @@ class EstimationService:
     async def get_estimation(self, session_id: str, tenant: Tenant) -> EstimationResponse:
         """Get estimation session status and results."""
         try:
-            # Find session in database
-            session_data = await self.collection.find_one({
-                "session_id": session_id,
-                "tenant_id": tenant.id
-            })
-            
+            collection = self._collection(tenant.id)
+            # TenantAwareCollection auto-injects tenant_id — no need to add it manually
+            session_data = await collection.find_one({"session_id": session_id})
+
             if not session_data:
                 raise ValueError("Estimation session not found")
-            
+
             session = EstimationSession(**session_data)
-            
+
             # Check if session has expired
             if session.expires_at and datetime.utcnow() > session.expires_at:
                 session.status = EstimationStatus.EXPIRED
-                await self.collection.update_one(
+                await collection.update_one(
                     {"session_id": session_id},
                     {"$set": {"status": EstimationStatus.EXPIRED}}
                 )
@@ -108,17 +110,18 @@ class EstimationService:
             # Validate file type
             if file.content_type not in settings.ALLOWED_IMAGE_TYPES:
                 raise ValueError("Invalid file type")
-            
+
             # Validate file size
             if file.size > settings.MAX_FILE_SIZE:
                 raise ValueError("File too large")
-            
+
             # Generate image URL (in production, this would upload to cloud storage)
             image_url = f"https://storage.efofx.ai/images/{session_id}/{file.filename}"
-            
-            # Update session with image URL
-            await self.collection.update_one(
-                {"session_id": session_id, "tenant_id": tenant.id},
+
+            collection = self._collection(tenant.id)
+            # TenantAwareCollection auto-injects tenant_id into the filter
+            await collection.update_one(
+                {"session_id": session_id},
                 {"$push": {"images": image_url}}
             )
             
@@ -130,22 +133,23 @@ class EstimationService:
     
     async def _process_estimation(self, session: EstimationSession, tenant: Tenant) -> EstimationSession:
         """Process estimation using RCF and LLM."""
+        collection = self._collection(tenant.id)
         try:
             # Update status to in progress
             session.status = EstimationStatus.IN_PROGRESS
-            await self.collection.update_one(
+            await collection.update_one(
                 {"session_id": session.session_id},
                 {"$set": {"status": EstimationStatus.IN_PROGRESS}}
             )
-            
+
             # Classify project using LLM
             reference_class = await self._classify_project(session.description, session.region)
-            
+
             # Get reference projects
             reference_projects = await self.reference_service.get_reference_projects(
                 reference_class, session.region
             )
-            
+
             # Generate estimation using LLM
             estimation_result = await self._generate_estimation(
                 session.description,
@@ -153,15 +157,15 @@ class EstimationService:
                 reference_class,
                 reference_projects
             )
-            
+
             # Update session with results
             session.reference_class = reference_class
             session.result = estimation_result
             session.status = EstimationStatus.COMPLETED
             session.completed_at = datetime.utcnow()
-            
+
             # Save updated session
-            await self.collection.update_one(
+            await collection.update_one(
                 {"session_id": session.session_id},
                 {"$set": {
                     "reference_class": reference_class,
@@ -171,13 +175,13 @@ class EstimationService:
                     "updated_at": datetime.utcnow()
                 }}
             )
-            
+
             return session
-            
+
         except Exception as e:
             logger.error(f"Error processing estimation: {e}")
             # Update status to failed
-            await self.collection.update_one(
+            await collection.update_one(
                 {"session_id": session.session_id},
                 {"$set": {"status": "failed"}}
             )

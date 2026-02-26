@@ -1,8 +1,9 @@
 """
-Tests for tenant isolation in rcf_engine.py (PRQT-02).
+Tests for tenant isolation.
 
-Verifies that tenant A cannot see tenant B's reference classes,
-and that platform data (tenant_id=None) is visible to all tenants.
+- Legacy tests (PRQT-02): rcf_engine.py uses TenantAwareCollection for reference class queries.
+- New tests (ISOL-01, ISOL-02): TenantAwareCollection structural isolation verified
+  with real MongoDB — tenant A cannot see tenant B's data even with identical queries.
 
 These are integration tests that require a running MongoDB instance.
 Run with: pytest -m integration
@@ -16,6 +17,7 @@ from motor.motor_asyncio import AsyncIOMotorClient
 from app.core.config import settings
 from app.services.rcf_engine import find_matching_reference_class, clear_match_cache
 from app.core.constants import DB_COLLECTIONS
+from app.db.tenant_collection import TenantAwareCollection
 
 
 def _make_rc_doc(tenant_id, name, keywords=None):
@@ -164,3 +166,98 @@ async def test_no_tenant_returns_platform_only(tenant_isolation_data):
             f"No-tenant query returned tenant-specific data "
             f"(tenant_id={rc.get('tenant_id')})"
         )
+
+
+# ---------------------------------------------------------------------------
+# New ISOL-01 / ISOL-02: Structural isolation via TenantAwareCollection
+# ---------------------------------------------------------------------------
+
+
+@pytest_asyncio.fixture
+async def tenant_collection_data():
+    """
+    Create a real Motor client and insert documents for two tenants.
+    Tests the TenantAwareCollection wrapper directly (not through rcf_engine).
+    """
+    client = AsyncIOMotorClient(settings.MONGO_URI)
+    db = client[settings.MONGO_DB_NAME]
+    raw_col = db["test_isolation_tmp"]  # temp collection for these tests
+
+    import app.db.mongodb as _mdb
+    _orig_client = _mdb._client
+    _orig_database = _mdb._database
+    _mdb._client = client
+    _mdb._database = db
+
+    # Insert docs for two tenants and one platform doc
+    docs = [
+        {"name": "tenant_a_doc", "tenant_id": "tenant_a_isol", "value": 1},
+        {"name": "tenant_b_doc", "tenant_id": "tenant_b_isol", "value": 2},
+        {"name": "platform_doc", "tenant_id": None, "value": 0},
+    ]
+    result = await raw_col.insert_many(docs)
+    inserted_ids = result.inserted_ids
+
+    yield {"client": client, "db": db, "raw_col": raw_col}
+
+    # Cleanup
+    await raw_col.delete_many({"_id": {"$in": inserted_ids}})
+    _mdb._client = _orig_client
+    _mdb._database = _orig_database
+    client.close()
+
+
+@pytest.mark.integration
+@pytest.mark.asyncio
+async def test_tenant_aware_collection_no_cross_leakage(tenant_collection_data):
+    """
+    Structural test: TenantAwareCollection with tenant_id='tenant_a_isol'
+    cannot find documents belonging to 'tenant_b_isol', even with an empty filter.
+    """
+    raw_col = tenant_collection_data["raw_col"]
+    col_a = TenantAwareCollection(raw_col, "tenant_a_isol")
+
+    # Querying with tenant A's wrapper should NOT return tenant B's doc
+    result = await col_a.find_one({"name": "tenant_b_doc"})
+    assert result is None, (
+        "TenantAwareCollection should not return another tenant's document. "
+        f"Got: {result}"
+    )
+
+
+@pytest.mark.integration
+@pytest.mark.asyncio
+async def test_tenant_aware_collection_sees_own_data(tenant_collection_data):
+    """TenantAwareCollection with tenant_a can find its own documents."""
+    raw_col = tenant_collection_data["raw_col"]
+    col_a = TenantAwareCollection(raw_col, "tenant_a_isol")
+
+    result = await col_a.find_one({"name": "tenant_a_doc"})
+    assert result is not None, "TenantAwareCollection should find tenant's own document"
+    assert result["tenant_id"] == "tenant_a_isol"
+
+
+@pytest.mark.integration
+@pytest.mark.asyncio
+async def test_tenant_aware_collection_platform_data_visible(tenant_collection_data):
+    """Platform data (tenant_id=None) is accessible when allow_platform_data=True."""
+    raw_col = tenant_collection_data["raw_col"]
+    col_a = TenantAwareCollection(raw_col, "tenant_a_isol", allow_platform_data=True)
+
+    result = await col_a.find_one({"name": "platform_doc"})
+    assert result is not None, "allow_platform_data=True should allow access to platform docs"
+    assert result["tenant_id"] is None
+
+
+@pytest.mark.integration
+@pytest.mark.asyncio
+async def test_tenant_aware_collection_platform_data_blocked_by_default(tenant_collection_data):
+    """Platform data (tenant_id=None) is NOT accessible when allow_platform_data=False."""
+    raw_col = tenant_collection_data["raw_col"]
+    col_a = TenantAwareCollection(raw_col, "tenant_a_isol", allow_platform_data=False)
+
+    result = await col_a.find_one({"name": "platform_doc"})
+    assert result is None, (
+        "Platform data should not be visible when allow_platform_data=False. "
+        f"Got: {result}"
+    )

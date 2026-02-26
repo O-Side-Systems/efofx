@@ -11,17 +11,19 @@ from typing import List, Dict, Any
 
 from app.models.tenant import Tenant
 from app.models.feedback import FeedbackCreate, FeedbackSummary, Feedback
-from app.db.mongodb import get_feedback_collection
+from app.db.mongodb import get_tenant_collection
+from app.core.constants import DB_COLLECTIONS
 
 logger = logging.getLogger(__name__)
 
 
 class FeedbackService:
     """Service for handling feedback functionality."""
-    
-    def __init__(self):
-        self.collection = get_feedback_collection()
-    
+
+    def _collection(self, tenant_id: str):
+        """Get tenant-scoped feedback collection."""
+        return get_tenant_collection(DB_COLLECTIONS["FEEDBACK"], tenant_id)
+
     async def submit_feedback(self, feedback: FeedbackCreate, tenant: Tenant) -> str:
         """Submit new feedback."""
         try:
@@ -40,9 +42,10 @@ class FeedbackService:
                 reference_class_accuracy=feedback.reference_class_accuracy,
                 metadata=feedback.metadata or {}
             )
-            
-            # Save to database
-            result = await self.collection.insert_one(feedback_doc.dict(by_alias=True))
+
+            collection = self._collection(tenant.id)
+            # Save to database — TenantAwareCollection stamps tenant_id automatically
+            result = await collection.insert_one(feedback_doc.dict(by_alias=True))
             
             logger.info(f"Feedback submitted successfully: {result.inserted_id}")
             return str(result.inserted_id)
@@ -54,8 +57,9 @@ class FeedbackService:
     async def get_feedback_summary(self, tenant: Tenant) -> FeedbackSummary:
         """Get feedback summary for tenant."""
         try:
-            # Get all feedback for tenant
-            feedback_cursor = self.collection.find({"tenant_id": tenant.id})
+            collection = self._collection(tenant.id)
+            # TenantAwareCollection auto-scopes to this tenant — no filter needed
+            feedback_cursor = collection.find({})
             feedback_list = await feedback_cursor.to_list(length=None)
             
             if not feedback_list:
@@ -114,10 +118,8 @@ class FeedbackService:
     async def get_feedback_by_type(self, tenant: Tenant, feedback_type: str) -> List[Feedback]:
         """Get feedback by type for tenant."""
         try:
-            cursor = self.collection.find({
-                "tenant_id": tenant.id,
-                "feedback_type": feedback_type
-            })
+            collection = self._collection(tenant.id)
+            cursor = collection.find({"feedback_type": feedback_type})
             
             feedback_list = await cursor.to_list(length=None)
             return [Feedback(**f) for f in feedback_list]
@@ -129,10 +131,8 @@ class FeedbackService:
     async def get_feedback_by_session(self, session_id: str, tenant: Tenant) -> List[Feedback]:
         """Get feedback for specific estimation session."""
         try:
-            cursor = self.collection.find({
-                "tenant_id": tenant.id,
-                "estimation_session_id": session_id
-            })
+            collection = self._collection(tenant.id)
+            cursor = collection.find({"estimation_session_id": session_id})
             
             feedback_list = await cursor.to_list(length=None)
             return [Feedback(**f) for f in feedback_list]
@@ -146,11 +146,9 @@ class FeedbackService:
         try:
             # Get feedback from last N days
             start_date = datetime.utcnow() - timedelta(days=days)
-            
-            cursor = self.collection.find({
-                "tenant_id": tenant.id,
-                "created_at": {"$gte": start_date}
-            })
+
+            collection = self._collection(tenant.id)
+            cursor = collection.find({"created_at": {"$gte": start_date}})
             
             feedback_list = await cursor.to_list(length=None)
             

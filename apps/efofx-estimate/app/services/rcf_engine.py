@@ -11,7 +11,8 @@ from typing import Optional, List, Dict, Any, Tuple
 from datetime import datetime, timedelta
 from functools import lru_cache
 
-from app.db.mongodb import get_reference_classes_collection
+from app.db.mongodb import get_tenant_collection
+from app.core.constants import DB_COLLECTIONS
 from app.models.reference_class import ReferenceClass
 
 logger = logging.getLogger(__name__)
@@ -187,20 +188,22 @@ async def find_matching_reference_class(
             logger.warning(f"No keywords extracted from description: {description}")
             raise ValueError("Please provide more details in your project description")
 
-        # Query reference classes
-        collection = get_reference_classes_collection()
-
-        # Build query: filter by category and tenant_id for isolation
+        # Query reference classes using TenantAwareCollection for hard isolation.
+        # When tenant_id is provided, allow_platform_data=True includes platform
+        # data (tenant_id=None) alongside the tenant's own classes via $or filter.
+        # When no tenant_id, query platform-only data directly via raw collection.
         if tenant_id:
-            query = {
-                "category": category,
-                "$or": [
-                    {"tenant_id": tenant_id},
-                    {"tenant_id": None}  # platform reference classes
-                ]
-            }
+            collection = get_tenant_collection(
+                DB_COLLECTIONS["REFERENCE_CLASSES"],
+                tenant_id,
+                allow_platform_data=True,
+            )
+            query = {"category": category}
         else:
-            query = {"category": category, "tenant_id": None}  # platform only
+            # No tenant context — query platform data (tenant_id=None) only
+            from app.db.mongodb import get_collection
+            collection = get_collection(DB_COLLECTIONS["REFERENCE_CLASSES"])
+            query = {"category": category, "tenant_id": None}
 
         cursor = collection.find(query)
         reference_classes = await cursor.to_list(length=None)

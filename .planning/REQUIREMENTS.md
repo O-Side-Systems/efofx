@@ -173,13 +173,82 @@ Which phases cover which requirements. Updated during roadmap creation.
 
 | Requirement | Phase | Status |
 |-------------|-------|--------|
-| (Populated by roadmapper) | | |
+| PRQT-01 | Phase 1 | Pending |
+| PRQT-02 | Phase 1 | Pending |
+| PRQT-03 | Phase 1 | Pending |
+| PRQT-04 | Phase 1 | Pending |
+| PRQT-05 | Phase 1 | Pending |
+| AUTH-01 | Phase 2 | Pending |
+| AUTH-02 | Phase 2 | Pending |
+| AUTH-03 | Phase 2 | Pending |
+| AUTH-04 | Phase 2 | Pending |
+| AUTH-05 | Phase 2 | Pending |
+| AUTH-06 | Phase 2 | Pending |
+| AUTH-07 | Phase 2 | Pending |
+| ISOL-01 | Phase 2 | Pending |
+| ISOL-02 | Phase 2 | Pending |
+| ISOL-03 | Phase 2 | Pending |
+| ISOL-04 | Phase 2 | Pending |
+| BYOK-01 | Phase 2 | Pending |
+| BYOK-02 | Phase 2 | Pending |
+| BYOK-03 | Phase 2 | Pending |
+| BYOK-04 | Phase 2 | Pending |
+| RATE-01 | Phase 2 | Pending |
+| RATE-02 | Phase 2 | Pending |
+| RATE-03 | Phase 2 | Pending |
+| LLM-01 | Phase 3 | Pending |
+| LLM-02 | Phase 3 | Pending |
+| LLM-03 | Phase 3 | Pending |
+| LLM-04 | Phase 3 | Pending |
+| PRMT-01 | Phase 3 | Pending |
+| PRMT-02 | Phase 3 | Pending |
+| PRMT-03 | Phase 3 | Pending |
+| CHAT-01 | Phase 3 | Pending |
+| CHAT-02 | Phase 3 | Pending |
+| CHAT-03 | Phase 3 | Pending |
+| CHAT-04 | Phase 3 | Pending |
+| CHAT-05 | Phase 3 | Pending |
+| NARR-01 | Phase 3 | Pending |
+| NARR-02 | Phase 3 | Pending |
+| NARR-03 | Phase 3 | Pending |
+| NARR-04 | Phase 3 | Pending |
+| WDGT-01 | Phase 4 | Pending |
+| WDGT-02 | Phase 4 | Pending |
+| WDGT-03 | Phase 4 | Pending |
+| WDGT-04 | Phase 4 | Pending |
+| WDGT-05 | Phase 4 | Pending |
+| BRND-01 | Phase 4 | Pending |
+| BRND-02 | Phase 4 | Pending |
+| BRND-03 | Phase 4 | Pending |
+| BRND-04 | Phase 4 | Pending |
+| WFTR-01 | Phase 4 | Pending |
+| WFTR-02 | Phase 4 | Pending |
+| WFTR-03 | Phase 4 | Pending |
+| WFTR-04 | Phase 4 | Pending |
+| WSEC-01 | Phase 4 | Pending |
+| WSEC-02 | Phase 4 | Pending |
+| WSEC-03 | Phase 4 | Pending |
+| FDBK-01 | Phase 5 | Pending |
+| FDBK-02 | Phase 5 | Pending |
+| FDBK-03 | Phase 5 | Pending |
+| FDBK-04 | Phase 5 | Pending |
+| FDBK-05 | Phase 5 | Pending |
+| CALB-01 | Phase 5 | Pending |
+| CALB-02 | Phase 5 | Pending |
+| CALB-03 | Phase 5 | Pending |
+| CALB-04 | Phase 5 | Pending |
+| TUNE-01 | Phase 5 | Pending |
+| TUNE-02 | Phase 5 | Pending |
+| QUAL-01 | Phase 6 | Pending |
+| QUAL-02 | Phase 6 | Pending |
+| QUAL-03 | Phase 6 | Pending |
+| QUAL-04 | Phase 6 | Pending |
 
 **Coverage:**
-- v1 requirements: 56 total
-- Mapped to phases: 0
-- Unmapped: 56
+- v1 requirements: 70 total (5 prerequisites + 65 feature requirements)
+- Mapped to phases: 70
+- Unmapped: 0
 
 ---
 *Requirements defined: 2026-02-26*
-*Last updated: 2026-02-26 after initial definition*
+*Last updated: 2026-02-26 after roadmap creation — all 70 requirements mapped*

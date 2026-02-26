@@ -13,7 +13,7 @@ import logging
 from datetime import datetime, timedelta
 
 from app.core.config import settings
-from app.core.constants import API_MESSAGES, HTTP_STATUS
+from app.core.constants import API_MESSAGES, HTTP_STATUS, DB_COLLECTIONS
 from app.db.mongodb import get_database
 from app.models.tenant import Tenant
 

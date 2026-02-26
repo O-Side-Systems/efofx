@@ -190,8 +190,17 @@ async def find_matching_reference_class(
         # Query reference classes
         collection = get_reference_classes_collection()
 
-        # Build query: filter by category first for efficiency
-        query = {"category": category}
+        # Build query: filter by category and tenant_id for isolation
+        if tenant_id:
+            query = {
+                "category": category,
+                "$or": [
+                    {"tenant_id": tenant_id},
+                    {"tenant_id": None}  # platform reference classes
+                ]
+            }
+        else:
+            query = {"category": category, "tenant_id": None}  # platform only
 
         cursor = collection.find(query)
         reference_classes = await cursor.to_list(length=None)

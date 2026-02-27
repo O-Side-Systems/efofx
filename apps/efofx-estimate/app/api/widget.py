@@ -4,15 +4,21 @@ Widget API endpoints for efOfX white-label widget.
 Provides:
 - GET /widget/branding/{api_key_prefix} — PUBLIC, no auth, rate-limited 30/min
 - POST /widget/lead              — API key auth required
-- POST /widget/analytics         — API key auth required
+- POST /widget/analytics         — API key auth required (WSEC-02, WFTR-04)
+- GET  /widget/analytics         — API key or JWT auth required
 """
 
 import logging
+from datetime import datetime, timedelta, timezone
+
 from fastapi import APIRouter, Depends, HTTPException, Request
 from fastapi.responses import Response
+from pydantic import BaseModel
 
+from app.core.constants import DB_COLLECTIONS
 from app.core.rate_limit import limiter
 from app.core.security import get_current_tenant
+from app.db.mongodb import get_database
 from app.models.tenant import Tenant
 from app.models.widget import (
     BrandingConfigResponse,
@@ -29,6 +35,9 @@ from slowapi.util import get_remote_address
 logger = logging.getLogger(__name__)
 
 widget_router = APIRouter(prefix="/widget", tags=["widget"])
+
+# Allowed analytics event types (WFTR-04)
+VALID_EVENT_TYPES = {"widget_view", "chat_start", "estimate_complete"}
 
 
 # ---------------------------------------------------------------------------
@@ -79,7 +88,7 @@ async def capture_lead(
     tenant: Tenant = Depends(get_current_tenant),
 ) -> LeadCaptureResponse:
     """Save a lead capture document for the authenticated tenant."""
-    inserted_id = await save_lead(tenant.tenant_id, lead)
+    await save_lead(tenant.tenant_id, lead)
     logger.info("Lead captured for tenant %s, session %s", tenant.tenant_id, lead.session_id)
     return LeadCaptureResponse(
         message="Lead captured successfully",
@@ -90,14 +99,6 @@ async def capture_lead(
 # ---------------------------------------------------------------------------
 # Analytics endpoint — API key auth required
 # ---------------------------------------------------------------------------
-
-
-class AnalyticsEventRequest:
-    """Simple inline model for analytics event body."""
-    pass
-
-
-from pydantic import BaseModel
 
 
 class AnalyticsRequest(BaseModel):
@@ -111,7 +112,8 @@ class AnalyticsRequest(BaseModel):
     summary="Record a widget analytics event",
     description=(
         "Record a widget analytics event (widget_view, chat_start, estimate_complete). "
-        "Requires API key authentication. Returns 204 No Content."
+        "Requires API key authentication. Returns 204 No Content. "
+        "Rejects unknown event_type values with 400."
     ),
     status_code=204,
 )
@@ -119,6 +121,58 @@ async def record_event(
     body: AnalyticsRequest,
     tenant: Tenant = Depends(get_current_tenant),
 ) -> Response:
-    """Record an analytics event for the authenticated tenant (fire-and-forget)."""
+    """Record an analytics event for the authenticated tenant (fire-and-forget).
+
+    Validates event_type against the allowed set (WSEC-02, WFTR-04).
+    Returns 400 for invalid event types. Analytics failures are swallowed
+    at the service layer — never propagated to widget users.
+    """
+    if body.event_type not in VALID_EVENT_TYPES:
+        raise HTTPException(
+            status_code=400,
+            detail=f"Invalid event_type. Must be one of: {sorted(VALID_EVENT_TYPES)}",
+        )
     await record_analytics_event(tenant.tenant_id, body.event_type)
     return Response(status_code=204)
+
+
+# ---------------------------------------------------------------------------
+# Analytics retrieval endpoint — API key or JWT auth required
+# ---------------------------------------------------------------------------
+
+
+@widget_router.get(
+    "/analytics",
+    summary="Get widget analytics",
+    description=(
+        "Get widget analytics for the authenticated tenant. "
+        "Returns daily event counts for widget_view, chat_start, and estimate_complete. "
+        "Analytics documents contain no PII — only tenant_id, date, and event counts."
+    ),
+)
+@limiter.limit("10/minute")
+async def get_analytics(
+    request: Request,
+    tenant: Tenant = Depends(get_current_tenant),
+    days: int = 30,
+) -> dict:
+    """Return daily analytics counters for the last N days (default 30).
+
+    Analytics documents contain only: tenant_id, date, widget_view count,
+    chat_start count, estimate_complete count. No PII stored.
+    """
+    if days < 1 or days > 365:
+        days = 30
+
+    start_date = (datetime.now(timezone.utc) - timedelta(days=days)).strftime("%Y-%m-%d")
+    db = get_database()
+    cursor = (
+        db[DB_COLLECTIONS["WIDGET_ANALYTICS"]]
+        .find(
+            {"tenant_id": tenant.tenant_id, "date": {"$gte": start_date}},
+            {"_id": 0},  # Exclude MongoDB _id field
+        )
+        .sort("date", -1)
+    )
+    results = await cursor.to_list(length=days)
+    return {"analytics": results, "days": days}

@@ -358,6 +358,84 @@ async def test_lead_capture_saves_lead():
 
 
 # ---------------------------------------------------------------------------
+# Security tests (WSEC-02) — auth enforcement on protected endpoints
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.asyncio
+async def test_lead_capture_without_auth_returns_401():
+    """POST /widget/lead without auth returns 401 (WSEC-02).
+
+    Lead capture is an authenticated endpoint — no API key means no access.
+    Verifies WSEC-02: all widget API calls (except branding) reject unauthenticated requests.
+    """
+    from app.main import app
+
+    payload = {
+        "session_id": "sess_wsec02",
+        "name": "Test User",
+        "email": "test@example.com",
+        "phone": "555-000-0000",
+    }
+
+    async with AsyncClient(
+        transport=ASGITransport(app=app), base_url="http://test"
+    ) as client:
+        resp = await client.post("/api/v1/widget/lead", json=payload)
+
+    assert resp.status_code in (401, 403), (
+        f"Expected 401/403 but got {resp.status_code} — lead endpoint must require auth (WSEC-02)"
+    )
+
+
+@pytest.mark.asyncio
+async def test_analytics_without_auth_returns_401():
+    """POST /widget/analytics without auth returns 401 (WSEC-02).
+
+    Analytics is an authenticated endpoint — no API key means no access.
+    """
+    from app.main import app
+
+    async with AsyncClient(
+        transport=ASGITransport(app=app), base_url="http://test"
+    ) as client:
+        resp = await client.post(
+            "/api/v1/widget/analytics",
+            json={"event_type": "widget_view"},
+        )
+
+    assert resp.status_code in (401, 403), (
+        f"Expected 401/403 but got {resp.status_code} — analytics endpoint must require auth (WSEC-02)"
+    )
+
+
+@pytest.mark.asyncio
+async def test_branding_endpoint_does_not_require_auth():
+    """GET /widget/branding/{prefix} is public — no auth required (BRND-04).
+
+    The widget must be able to fetch branding before the user interacts.
+    This endpoint must return 200 without any Authorization header.
+    """
+    from app.main import app
+
+    branding = make_branding_response()
+
+    with patch(
+        "app.api.widget.get_branding_by_prefix",
+        new_callable=AsyncMock,
+        return_value=branding,
+    ):
+        async with AsyncClient(
+            transport=ASGITransport(app=app), base_url="http://test"
+        ) as client:
+            resp = await client.get(f"/api/v1/widget/branding/{VALID_PREFIX}")
+
+    assert resp.status_code == 200, (
+        f"Expected 200 but got {resp.status_code} — branding endpoint must be public (BRND-04)"
+    )
+
+
+# ---------------------------------------------------------------------------
 # CORS tests
 # ---------------------------------------------------------------------------
 

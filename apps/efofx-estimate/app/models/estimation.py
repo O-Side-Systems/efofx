@@ -158,7 +158,7 @@ class EstimationResult(BaseModel):
 
 class EstimationSession(BaseModel):
     """Model for estimation session."""
-    
+
     id: Optional[PyObjectId] = Field(default_factory=PyObjectId, alias="_id")
     tenant_id: PyObjectId = Field(..., description="Associated tenant ID")
     session_id: str = Field(..., description="Unique session identifier")
@@ -167,6 +167,7 @@ class EstimationSession(BaseModel):
     region: Region = Field(..., description="Geographic region")
     reference_class: Optional[str] = Field(None, description="Applied reference class")
     confidence_threshold: float = Field(0.7, description="Confidence threshold")
+    prompt_version: Optional[str] = Field(None, description="Prompt version used for this estimate (e.g., '1.0.0')")
     result: Optional[EstimationResult] = Field(None, description="Estimation result")
     chat_messages: List[str] = Field(default_factory=list, description="Chat message IDs")
     images: List[str] = Field(default_factory=list, description="Uploaded image URLs")
@@ -188,6 +189,7 @@ class EstimationSession(BaseModel):
                 "region": "SoCal - Coastal",
                 "reference_class": "residential_pool",
                 "confidence_threshold": 0.7,
+                "prompt_version": "1.0.0",
                 "result": {
                     "total_cost": 63000.0,
                     "timeline_weeks": 8,

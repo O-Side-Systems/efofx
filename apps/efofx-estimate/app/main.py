@@ -19,6 +19,7 @@ from app.core.rate_limit import limiter, rate_limit_exceeded_handler
 from app.api.routes import api_router
 from app.api.auth import router as auth_router
 from app.db.mongodb import connect_to_mongo, close_mongo_connection, health_check as db_health_check
+from app.services.prompt_service import PromptService
 
 # Configure logging
 logging.basicConfig(level=logging.INFO)
@@ -35,6 +36,19 @@ async def lifespan(app: FastAPI):
         logger.info("MongoDB connection established")
     except Exception as e:
         logger.error(f"Failed to connect to MongoDB: {e}")
+
+    # Load versioned prompts — critical dependency, fail startup if missing
+    prompts_dir = os.path.join(
+        os.path.dirname(os.path.dirname(os.path.abspath(__file__))),
+        "config",
+        "prompts",
+    )
+    try:
+        PromptService.load_all(prompts_dir)
+        logger.info("Prompt registry loaded")
+    except Exception as e:
+        logger.error(f"Failed to load prompt registry: {e}")
+        raise  # Prompts are critical — fail startup if they can't load
 
     yield
 

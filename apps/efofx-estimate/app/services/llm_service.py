@@ -17,10 +17,32 @@ logger = logging.getLogger(__name__)
 
 
 class LLMService:
-    """Service for LLM integration and text generation."""
+    """Service for LLM integration and text generation.
 
-    def __init__(self) -> None:
-        self.client = AsyncOpenAI(api_key=settings.OPENAI_API_KEY)
+    BYOK Key Injection
+    ------------------
+    In production, callers MUST provide `api_key` — the plaintext key obtained
+    by calling ``decrypt_tenant_openai_key(tenant_id)`` (which raises HTTP 402
+    if the tenant has not stored a key).
+
+    The ``settings.OPENAI_API_KEY`` fallback exists ONLY for:
+    - Local development / unit tests (no real tenant keys available)
+    - The transition period until Phase 3 (LLM-01) wires per-request instantiation
+
+    Phase 3 caller pattern::
+
+        key = await decrypt_tenant_openai_key(tenant_id)  # raises 402 if missing
+        llm = LLMService(api_key=key)
+        result = await llm.generate_estimation(...)
+
+    The platform ``settings.OPENAI_API_KEY`` fallback WILL be removed once Phase 3
+    implements per-request client injection (LLM-01). No tenant's LLM call should
+    ever use the platform key in production.
+    """
+
+    def __init__(self, api_key: Optional[str] = None) -> None:
+        self.api_key = api_key or settings.OPENAI_API_KEY
+        self.client = AsyncOpenAI(api_key=self.api_key)
         self.model = settings.OPENAI_MODEL
         self.max_tokens = settings.OPENAI_MAX_TOKENS
         self.temperature = settings.OPENAI_TEMPERATURE

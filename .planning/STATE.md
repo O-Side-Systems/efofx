@@ -3,12 +3,12 @@ gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
 status: in_progress
-last_updated: "2026-02-27T17:29:00.000Z"
+last_updated: "2026-02-27T17:00:00.000Z"
 progress:
   total_phases: 6
   completed_phases: 2
   total_plans: 13
-  completed_plans: 10
+  completed_plans: 11
 ---
 
 # Project State
@@ -18,23 +18,23 @@ progress:
 See: .planning/PROJECT.md (updated 2026-02-26)
 
 **Core value:** Trust through transparency — probabilistic estimates with explainable breakdowns that build contractor credibility with customers
-**Current focus:** Phase 3 — LLM Integration (in progress, plan 1 of 4 complete)
+**Current focus:** Phase 3 — LLM Integration (in progress, plan 2 of 4 complete)
 
 ## Current Position
 
 Phase: 3 of 6 (LLM Integration) — IN PROGRESS
-Plan: 1 of 4 in current phase (complete)
-Status: Phase 3 Plan 01 complete — LLMService hardened: BYOK-only, error classification, SHA-256 caching, get_llm_service DI, EstimationService/ChatService rewired to accept LLMService via constructor injection; 16 new tests passing
-Last activity: 2026-02-27 — Plan 03-01 complete: settings fallback removed, classify_openai_error added, _make_cache_key + _response_cache added, stream_chat_completion added, get_llm_service FastAPI dependency added, routes/services rewired for DI
+Plan: 2 of 4 in current phase (complete)
+Status: Phase 3 Plan 02 complete — PromptService registry with SHA-256 immutability enforcement, semver "latest" resolution, three v1.0.0 prompt JSON files (scoping, narrative, estimation), prompt_version traceability on EstimationSession, lifespan wiring; 14 new tests passing
+Last activity: 2026-02-27 — Plan 03-02 complete: PromptService.load_all() loads JSON prompts at startup, get/get_version_string/list_versions/clear classmethods, EstimationSession.prompt_version Optional[str] added, prompts fail-fast at startup
 
-Progress: [████████░░] 62%
+Progress: [████████░░] 65%
 
 ## Performance Metrics
 
 **Velocity:**
-- Total plans completed: 2
+- Total plans completed: 3
 - Average duration: 3 min
-- Total execution time: 6 min
+- Total execution time: 9 min
 
 **By Phase:**
 
@@ -42,7 +42,7 @@ Progress: [████████░░] 62%
 |-------|-------|-------|----------|
 | 01-prerequisites | 2 | 6 min | 3 min |
 | 02-multi-tenant-foundation | 5 of 5 | 40 min | 8 min |
-| 03-llm-integration | 1 of 4 | 3 min | 3 min |
+| 03-llm-integration | 2 of 4 | 6 min | 3 min |
 
 **Recent Trend:**
 - Last 5 plans: 6 min avg
@@ -51,6 +51,7 @@ Progress: [████████░░] 62%
 *Updated after each plan completion*
 | Phase 02 P07 | 10 | 2 tasks | 3 files |
 | Phase 03 P01 | 3 min | 2 tasks | 6 files |
+| Phase 03 P02 | 3 min | 2 tasks | 7 files |
 
 ## Accumulated Context
 
@@ -98,6 +99,10 @@ Recent decisions affecting current work:
 - [03-01]: classify_openai_error is module-level function (not method) for direct unit test import without LLMService instantiation
 - [03-01]: Cache key uses sort_keys=True JSON + SHA-256 — ensures deterministic hashing regardless of dict insertion order
 - [03-01]: use_cache=False parameter on generate_estimation enables forced refresh without cache invalidation complexity
+- [03-02]: PromptService uses class-level _registry dict (not instance) — single shared registry loaded once at app startup, no DI complexity
+- [03-02]: SHA-256 content hash stored at load time — immutability check compares hash on second load, not field-by-field diff
+- [03-02]: prompt_version is Optional[str] = None on EstimationSession — backward-compatible with existing MongoDB documents
+- [03-02]: Startup raises on PromptService failure — prompts are critical, fail fast rather than silently serve requests without registry
 
 ### Pending Todos
 
@@ -111,5 +116,5 @@ None yet.
 ## Session Continuity
 
 Last session: 2026-02-27
-Stopped at: Completed 03-01-PLAN.md — LLMService hardened: BYOK-only constructor, classify_openai_error, SHA-256 caching, get_llm_service DI dependency, stream_chat_completion. EstimationService and ChatService rewired to accept LLMService via constructor. Routes updated. 16 tests passing. Requirements LLM-01, LLM-03, LLM-04 satisfied.
+Stopped at: Completed 03-02-PLAN.md — PromptService registry with SHA-256 immutability, semver latest resolution, three v1.0.0 JSON prompt files, EstimationSession.prompt_version added, lifespan wiring. 14 new tests passing. Requirements PRMT-01, PRMT-02, PRMT-03 satisfied.
 Resume file: None

@@ -54,9 +54,9 @@ Requirements for Epics 3-7. Each maps to roadmap phases.
 
 ### Prompt Management
 
-- [ ] **PRMT-01**: Prompts stored as versioned JSON files in git-tracked config/prompts/ directory
-- [ ] **PRMT-02**: Each estimate records which prompt_version was used for traceability
-- [ ] **PRMT-03**: Prompt versions are immutable once published (new version for changes)
+- [x] **PRMT-01**: Prompts stored as versioned JSON files in git-tracked config/prompts/ directory
+- [x] **PRMT-02**: Each estimate records which prompt_version was used for traceability
+- [x] **PRMT-03**: Prompt versions are immutable once published (new version for changes)
 
 ### Conversational Scoping
 
@@ -200,9 +200,9 @@ Which phases cover which requirements. Updated during roadmap creation.
 | LLM-02 | Phase 3 | Pending |
 | LLM-03 | Phase 3 | Complete |
 | LLM-04 | Phase 3 | Complete |
-| PRMT-01 | Phase 3 | Pending |
-| PRMT-02 | Phase 3 | Pending |
-| PRMT-03 | Phase 3 | Pending |
+| PRMT-01 | Phase 3 | Complete |
+| PRMT-02 | Phase 3 | Complete |
+| PRMT-03 | Phase 3 | Complete |
 | CHAT-01 | Phase 3 | Pending |
 | CHAT-02 | Phase 3 | Pending |
 | CHAT-03 | Phase 3 | Pending |

@@ -111,10 +111,12 @@ async def send_chat_message(
     tenant: Tenant = Depends(get_current_tenant),
     chat_service: ChatService = Depends(get_chat_service)
 ):
-    """Send a chat message for estimation."""
+    """Send a chat message for conversational project scoping."""
     try:
         response = await chat_service.send_message(request, tenant)
         return response
+    except HTTPException:
+        raise  # Let 402 etc. propagate
     except Exception as e:
         logger.error(f"Error sending chat message: {e}")
         raise HTTPException(

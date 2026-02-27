@@ -239,6 +239,8 @@ async def create_indexes():
             [("tenant_id", 1), ("session_id", 1)],
             unique=True,
         )
+        # Chat sessions — TTL auto-expiry (expires_at is set to utcnow() + 24h on creation)
+        await db["chat_sessions"].create_index("expires_at", expireAfterSeconds=0)
 
         # ------------------------------------------------------------------
         # Auth collections — TTL indexes (added by 02-01 and 02-02)

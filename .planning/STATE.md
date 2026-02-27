@@ -25,7 +25,7 @@ See: .planning/PROJECT.md (updated 2026-02-26)
 Phase: 2 of 6 (Multi-Tenant Foundation) — COMPLETE (with gap closure)
 Plan: 7 of 7 in current phase (complete)
 Status: Phase 2 complete — All plans 02-01 through 02-07 done (02-06 and 02-07 are gap closure plans)
-Last activity: 2026-02-27 — Plan 02-07 complete: BYOK-04 docs corrected (402 gate, no platform fallback); LLMService refactored to accept per-request api_key for BYOK injection; 6 new tests passing
+Last activity: 2026-02-27 — Plan 02-06 complete: tenant_service.py refactored to use TenantAwareCollection (ISOL-02 gap closure); ObjectId(tenant_id) removed; 7 unit tests passing. Plan 02-07 also complete: BYOK-04 docs corrected (402 gate, no platform fallback); LLMService refactored to accept per-request api_key for BYOK injection; 6 new tests passing
 
 Progress: [████████░░] 58%
 
@@ -88,6 +88,9 @@ Recent decisions affecting current work:
 - [02-05]: Login rate limit key function falls back to ip:{addr} for unauthenticated requests — enables brute-force protection per IP
 - [Phase 02]: BYOK-04 docs corrected: LLM endpoints return 402 when no BYOK key stored (no platform fallback) — aligns with locked decision from CONTEXT.md
 - [Phase 02]: [02-07]: LLMService api_key fallback to settings.OPENAI_API_KEY retained ONLY for dev/testing; WILL be removed in Phase 3 (LLM-01) per-request injection plan
+- [02-06]: get_all_tenant_statistics uses get_collection() (raw, unscoped) — intentional cross-tenant admin access, not a bug
+- [02-06]: validate_tenant_limits derives monthly limit from TIER_LIMITS (trial=100, paid=1000) with settings override — Tenant model has no max_estimations_per_month field directly
+- [02-06]: get_tenant() now returns dict (not Tenant model) using {"tenant_id": tenant_id} filter — consistent with get_by_tenant_id() contract
 
 ### Pending Todos
 
@@ -101,5 +104,5 @@ None yet.
 ## Session Continuity
 
 Last session: 2026-02-27
-Stopped at: Completed 02-07-PLAN.md — BYOK-04 docs corrected (no platform fallback, 402 gate), LLMService refactored to accept per-request api_key for BYOK injection; 6 tests passing. Phase 2 gap closure complete. Ready for Phase 3.
+Stopped at: Completed 02-06-PLAN.md — tenant_service.py refactored: TenantAwareCollection for get_tenant_statistics() and validate_tenant_limits(), ObjectId(tenant_id) removed, 7 unit tests passing. ISOL-02 gap closed. Phase 2 fully complete (all gap closures done). Ready for Phase 3.
 Resume file: None

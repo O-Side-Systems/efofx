@@ -6,8 +6,12 @@ for the estimation service.
 """
 
 from fastapi import APIRouter, Depends, HTTPException, Request, UploadFile, File
+from fastapi.responses import StreamingResponse
 from typing import List, Optional
+import json
 import logging
+
+from openai import OpenAIError
 
 from app.core.rate_limit import limiter, get_tenant_id_for_limit, get_tier_limit
 from app.core.security import get_current_tenant
@@ -19,7 +23,8 @@ from app.models.feedback import FeedbackCreate, FeedbackSummary
 from app.services.estimation_service import EstimationService
 from app.services.chat_service import ChatService
 from app.services.feedback_service import FeedbackService
-from app.services.llm_service import LLMService, get_llm_service
+from app.services.llm_service import LLMService, get_llm_service, classify_openai_error
+from app.services.prompt_service import PromptService
 
 logger = logging.getLogger(__name__)
 
@@ -123,6 +128,124 @@ async def send_chat_message(
             status_code=HTTP_STATUS["INTERNAL_ERROR"],
             detail="Failed to process chat message"
         )
+
+
+@api_router.post("/chat/{session_id}/generate-estimate")
+@limiter.limit(get_tier_limit, key_func=get_tenant_id_for_limit)
+async def generate_estimate_stream(
+    request: Request,
+    session_id: str,
+    tenant: Tenant = Depends(get_current_tenant),
+    llm_service: LLMService = Depends(get_llm_service),
+):
+    """Generate estimate and stream narrative via SSE.
+
+    Flow:
+    1. Emit 'thinking' event
+    2. Retrieve chat session and validate readiness
+    3. Generate structured estimation (non-streaming, via beta.chat.completions.parse)
+    4. Emit 'estimate' event with structured data as JSON
+    5. Stream narrative token-by-token as 'data:' events
+    6. Emit 'done' event with session_id
+
+    On error: emit 'error' event with error_type and close stream.
+    """
+    chat_service = ChatService(llm_service=llm_service)
+    estimation_service = EstimationService(llm_service=llm_service)
+
+    async def event_generator():
+        try:
+            # Phase 1: Thinking state (NARR-04)
+            yield "event: thinking\ndata: {}\n\n"
+
+            # Phase 2: Retrieve chat session
+            session = await chat_service.get_session(session_id, tenant)
+            if session.status not in ("ready", "active"):
+                yield (
+                    f'event: error\ndata: {json.dumps({"error_type": "invalid_state", "message": "Session is not ready for estimate generation"})}\n\n'
+                )
+                return
+
+            # Phase 3: Generate structured estimation (non-streaming)
+            est_session, estimation_output = await estimation_service.generate_from_chat(
+                session=session,
+                tenant=tenant,
+            )
+
+            # Phase 4: Emit structured estimate data
+            estimate_json = estimation_output.model_dump_json()
+            yield f"event: estimate\ndata: {estimate_json}\n\n"
+
+            # Phase 5: Stream narrative
+            narrative_prompt = PromptService.get("narrative", "latest")
+
+            # Format cost breakdown for narrative prompt
+            cost_breakdown_str = "\n".join(
+                f"- {cat.category}: ${cat.p50_cost:,.0f} - ${cat.p80_cost:,.0f} ({cat.percentage_of_total:.0%} of total)"
+                for cat in estimation_output.cost_breakdown
+            )
+            adjustment_str = "\n".join(
+                f"- {af.name}: {af.multiplier}x — {af.reason}"
+                for af in estimation_output.adjustment_factors
+            )
+            assumptions_str = "\n".join(f"- {a}" for a in estimation_output.assumptions)
+
+            # Build narrative messages
+            user_content = narrative_prompt["user_prompt_template"].format(
+                project_description=est_session.description,
+                total_cost_p50=estimation_output.total_cost_p50,
+                total_cost_p80=estimation_output.total_cost_p80,
+                timeline_weeks_p50=estimation_output.timeline_weeks_p50,
+                timeline_weeks_p80=estimation_output.timeline_weeks_p80,
+                cost_breakdown=cost_breakdown_str,
+                adjustment_factors=adjustment_str,
+                assumptions=assumptions_str,
+            )
+
+            messages = [
+                {"role": "system", "content": narrative_prompt["system_prompt"]},
+                {"role": "user", "content": user_content},
+            ]
+
+            # Stream narrative tokens — None values already filtered in stream_chat_completion
+            async for token in llm_service.stream_chat_completion(messages):
+                # Escape newlines to preserve SSE framing
+                escaped = token.replace("\n", "\\n")
+                yield f"data: {escaped}\n\n"
+
+            # Phase 6: Mark chat session as completed
+            await chat_service.mark_completed(session_id, tenant, est_session.session_id)
+
+            # Phase 7: Done
+            yield f'event: done\ndata: {json.dumps({"session_id": est_session.session_id})}\n\n'
+
+        except OpenAIError as exc:
+            error_type, status_code = classify_openai_error(exc)
+            error_msg = {
+                "invalid_key": "Invalid OpenAI API key. Update your key in Settings.",
+                "quota_exhausted": "OpenAI quota exhausted. Recharge your OpenAI account.",
+                "transient": "We're having trouble generating a response. Please try again in a moment.",
+                "unknown": "An unexpected error occurred during AI processing.",
+            }.get(error_type, "An unexpected error occurred.")
+            yield f'event: error\ndata: {json.dumps({"error_type": error_type, "message": error_msg, "status": status_code})}\n\n'
+
+        except ValueError as exc:
+            # Chat session not found or invalid state
+            yield f'event: error\ndata: {json.dumps({"error_type": "invalid_session", "message": str(exc)})}\n\n'
+
+        except Exception as exc:
+            logger.error(f"Unexpected error in estimate stream: {exc}")
+            yield f'event: error\ndata: {json.dumps({"error_type": "unknown", "message": "An unexpected error occurred."})}\n\n'
+
+    return StreamingResponse(
+        event_generator(),
+        media_type="text/event-stream",
+        headers={
+            "Cache-Control": "no-cache",
+            "X-Accel-Buffering": "no",
+            "Connection": "keep-alive",
+        },
+    )
 
 
 @api_router.get("/chat/{session_id}/history")

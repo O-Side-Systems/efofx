@@ -3,45 +3,103 @@ LLM service for efOfX Estimation Service.
 
 This module provides integration with OpenAI for natural language processing
 and estimation generation using OpenAI v2 structured outputs.
+
+BYOK Key Injection
+------------------
+Every LLM call uses the tenant's decrypted BYOK key. There is no fallback to
+settings.OPENAI_API_KEY in production code paths. Use the ``get_llm_service``
+FastAPI dependency to obtain a scoped LLMService with the tenant's key.
+
+    from app.services.llm_service import get_llm_service
+
+    @router.post("/some-endpoint")
+    async def handler(llm: LLMService = Depends(get_llm_service)):
+        result = await llm.generate_estimation(...)
 """
 
+import hashlib
+import json
 import logging
 from typing import Optional, Dict, Any
 
-from openai import AsyncOpenAI, OpenAIError, RateLimitError, APITimeoutError
+from fastapi import Depends, HTTPException
+from openai import (
+    AsyncOpenAI,
+    AuthenticationError,
+    RateLimitError,
+    APITimeoutError,
+    APIConnectionError,
+    OpenAIError,
+)
 
 from app.core.config import settings
+from app.core.security import get_current_tenant
 from app.models.estimation import EstimationOutput
+from app.models.tenant import Tenant
+from app.services.byok_service import decrypt_tenant_openai_key
 
 logger = logging.getLogger(__name__)
+
+# ---------------------------------------------------------------------------
+# In-memory response cache
+# ---------------------------------------------------------------------------
+
+_response_cache: dict[str, str] = {}  # In-memory; upgrade to Valkey for multi-instance
+
+
+# ---------------------------------------------------------------------------
+# Cache key helper
+# ---------------------------------------------------------------------------
+
+
+def _make_cache_key(messages: list[dict], model: str) -> str:
+    """SHA-256 hash of (messages + model) for deterministic cache key."""
+    payload = {"messages": messages, "model": model}
+    serialized = json.dumps(payload, sort_keys=True, ensure_ascii=True)
+    return hashlib.sha256(serialized.encode("utf-8")).hexdigest()
+
+
+# ---------------------------------------------------------------------------
+# Error classification
+# ---------------------------------------------------------------------------
+
+
+def classify_openai_error(exc: OpenAIError) -> tuple[str, int]:
+    """Classify an OpenAI exception into (error_type, http_status).
+
+    Returns:
+        ("invalid_key", 402) — key is invalid or expired
+        ("quota_exhausted", 402) — OpenAI quota used up
+        ("transient", 503) — timeout/connection/rate-limit, retry eligible
+        ("unknown", 500) — unexpected error
+    """
+    if isinstance(exc, AuthenticationError):
+        return ("invalid_key", 402)
+    if isinstance(exc, RateLimitError):
+        if "insufficient_quota" in str(exc):
+            return ("quota_exhausted", 402)
+        return ("transient", 503)
+    if isinstance(exc, (APITimeoutError, APIConnectionError)):
+        return ("transient", 503)
+    return ("unknown", 500)
+
+
+# ---------------------------------------------------------------------------
+# LLMService
+# ---------------------------------------------------------------------------
 
 
 class LLMService:
     """Service for LLM integration and text generation.
 
-    BYOK Key Injection
-    ------------------
-    In production, callers MUST provide `api_key` — the plaintext key obtained
-    by calling ``decrypt_tenant_openai_key(tenant_id)`` (which raises HTTP 402
-    if the tenant has not stored a key).
-
-    The ``settings.OPENAI_API_KEY`` fallback exists ONLY for:
-    - Local development / unit tests (no real tenant keys available)
-    - The transition period until Phase 3 (LLM-01) wires per-request instantiation
-
-    Phase 3 caller pattern::
-
-        key = await decrypt_tenant_openai_key(tenant_id)  # raises 402 if missing
-        llm = LLMService(api_key=key)
-        result = await llm.generate_estimation(...)
-
-    The platform ``settings.OPENAI_API_KEY`` fallback WILL be removed once Phase 3
-    implements per-request client injection (LLM-01). No tenant's LLM call should
-    ever use the platform key in production.
+    Every instance is scoped to a single request and uses the tenant's
+    decrypted BYOK key. There is no fallback to settings.OPENAI_API_KEY.
+    Use the ``get_llm_service`` FastAPI dependency to obtain an instance.
     """
 
-    def __init__(self, api_key: Optional[str] = None) -> None:
-        self.api_key = api_key or settings.OPENAI_API_KEY
+    def __init__(self, api_key: str) -> None:
+        """api_key is REQUIRED — no fallback to settings.OPENAI_API_KEY."""
+        self.api_key = api_key
         self.client = AsyncOpenAI(api_key=self.api_key)
         self.model = settings.OPENAI_MODEL
         self.max_tokens = settings.OPENAI_MAX_TOKENS
@@ -108,12 +166,21 @@ Please provide only the reference class name as your response."""
         reference_class: str,
         region: str,
         reference_data: Optional[Dict[str, Any]] = None,
+        use_cache: bool = True,
     ) -> EstimationOutput:
         """Generate structured estimation using OpenAI v2 structured output.
 
         Uses client.beta.chat.completions.parse() with EstimationOutput Pydantic model
         as response_format for guaranteed schema conformance. Returns a fully typed
         EstimationOutput — no hardcoded stubs or fallback values.
+
+        Args:
+            description:     Project description text.
+            reference_class: Reference class name for the project.
+            region:          Geographic region string.
+            reference_data:  Optional reference data dict.
+            use_cache:       When True (default), return cached response if available.
+                             When False, bypass cache (useful for forced refresh).
         """
         system_prompt = (
             "You are a project cost estimation expert. Given a project description, "
@@ -131,13 +198,22 @@ Region: {region}"""
         if reference_data:
             user_prompt += f"\nReference Data: {reference_data}"
 
+        messages = [
+            {"role": "system", "content": system_prompt},
+            {"role": "user", "content": user_prompt},
+        ]
+
+        cache_key = _make_cache_key(messages, settings.OPENAI_MODEL)
+
+        # Cache lookup
+        if use_cache and cache_key in _response_cache:
+            logger.debug("Cache hit for estimation request (key=%s...)", cache_key[:8])
+            return EstimationOutput.model_validate_json(_response_cache[cache_key])
+
         try:
             completion = await self.client.beta.chat.completions.parse(
                 model=settings.OPENAI_MODEL,  # gpt-4o-mini (required for structured outputs)
-                messages=[
-                    {"role": "system", "content": system_prompt},
-                    {"role": "user", "content": user_prompt},
-                ],
+                messages=messages,
                 response_format=EstimationOutput,
             )
             result = completion.choices[0].message.parsed
@@ -146,6 +222,10 @@ Region: {region}"""
                 # LLM refused or failed to produce a parseable response
                 refusal = completion.choices[0].message.refusal
                 raise ValueError(f"LLM refused or failed to parse structured output: {refusal}")
+
+            # Store in cache
+            if use_cache:
+                _response_cache[cache_key] = result.model_dump_json()
 
             return result
 
@@ -158,3 +238,38 @@ Region: {region}"""
         except OpenAIError as e:
             logger.error(f"OpenAI API error generating estimation: {e}")
             raise
+
+    async def stream_chat_completion(
+        self,
+        messages: list[dict],
+        temperature: float | None = None,
+    ):
+        """Async generator yielding content strings from a streaming chat completion.
+
+        Filters out None chunks (role-only and finish_reason-only).
+        Caller wraps in SSE formatting.
+        """
+        stream = await self.client.chat.completions.create(
+            model=self.model,
+            messages=messages,
+            stream=True,
+            temperature=temperature or self.temperature,
+        )
+        async for chunk in stream:
+            content = chunk.choices[0].delta.content
+            if content is not None:
+                yield content
+
+
+# ---------------------------------------------------------------------------
+# FastAPI dependency
+# ---------------------------------------------------------------------------
+
+
+async def get_llm_service(tenant: Tenant = Depends(get_current_tenant)) -> LLMService:
+    """FastAPI dependency: decrypt BYOK key and return scoped LLMService.
+
+    Raises HTTP 402 if tenant has no stored OpenAI key.
+    """
+    api_key = await decrypt_tenant_openai_key(tenant.tenant_id)
+    return LLMService(api_key=api_key)

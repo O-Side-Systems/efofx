@@ -64,6 +64,11 @@ API_MESSAGES = {
     "RATE_LIMITED": "Rate limit exceeded",
     "LLM_ERROR": "Language model processing error",
     "DB_ERROR": "Database operation failed",
+    # BYOK / LLM error messages
+    "BYOK_INVALID_KEY": "Invalid OpenAI API key. Update your key in Settings.",
+    "BYOK_QUOTA_EXHAUSTED": "OpenAI quota exhausted. Recharge your OpenAI account.",
+    "LLM_TRANSIENT_ERROR": "We're having trouble generating a response. Please try again in a moment.",
+    "LLM_UNKNOWN_ERROR": "An unexpected error occurred during AI processing.",
 }
 
 

@@ -72,11 +72,14 @@ export function ChatPanel() {
     }
   }, [isReady, phase, setPhase]);
 
-  // Transition generating -> result when SSE stream finishes
+  // Transition generating -> result when SSE stream finishes, track estimate_complete
   useEffect(() => {
     if (!isStreaming && estimateData && phase === 'generating') {
       setPhase('result');
+      // WFTR-04: Track estimate_complete — fire-and-forget
+      trackEvent(config.apiKey, 'estimate_complete');
     }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isStreaming, estimateData, phase, setPhase]);
 
   // Auto-scroll messages container to bottom on new messages or narrative tokens

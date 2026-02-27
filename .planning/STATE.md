@@ -3,12 +3,12 @@ gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
 status: unknown
-last_updated: "2026-02-27T18:18:25.776Z"
+last_updated: "2026-02-27T18:28:09.130Z"
 progress:
   total_phases: 4
   completed_phases: 3
   total_plans: 17
-  completed_plans: 14
+  completed_plans: 16
 ---
 
 # Project State
@@ -18,14 +18,14 @@ progress:
 See: .planning/PROJECT.md (updated 2026-02-26)
 
 **Core value:** Trust through transparency — probabilistic estimates with explainable breakdowns that build contractor credibility with customers
-**Current focus:** Phase 4 — White Label Widget (In Progress — 1 of 4 plans done)
+**Current focus:** Phase 4 — White Label Widget (In Progress — 3 of 4 plans done)
 
 ## Current Position
 
 Phase: 4 of 6 (White Label Widget) — In Progress
-Plan: 2 of 4 in current phase (complete)
-Status: Phase 4 Plan 02 complete — Public branding endpoint, TenantAwareCORSMiddleware, lead capture, analytics endpoints. 11 tests passing. Requirements BRND-01 through BRND-04, WDGT-05 satisfied.
-Last activity: 2026-02-27 — Plan 04-02 complete: GET /widget/branding/{prefix} (public, 30/min), TenantAwareCORSMiddleware with lazy _tenant_origins_cache, POST /widget/lead and /analytics (auth required). 11 new tests passing.
+Plan: 3 of 4 in current phase (complete)
+Status: Phase 4 Plan 03 complete — Chat UI, lead capture form, estimate display wired into widget. fetch+ReadableStream SSE, DOMPurify sanitization, P50/P80 range bar, accordion cost breakdown, streamed narrative. Requirements WFTR-01, WFTR-02, WFTR-03 satisfied.
+Last activity: 2026-02-27 — Plan 04-03 complete: 6 API/hook files + 6 component files + ChatPanel orchestrator + App.tsx branding wiring + 350 lines CSS. Bundle builds to 637 kB (gzip 193 kB), zero TypeScript errors.
 
 Progress: [█████░░░░░] 50%
 
@@ -55,6 +55,7 @@ Progress: [█████░░░░░] 50%
 | Phase 03 P03 | 4 min | 2 tasks | 5 files |
 | Phase 03 P04 | 8 min | 2 tasks | 5 files |
 | Phase 04-white-label-widget P02 | 4 | 2 tasks | 7 files |
+| Phase 04 P03 | 5 | 2 tasks | 15 files |
 
 ## Accumulated Context
 
@@ -121,6 +122,9 @@ Recent decisions affecting current work:
 - [Phase 04-white-label-widget]: Module-level _tenant_origins_cache dict shared by TenantAwareCORSMiddleware and widget_service — enables lazy CORS population without async DB calls in middleware
 - [Phase 04-white-label-widget]: Branding endpoint uses key_func=get_remote_address explicitly — global limiter uses tenant-scoped key but public endpoint has no auth so IP-based limiting is required
 - [Phase 04-white-label-widget]: Patch mocks at point of use (app.api.widget.save_lead) not at definition (app.services.widget_service.save_lead) — Python from-import creates local binding that must be patched where used
+- [Phase 04]: fetch+ReadableStream for SSE (not EventSource) — EventSource cannot set Authorization headers; required for bearer-token-protected streams
+- [Phase 04]: CSS custom properties applied from inside shadow root via getRootNode() instanceof ShadowRoot — avoids threading branding back up to ShadowDOMWrapper parent
+- [Phase 04]: App.tsx owns branding fetch (not ChatPanel) — single source of truth passed to both WidgetProvider context and shadow root :host CSS override
 
 ### Pending Todos
 
@@ -134,5 +138,5 @@ None yet.
 ## Session Continuity
 
 Last session: 2026-02-27
-Stopped at: Completed 04-01-PLAN.md — Widget IIFE shell with Shadow DOM CSS isolation, FloatingButton, ChatPanel (slide-up/full-screen), WidgetContext, WidgetErrorBoundary, vite build produces dist/embed.js (594 kB). Requirements WDGT-01, WDGT-02, WDGT-03, WDGT-04, WSEC-01 satisfied.
+Stopped at: Completed 04-03-PLAN.md — Chat UI, lead capture form, estimate display wired into widget. fetch+ReadableStream SSE, DOMPurify sanitization, P50/P80 range bar, accordion cost breakdown, streamed narrative. Requirements WFTR-01, WFTR-02, WFTR-03 satisfied.
 Resume file: None

@@ -90,9 +90,9 @@ Requirements for Epics 3-7. Each maps to roadmap phases.
 
 ### Widget Features
 
-- [ ] **WFTR-01**: Conversational chat UI within widget for project scoping
-- [ ] **WFTR-02**: Lead capture form collects prospect email and phone before estimate
-- [ ] **WFTR-03**: Estimate results displayed in widget with P50/P80 ranges and cost breakdown
+- [x] **WFTR-01**: Conversational chat UI within widget for project scoping
+- [x] **WFTR-02**: Lead capture form collects prospect email and phone before estimate
+- [x] **WFTR-03**: Estimate results displayed in widget with P50/P80 ranges and cost breakdown
 - [ ] **WFTR-04**: Widget analytics track views, chat starts, estimate completions per tenant
 
 ### Widget Security
@@ -221,9 +221,9 @@ Which phases cover which requirements. Updated during roadmap creation.
 | BRND-02 | Phase 4 | Complete |
 | BRND-03 | Phase 4 | Complete |
 | BRND-04 | Phase 4 | Complete |
-| WFTR-01 | Phase 4 | Pending |
-| WFTR-02 | Phase 4 | Pending |
-| WFTR-03 | Phase 4 | Pending |
+| WFTR-01 | Phase 4 | Complete |
+| WFTR-02 | Phase 4 | Complete |
+| WFTR-03 | Phase 4 | Complete |
 | WFTR-04 | Phase 4 | Pending |
 | WSEC-01 | Phase 4 | Complete |
 | WSEC-02 | Phase 4 | Pending |

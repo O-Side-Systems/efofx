@@ -2,13 +2,13 @@
 gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
-status: active
-last_updated: "2026-02-26T23:35:35.000Z"
+status: unknown
+last_updated: "2026-02-27T14:47:59.401Z"
 progress:
-  total_phases: 6
-  completed_phases: 2
-  total_plans: 12
-  completed_plans: 7
+  total_phases: 2
+  completed_phases: 1
+  total_plans: 9
+  completed_plans: 8
 ---
 
 # Project State
@@ -22,10 +22,10 @@ See: .planning/PROJECT.md (updated 2026-02-26)
 
 ## Current Position
 
-Phase: 2 of 6 (Multi-Tenant Foundation) — COMPLETE
-Plan: 5 of 5 in current phase (complete)
-Status: Phase 2 complete — All plans 02-01 through 02-05 done
-Last activity: 2026-02-26 — Plan 02-05 complete: slowapi rate limiting with Valkey backend, tier-based per-tenant limits, login brute-force protection, X-RateLimit headers via middleware
+Phase: 2 of 6 (Multi-Tenant Foundation) — COMPLETE (with gap closure)
+Plan: 7 of 7 in current phase (complete)
+Status: Phase 2 complete — All plans 02-01 through 02-07 done (02-06 and 02-07 are gap closure plans)
+Last activity: 2026-02-27 — Plan 02-07 complete: BYOK-04 docs corrected (402 gate, no platform fallback); LLMService refactored to accept per-request api_key for BYOK injection; 6 new tests passing
 
 Progress: [████████░░] 58%
 
@@ -48,6 +48,7 @@ Progress: [████████░░] 58%
 - Trend: Fast
 
 *Updated after each plan completion*
+| Phase 02 P07 | 10 | 2 tasks | 3 files |
 
 ## Accumulated Context
 
@@ -85,6 +86,8 @@ Recent decisions affecting current work:
 - [02-05]: slowapi headers_enabled=True incompatible with FastAPI Pydantic model returns; custom add_rate_limit_headers middleware reads request.state.view_rate_limit to inject X-RateLimit-* headers instead
 - [02-05]: Rate limit test isolation: patch limiter._storage/_limiter to MemoryStorage on existing global instance (not new instance) — decorator captures global at import time
 - [02-05]: Login rate limit key function falls back to ip:{addr} for unauthenticated requests — enables brute-force protection per IP
+- [Phase 02]: BYOK-04 docs corrected: LLM endpoints return 402 when no BYOK key stored (no platform fallback) — aligns with locked decision from CONTEXT.md
+- [Phase 02]: [02-07]: LLMService api_key fallback to settings.OPENAI_API_KEY retained ONLY for dev/testing; WILL be removed in Phase 3 (LLM-01) per-request injection plan
 
 ### Pending Todos
 
@@ -97,6 +100,6 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-02-26
-Stopped at: Completed 02-05-PLAN.md — Phase 2 complete. slowapi rate limiting with Valkey backend, tier-based limits (trial 20/min, paid 100/min), login brute-force protection (5/15min per IP), X-RateLimit header middleware; 19 tests passing. Ready for Phase 3.
+Last session: 2026-02-27
+Stopped at: Completed 02-07-PLAN.md — BYOK-04 docs corrected (no platform fallback, 402 gate), LLMService refactored to accept per-request api_key for BYOK injection; 6 tests passing. Phase 2 gap closure complete. Ready for Phase 3.
 Resume file: None

@@ -29,7 +29,7 @@ class FeedbackService:
         try:
             # Create feedback document
             feedback_doc = Feedback(
-                tenant_id=tenant.id,
+                tenant_id=tenant.tenant_id,
                 estimation_session_id=feedback.estimation_session_id,
                 feedback_type=feedback.feedback_type,
                 rating=feedback.rating,
@@ -43,7 +43,7 @@ class FeedbackService:
                 metadata=feedback.metadata or {}
             )
 
-            collection = self._collection(tenant.id)
+            collection = self._collection(tenant.tenant_id)
             # Save to database — TenantAwareCollection stamps tenant_id automatically
             result = await collection.insert_one(feedback_doc.dict(by_alias=True))
             
@@ -57,7 +57,7 @@ class FeedbackService:
     async def get_feedback_summary(self, tenant: Tenant) -> FeedbackSummary:
         """Get feedback summary for tenant."""
         try:
-            collection = self._collection(tenant.id)
+            collection = self._collection(tenant.tenant_id)
             # TenantAwareCollection auto-scopes to this tenant — no filter needed
             feedback_cursor = collection.find({})
             feedback_list = await feedback_cursor.to_list(length=None)
@@ -118,7 +118,7 @@ class FeedbackService:
     async def get_feedback_by_type(self, tenant: Tenant, feedback_type: str) -> List[Feedback]:
         """Get feedback by type for tenant."""
         try:
-            collection = self._collection(tenant.id)
+            collection = self._collection(tenant.tenant_id)
             cursor = collection.find({"feedback_type": feedback_type})
             
             feedback_list = await cursor.to_list(length=None)
@@ -131,7 +131,7 @@ class FeedbackService:
     async def get_feedback_by_session(self, session_id: str, tenant: Tenant) -> List[Feedback]:
         """Get feedback for specific estimation session."""
         try:
-            collection = self._collection(tenant.id)
+            collection = self._collection(tenant.tenant_id)
             cursor = collection.find({"estimation_session_id": session_id})
             
             feedback_list = await cursor.to_list(length=None)
@@ -147,7 +147,7 @@ class FeedbackService:
             # Get feedback from last N days
             start_date = datetime.utcnow() - timedelta(days=days)
 
-            collection = self._collection(tenant.id)
+            collection = self._collection(tenant.tenant_id)
             cursor = collection.find({"created_at": {"$gte": start_date}})
             
             feedback_list = await cursor.to_list(length=None)

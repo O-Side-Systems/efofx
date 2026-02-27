@@ -19,7 +19,7 @@ from app.api.routes import api_router
 from app.api.auth import router as auth_router
 from app.api.widget import widget_router
 from app.middleware.cors import TenantAwareCORSMiddleware
-from app.db.mongodb import connect_to_mongo, close_mongo_connection, health_check as db_health_check
+from app.db.mongodb import connect_to_mongo, close_mongo_connection, health_check as db_health_check, create_indexes
 from app.services.prompt_service import PromptService
 
 # Configure logging
@@ -32,13 +32,12 @@ async def lifespan(app: FastAPI):
     """Application lifespan events."""
     # Startup
     logger.info("Starting efOfX Estimation Service...")
-    try:
-        await connect_to_mongo()
-        logger.info("MongoDB connection established")
-    except Exception as e:
-        logger.error(f"Failed to connect to MongoDB: {e}")
+    await connect_to_mongo()
+    logger.info("MongoDB connection established")
+    await create_indexes()
+    logger.info("Database indexes created")
 
-    # Load versioned prompts — critical dependency, fail startup if missing
+    # Load versioned prompts -- critical dependency, fail startup if missing
     prompts_dir = os.path.join(
         os.path.dirname(os.path.dirname(os.path.abspath(__file__))),
         "config",
@@ -49,7 +48,7 @@ async def lifespan(app: FastAPI):
         logger.info("Prompt registry loaded")
     except Exception as e:
         logger.error(f"Failed to load prompt registry: {e}")
-        raise  # Prompts are critical — fail startup if they can't load
+        raise  # Prompts are critical -- fail startup if they can't load
 
     yield
 

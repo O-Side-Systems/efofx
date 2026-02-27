@@ -77,7 +77,7 @@ class EstimationService:
     async def get_estimation(self, session_id: str, tenant: Tenant) -> EstimationResponse:
         """Get estimation session status and results."""
         try:
-            collection = self._collection(tenant.id)
+            collection = self._collection(tenant.tenant_id)
             # TenantAwareCollection auto-injects tenant_id — no need to add it manually
             session_data = await collection.find_one({"session_id": session_id})
 
@@ -121,7 +121,7 @@ class EstimationService:
             # Generate image URL (in production, this would upload to cloud storage)
             image_url = f"https://storage.efofx.ai/images/{session_id}/{file.filename}"
 
-            collection = self._collection(tenant.id)
+            collection = self._collection(tenant.tenant_id)
             # TenantAwareCollection auto-injects tenant_id into the filter
             await collection.update_one(
                 {"session_id": session_id},

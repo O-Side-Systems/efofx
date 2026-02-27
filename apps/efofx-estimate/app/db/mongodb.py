@@ -187,7 +187,9 @@ async def create_indexes():
         # Tenants — NOT tenant-scoped (top-level entity, identified by email)
         # ------------------------------------------------------------------
         await db["tenants"].create_index("email", unique=True)
+        logger.info("Index confirmed: tenants.email_1")
         await db["tenants"].create_index("tenant_id", unique=True)
+        logger.info("Index confirmed: tenants.tenant_id_1")
 
         # ------------------------------------------------------------------
         # Estimates — compound tenant_id FIRST (ISOL-03)
@@ -196,11 +198,13 @@ async def create_indexes():
         await db["estimates"].create_index(
             [("tenant_id", 1), ("created_at", -1)]
         )
+        logger.info("Index confirmed: estimates.tenant_id_1_created_at_-1")
         # Unique per (tenant, session) — also covers session_id lookup within tenant
         await db["estimates"].create_index(
             [("tenant_id", 1), ("session_id", 1)],
             unique=True,
         )
+        logger.info("Index confirmed: estimates.tenant_id_1_session_id_1")
 
         # ------------------------------------------------------------------
         # Reference classes — tenant_id first; platform data (None) queryable
@@ -208,9 +212,11 @@ async def create_indexes():
         await db["reference_classes"].create_index(
             [("tenant_id", 1), ("category", 1)]
         )
+        logger.info("Index confirmed: reference_classes.tenant_id_1_category_1")
         await db["reference_classes"].create_index(
             [("tenant_id", 1), ("name", 1)]
         )
+        logger.info("Index confirmed: reference_classes.tenant_id_1_name_1")
 
         # ------------------------------------------------------------------
         # Reference projects — tenant_id first
@@ -218,9 +224,11 @@ async def create_indexes():
         await db["reference_projects"].create_index(
             [("tenant_id", 1), ("reference_class", 1)]
         )
+        logger.info("Index confirmed: reference_projects.tenant_id_1_reference_class_1")
         await db["reference_projects"].create_index(
             [("tenant_id", 1), ("region", 1)]
         )
+        logger.info("Index confirmed: reference_projects.tenant_id_1_region_1")
 
         # ------------------------------------------------------------------
         # Feedback — tenant_id first
@@ -228,9 +236,11 @@ async def create_indexes():
         await db["feedback"].create_index(
             [("tenant_id", 1), ("estimation_session_id", 1)]
         )
+        logger.info("Index confirmed: feedback.tenant_id_1_estimation_session_id_1")
         await db["feedback"].create_index(
             [("tenant_id", 1), ("created_at", -1)]
         )
+        logger.info("Index confirmed: feedback.tenant_id_1_created_at_-1")
 
         # ------------------------------------------------------------------
         # Chat sessions — tenant_id first; unique per (tenant, session)
@@ -239,8 +249,10 @@ async def create_indexes():
             [("tenant_id", 1), ("session_id", 1)],
             unique=True,
         )
+        logger.info("Index confirmed: chat_sessions.tenant_id_1_session_id_1")
         # Chat sessions — TTL auto-expiry (expires_at is set to utcnow() + 24h on creation)
         await db["chat_sessions"].create_index("expires_at", expireAfterSeconds=0)
+        logger.info("Index confirmed: chat_sessions.expires_at_1")
 
         # ------------------------------------------------------------------
         # Auth collections — TTL indexes (added by 02-01 and 02-02)
@@ -248,10 +260,13 @@ async def create_indexes():
         await db["verification_tokens"].create_index(
             "expires_at", expireAfterSeconds=0
         )
+        logger.info("Index confirmed: verification_tokens.expires_at_1")
         await db["refresh_tokens"].create_index(
             "expires_at", expireAfterSeconds=0
         )
+        logger.info("Index confirmed: refresh_tokens.expires_at_1")
         await db["refresh_tokens"].create_index("token_hash", unique=True)
+        logger.info("Index confirmed: refresh_tokens.token_hash_1")
 
         logger.info("Database indexes created successfully")
 

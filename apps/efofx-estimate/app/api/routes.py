@@ -19,20 +19,21 @@ from app.models.feedback import FeedbackCreate, FeedbackSummary
 from app.services.estimation_service import EstimationService
 from app.services.chat_service import ChatService
 from app.services.feedback_service import FeedbackService
+from app.services.llm_service import LLMService, get_llm_service
 
 logger = logging.getLogger(__name__)
 
 # Create main API router
 api_router = APIRouter()
 
-# Service dependency injection (lazy initialization)
-def get_estimation_service() -> EstimationService:
-    """Get estimation service instance."""
-    return EstimationService()
+# Service dependency injection — BYOK key flows through get_llm_service
+def get_estimation_service(llm_service: LLMService = Depends(get_llm_service)) -> EstimationService:
+    """Get estimation service instance with tenant BYOK key injected."""
+    return EstimationService(llm_service=llm_service)
 
-def get_chat_service() -> ChatService:
-    """Get chat service instance."""
-    return ChatService()
+def get_chat_service(llm_service: LLMService = Depends(get_llm_service)) -> ChatService:
+    """Get chat service instance with tenant BYOK key injected."""
+    return ChatService(llm_service=llm_service)
 
 def get_feedback_service() -> FeedbackService:
     """Get feedback service instance."""

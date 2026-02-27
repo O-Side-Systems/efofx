@@ -22,8 +22,8 @@ logger = logging.getLogger(__name__)
 class ChatService:
     """Service for handling chat functionality."""
 
-    def __init__(self):
-        self.llm_service = LLMService()
+    def __init__(self, llm_service: LLMService):
+        self.llm_service = llm_service
 
     def _collection(self, tenant_id: str):
         """Get tenant-scoped chat sessions collection."""

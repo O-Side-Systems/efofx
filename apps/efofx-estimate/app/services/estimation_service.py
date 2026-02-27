@@ -25,8 +25,8 @@ logger = logging.getLogger(__name__)
 class EstimationService:
     """Service for handling estimation logic and sessions."""
 
-    def __init__(self):
-        self.llm_service = LLMService()
+    def __init__(self, llm_service: LLMService):
+        self.llm_service = llm_service
         self.reference_service = ReferenceService()
 
     def _collection(self, tenant_id: str):

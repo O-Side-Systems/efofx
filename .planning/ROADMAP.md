@@ -107,10 +107,10 @@ Plans:
   2. `create_indexes()` is called from main.py lifespan after `connect_to_mongo()` — indexes exist after fresh deployment
   3. Legacy POST `/estimate/start` stub endpoint is removed or deprecated — no hardcoded estimation paths remain
   4. Dead code removed: `rotate_openai_key()` in byok_service.py, `get_tenant_allowed_origins()` in widget_service.py
-**Plans**: TBD
+**Plans**: 1 plan
 
 Plans:
-- [ ] 04.1-01: Fix tenant.id AttributeError in legacy services, wire create_indexes() to lifespan, remove legacy stub endpoint, clean dead code (INT-01, INT-02, INT-03)
+- [ ] 04.1-01: Fix tenant.id AttributeError, wire create_indexes() to startup, remove POST /estimate/start, delete dead code (INT-01, INT-02, INT-03)
 
 ### Phase 5: Feedback and Calibration
 **Goal**: The system can measure its own accuracy — customers submit actual costs via magic link, contractors see variance data, and the feedback loop that differentiates efOfX begins accumulating real signal

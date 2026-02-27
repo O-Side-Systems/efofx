@@ -3,12 +3,12 @@ gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
 status: unknown
-last_updated: "2026-02-27T18:35:58.339Z"
+last_updated: "2026-02-27T19:20:34.389Z"
 progress:
-  total_phases: 4
-  completed_phases: 4
-  total_plans: 17
-  completed_plans: 17
+  total_phases: 5
+  completed_phases: 5
+  total_plans: 18
+  completed_plans: 18
 ---
 
 # Project State
@@ -58,6 +58,7 @@ Progress: [██████░░░░] 60%
 | Phase 04-white-label-widget P03 | 4 | 2 tasks | 14 files |
 | Phase 04-white-label-widget P04 | 6 | 2 tasks | 7 files |
 | Phase 04 P03 | 5 | 2 tasks | 15 files |
+| Phase 04.1-integration-gap-closure P01 | 5 | 2 tasks | 7 files |
 
 ## Accumulated Context
 
@@ -131,6 +132,9 @@ Recent decisions affecting current work:
 - [04-04]: apiClient throws Error on 401/403 instead of returning Response — auth failures surface to React error states rather than silently failing
 - [04-04]: VALID_EVENT_TYPES validated at route layer not service layer — record_analytics_event swallows errors so validation must precede the call
 - [04-04]: GET /widget/analytics uses get_database() directly with explicit tenant_id filter — analytics documents already have tenant_id from TenantAwareCollection upserts
+- [Phase 04.1-01]: tenant.tenant_id is the correct accessor on Tenant model -- tenant.id raises AttributeError on every call to affected service methods
+- [Phase 04.1-01]: INT-02: connect_to_mongo() and create_indexes() moved outside swallowing try/except in lifespan -- fail-fast on DB unreachable or index failure, matching PromptService pattern
+- [Phase 04.1-01]: INT-03: POST /estimate/start entirely removed with 5 legacy handler methods -- generate_from_chat is the sole active estimation entry point
 
 ### Pending Todos
 

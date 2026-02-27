@@ -16,7 +16,7 @@ Decimal phases appear between their surrounding integers in numeric order.
 - [x] **Phase 2: Multi-Tenant Foundation** - Tenant registration, JWT auth, hard isolation, BYOK encryption, and rate limiting (Epic 3) (completed 2026-02-27)
 - [x] **Phase 3: LLM Integration** - Real OpenAI integration with BYOK, prompt versioning, streaming chat, and narrative generation (Epic 4) (completed 2026-02-27)
 - [x] **Phase 4: White-Label Widget** - Embeddable Shadow DOM widget with branding, chat UI, lead capture, and estimate display (Epic 5) (completed 2026-02-27)
-- [ ] **Phase 4.1: Integration Gap Closure** - Fix legacy tenant.id AttributeError, wire create_indexes(), remove legacy stub endpoint, clean dead code (INSERTED — audit gap closure)
+- [x] **Phase 4.1: Integration Gap Closure** - Fix legacy tenant.id AttributeError, wire create_indexes(), remove legacy stub endpoint, clean dead code (INSERTED — audit gap closure) (completed 2026-02-27)
 - [ ] **Phase 5: Feedback and Calibration** - Magic link feedback collection, variance tracking, and calibration dashboard (Epic 6)
 - [ ] **Phase 6: Code Quality and Hardening** - Extract shared utilities, remove dead code, document patterns (Epic 7)
 
@@ -157,6 +157,6 @@ Phases execute in strict dependency order: 1 → 2 → 3 → 4 → 5 → 6
 | 2. Multi-Tenant Foundation | 7/7 | Complete   | 2026-02-27 |
 | 3. LLM Integration | 4/4 | Complete   | 2026-02-27 |
 | 4. White-Label Widget | 4/4 | Complete   | 2026-02-27 |
-| 4.1 Integration Gap Closure | 0/1 | Not started | - |
+| 4.1 Integration Gap Closure | 1/1 | Complete   | 2026-02-27 |
 | 5. Feedback and Calibration | 0/4 | Not started | - |
 | 6. Code Quality and Hardening | 0/3 | Not started | - |

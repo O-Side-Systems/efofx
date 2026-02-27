@@ -2,13 +2,13 @@
 gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
-status: unknown
-last_updated: "2026-02-27T17:06:29.419Z"
+status: phase-complete
+last_updated: "2026-02-27T17:17:20.000Z"
 progress:
   total_phases: 3
-  completed_phases: 2
+  completed_phases: 3
   total_plans: 13
-  completed_plans: 12
+  completed_plans: 13
 ---
 
 # Project State
@@ -18,23 +18,23 @@ progress:
 See: .planning/PROJECT.md (updated 2026-02-26)
 
 **Core value:** Trust through transparency — probabilistic estimates with explainable breakdowns that build contractor credibility with customers
-**Current focus:** Phase 3 — LLM Integration (in progress, plan 3 of 4 complete)
+**Current focus:** Phase 3 — LLM Integration (COMPLETE — all 4 plans done)
 
 ## Current Position
 
-Phase: 3 of 6 (LLM Integration) — IN PROGRESS
-Plan: 3 of 4 in current phase (complete)
-Status: Phase 3 Plan 03 complete — ChatService conversation state machine with ScopingContext, keyword/regex context extraction, rule-based readiness detection, auto-trigger confirmation, TTL expiry; 33 new tests passing
-Last activity: 2026-02-27 — Plan 03-03 complete: ChatService rewritten with embedded message history, PromptService/LLMService integration, MongoDB TTL index on chat_sessions.expires_at, 33 unit tests passing
+Phase: 3 of 6 (LLM Integration) — COMPLETE
+Plan: 4 of 4 in current phase (complete)
+Status: Phase 3 Plan 04 complete — SSE streaming endpoint for estimate narrative generation, generate_from_chat, get_session/mark_completed, 31 new tests passing
+Last activity: 2026-02-27 — Plan 03-04 complete: SSE streaming endpoint (thinking/estimate/data*/done events), EstimationService.generate_from_chat, ChatService.get_session/mark_completed, 31 new unit tests passing. Phase 3 complete.
 
-Progress: [█████████░] 72%
+Progress: [██████████] 100%
 
 ## Performance Metrics
 
 **Velocity:**
-- Total plans completed: 4
-- Average duration: 3.25 min
-- Total execution time: 13 min
+- Total plans completed: 13
+- Average duration: ~4.5 min
+- Total execution time: ~21 min
 
 **By Phase:**
 
@@ -42,17 +42,18 @@ Progress: [█████████░] 72%
 |-------|-------|-------|----------|
 | 01-prerequisites | 2 | 6 min | 3 min |
 | 02-multi-tenant-foundation | 5 of 5 | 40 min | 8 min |
-| 03-llm-integration | 3 of 4 | 10 min | 3.3 min |
+| 03-llm-integration | 4 of 4 | 18 min | 4.5 min |
 
 **Recent Trend:**
-- Last 5 plans: 6 min avg
+- Last 5 plans: 5 min avg
 - Trend: Fast
 
 *Updated after each plan completion*
 | Phase 02 P07 | 10 | 2 tasks | 3 files |
 | Phase 03 P01 | 3 min | 2 tasks | 6 files |
 | Phase 03 P02 | 3 min | 2 tasks | 7 files |
-| Phase 03 P03 | 4 | 2 tasks | 5 files |
+| Phase 03 P03 | 4 min | 2 tasks | 5 files |
+| Phase 03 P04 | 8 min | 2 tasks | 5 files |
 
 ## Accumulated Context
 
@@ -108,6 +109,10 @@ Recent decisions affecting current work:
 - [Phase 03]: Readiness requires all 4 fields: project_type, project_size, location, timeline — special_conditions is optional bonus
 - [Phase 03]: Conversation preserved on ANY error — session persisted before returning error response, never raises from send_message
 - [Phase 03]: Auto-trigger appends confirmation phrase to LLM response — not a separate message, feels natural in conversation
+- [03-04]: EstimationSession.tenant_id uses PyObjectId() (fresh ObjectId) — legacy PyObjectId model incompatible with UUID tenant_id; TenantAwareCollection enforces tenant isolation at collection level
+- [03-04]: Region enum fallback to NORCAL_BAY_AREA when ScopingContext.location doesn't match Region enum — keyword-extracted location strings may not match canonical enum values exactly
+- [03-04]: SSE endpoint parameter must be named 'request' not 'http_request' — slowapi @limiter.limit inspects signature for exact name 'request' at decoration time
+- [03-04]: Rate limiter disabled (limiter.enabled = False) in SSE tests — Valkey not available in unit test environment; same pattern as pre-existing constraint
 
 ### Pending Todos
 
@@ -121,5 +126,5 @@ None yet.
 ## Session Continuity
 
 Last session: 2026-02-27
-Stopped at: Completed 03-03-PLAN.md — ChatService conversation state machine with ScopingContext, keyword/regex context extraction, rule-based readiness detection, auto-trigger confirmation, TTL expiry. 33 new tests passing. Requirements CHAT-01 through CHAT-05 satisfied.
+Stopped at: Completed 03-04-PLAN.md — SSE streaming endpoint for estimate narrative generation, generate_from_chat, get_session/mark_completed. 31 new tests passing. Requirements LLM-02, NARR-01, NARR-02, NARR-03, NARR-04 satisfied. Phase 3 complete.
 Resume file: None

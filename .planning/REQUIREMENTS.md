@@ -48,7 +48,7 @@ Requirements for Epics 3-7. Each maps to roadmap phases.
 ### LLM Integration
 
 - [x] **LLM-01**: OpenAI client instantiated per-request with tenant's decrypted BYOK key
-- [ ] **LLM-02**: LLM responses streamed to client via Server-Sent Events (SSE)
+- [x] **LLM-02**: LLM responses streamed to client via Server-Sent Events (SSE)
 - [x] **LLM-03**: Graceful handling of OpenAI API failures (timeouts, rate limits, key exhaustion)
 - [x] **LLM-04**: LLM response caching by content hash for repeated identical queries
 
@@ -68,10 +68,10 @@ Requirements for Epics 3-7. Each maps to roadmap phases.
 
 ### Narrative Generation
 
-- [ ] **NARR-01**: LLM generates human-readable narrative explaining estimate ranges and assumptions
-- [ ] **NARR-02**: Narrative includes P50/P80 cost and timeline ranges with plain-language explanation
-- [ ] **NARR-03**: Narrative references specific cost breakdown categories and adjustment factors
-- [ ] **NARR-04**: "Thinking" state indicator shown while LLM generates narrative
+- [x] **NARR-01**: LLM generates human-readable narrative explaining estimate ranges and assumptions
+- [x] **NARR-02**: Narrative includes P50/P80 cost and timeline ranges with plain-language explanation
+- [x] **NARR-03**: Narrative references specific cost breakdown categories and adjustment factors
+- [x] **NARR-04**: "Thinking" state indicator shown while LLM generates narrative
 
 ### Widget Container
 
@@ -197,7 +197,7 @@ Which phases cover which requirements. Updated during roadmap creation.
 | RATE-02 | Phase 2 | Complete |
 | RATE-03 | Phase 2 | Complete |
 | LLM-01 | Phase 3 | Complete |
-| LLM-02 | Phase 3 | Pending |
+| LLM-02 | Phase 3 | Complete |
 | LLM-03 | Phase 3 | Complete |
 | LLM-04 | Phase 3 | Complete |
 | PRMT-01 | Phase 3 | Complete |
@@ -208,10 +208,10 @@ Which phases cover which requirements. Updated during roadmap creation.
 | CHAT-03 | Phase 3 | Complete |
 | CHAT-04 | Phase 3 | Complete |
 | CHAT-05 | Phase 3 | Complete |
-| NARR-01 | Phase 3 | Pending |
-| NARR-02 | Phase 3 | Pending |
-| NARR-03 | Phase 3 | Pending |
-| NARR-04 | Phase 3 | Pending |
+| NARR-01 | Phase 3 | Complete |
+| NARR-02 | Phase 3 | Complete |
+| NARR-03 | Phase 3 | Complete |
+| NARR-04 | Phase 3 | Complete |
 | WDGT-01 | Phase 4 | Pending |
 | WDGT-02 | Phase 4 | Pending |
 | WDGT-03 | Phase 4 | Pending |

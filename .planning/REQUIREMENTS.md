@@ -47,10 +47,10 @@ Requirements for Epics 3-7. Each maps to roadmap phases.
 
 ### LLM Integration
 
-- [ ] **LLM-01**: OpenAI client instantiated per-request with tenant's decrypted BYOK key
+- [x] **LLM-01**: OpenAI client instantiated per-request with tenant's decrypted BYOK key
 - [ ] **LLM-02**: LLM responses streamed to client via Server-Sent Events (SSE)
-- [ ] **LLM-03**: Graceful handling of OpenAI API failures (timeouts, rate limits, key exhaustion)
-- [ ] **LLM-04**: LLM response caching by content hash for repeated identical queries
+- [x] **LLM-03**: Graceful handling of OpenAI API failures (timeouts, rate limits, key exhaustion)
+- [x] **LLM-04**: LLM response caching by content hash for repeated identical queries
 
 ### Prompt Management
 
@@ -196,10 +196,10 @@ Which phases cover which requirements. Updated during roadmap creation.
 | RATE-01 | Phase 2 | Complete |
 | RATE-02 | Phase 2 | Complete |
 | RATE-03 | Phase 2 | Complete |
-| LLM-01 | Phase 3 | Pending |
+| LLM-01 | Phase 3 | Complete |
 | LLM-02 | Phase 3 | Pending |
-| LLM-03 | Phase 3 | Pending |
-| LLM-04 | Phase 3 | Pending |
+| LLM-03 | Phase 3 | Complete |
+| LLM-04 | Phase 3 | Complete |
 | PRMT-01 | Phase 3 | Pending |
 | PRMT-02 | Phase 3 | Pending |
 | PRMT-03 | Phase 3 | Pending |

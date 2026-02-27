@@ -2,13 +2,13 @@
 gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
-status: unknown
-last_updated: "2026-02-27T14:53:15.994Z"
+status: in_progress
+last_updated: "2026-02-27T17:29:00.000Z"
 progress:
-  total_phases: 2
+  total_phases: 6
   completed_phases: 2
-  total_plans: 9
-  completed_plans: 9
+  total_plans: 13
+  completed_plans: 10
 ---
 
 # Project State
@@ -18,16 +18,16 @@ progress:
 See: .planning/PROJECT.md (updated 2026-02-26)
 
 **Core value:** Trust through transparency — probabilistic estimates with explainable breakdowns that build contractor credibility with customers
-**Current focus:** Phase 2 — Multi-Tenant Foundation (complete); ready for Phase 3
+**Current focus:** Phase 3 — LLM Integration (in progress, plan 1 of 4 complete)
 
 ## Current Position
 
-Phase: 2 of 6 (Multi-Tenant Foundation) — COMPLETE (with gap closure)
-Plan: 7 of 7 in current phase (complete)
-Status: Phase 2 complete — All plans 02-01 through 02-07 done (02-06 and 02-07 are gap closure plans)
-Last activity: 2026-02-27 — Plan 02-06 complete: tenant_service.py refactored to use TenantAwareCollection (ISOL-02 gap closure); ObjectId(tenant_id) removed; 7 unit tests passing. Plan 02-07 also complete: BYOK-04 docs corrected (402 gate, no platform fallback); LLMService refactored to accept per-request api_key for BYOK injection; 6 new tests passing
+Phase: 3 of 6 (LLM Integration) — IN PROGRESS
+Plan: 1 of 4 in current phase (complete)
+Status: Phase 3 Plan 01 complete — LLMService hardened: BYOK-only, error classification, SHA-256 caching, get_llm_service DI, EstimationService/ChatService rewired to accept LLMService via constructor injection; 16 new tests passing
+Last activity: 2026-02-27 — Plan 03-01 complete: settings fallback removed, classify_openai_error added, _make_cache_key + _response_cache added, stream_chat_completion added, get_llm_service FastAPI dependency added, routes/services rewired for DI
 
-Progress: [████████░░] 58%
+Progress: [████████░░] 62%
 
 ## Performance Metrics
 
@@ -42,6 +42,7 @@ Progress: [████████░░] 58%
 |-------|-------|-------|----------|
 | 01-prerequisites | 2 | 6 min | 3 min |
 | 02-multi-tenant-foundation | 5 of 5 | 40 min | 8 min |
+| 03-llm-integration | 1 of 4 | 3 min | 3 min |
 
 **Recent Trend:**
 - Last 5 plans: 6 min avg
@@ -49,6 +50,7 @@ Progress: [████████░░] 58%
 
 *Updated after each plan completion*
 | Phase 02 P07 | 10 | 2 tasks | 3 files |
+| Phase 03 P01 | 3 min | 2 tasks | 6 files |
 
 ## Accumulated Context
 
@@ -91,6 +93,11 @@ Recent decisions affecting current work:
 - [02-06]: get_all_tenant_statistics uses get_collection() (raw, unscoped) — intentional cross-tenant admin access, not a bug
 - [02-06]: validate_tenant_limits derives monthly limit from TIER_LIMITS (trial=100, paid=1000) with settings override — Tenant model has no max_estimations_per_month field directly
 - [02-06]: get_tenant() now returns dict (not Tenant model) using {"tenant_id": tenant_id} filter — consistent with get_by_tenant_id() contract
+- [03-01]: LLMService.api_key is now required str with no default — settings.OPENAI_API_KEY fallback fully removed from production code paths
+- [03-01]: In-memory _response_cache dict is per-process; upgrade to Valkey for multi-instance/multi-worker deployments
+- [03-01]: classify_openai_error is module-level function (not method) for direct unit test import without LLMService instantiation
+- [03-01]: Cache key uses sort_keys=True JSON + SHA-256 — ensures deterministic hashing regardless of dict insertion order
+- [03-01]: use_cache=False parameter on generate_estimation enables forced refresh without cache invalidation complexity
 
 ### Pending Todos
 
@@ -104,5 +111,5 @@ None yet.
 ## Session Continuity
 
 Last session: 2026-02-27
-Stopped at: Completed 02-06-PLAN.md — tenant_service.py refactored: TenantAwareCollection for get_tenant_statistics() and validate_tenant_limits(), ObjectId(tenant_id) removed, 7 unit tests passing. ISOL-02 gap closed. Phase 2 fully complete (all gap closures done). Ready for Phase 3.
+Stopped at: Completed 03-01-PLAN.md — LLMService hardened: BYOK-only constructor, classify_openai_error, SHA-256 caching, get_llm_service DI dependency, stream_chat_completion. EstimationService and ChatService rewired to accept LLMService via constructor. Routes updated. 16 tests passing. Requirements LLM-01, LLM-03, LLM-04 satisfied.
 Resume file: None

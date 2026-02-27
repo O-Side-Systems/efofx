@@ -18,16 +18,16 @@ progress:
 See: .planning/PROJECT.md (updated 2026-02-26)
 
 **Core value:** Trust through transparency — probabilistic estimates with explainable breakdowns that build contractor credibility with customers
-**Current focus:** Phase 4 — White Label Widget (In Progress — 3 of 4 plans done)
+**Current focus:** Phase 4 — White Label Widget (COMPLETE — all 4 plans done)
 
 ## Current Position
 
-Phase: 4 of 6 (White Label Widget) — In Progress
-Plan: 3 of 4 in current phase (complete)
-Status: Phase 4 Plan 03 complete — Chat UI, lead capture form, estimate display wired into widget. fetch+ReadableStream SSE, DOMPurify sanitization, P50/P80 range bar, accordion cost breakdown, streamed narrative. Requirements WFTR-01, WFTR-02, WFTR-03 satisfied.
-Last activity: 2026-02-27 — Plan 04-03 complete: 6 API/hook files + 6 component files + ChatPanel orchestrator + App.tsx branding wiring + 350 lines CSS. Bundle builds to 637 kB (gzip 193 kB), zero TypeScript errors.
+Phase: 4 of 6 (White Label Widget) — Complete
+Plan: 4 of 4 in current phase (complete)
+Status: Phase 4 Plan 04 complete — DOMPurify XSS sanitization, 401/403 auth error surfacing, analytics event_type validation, GET /widget/analytics endpoint, 24 tests passing. Requirements WSEC-02, WSEC-03, WFTR-04 satisfied.
+Last activity: 2026-02-27 — Plan 04-04 complete: DOMPurify on user input and branding API values, apiClient throws on 401/403, VALID_EVENT_TYPES validation on analytics endpoint, GET /widget/analytics, trackEvent at widget_view/chat_start/estimate_complete, 24 tests passing.
 
-Progress: [█████░░░░░] 50%
+Progress: [██████░░░░] 60%
 
 ## Performance Metrics
 
@@ -55,6 +55,8 @@ Progress: [█████░░░░░] 50%
 | Phase 03 P03 | 4 min | 2 tasks | 5 files |
 | Phase 03 P04 | 8 min | 2 tasks | 5 files |
 | Phase 04-white-label-widget P02 | 4 | 2 tasks | 7 files |
+| Phase 04-white-label-widget P03 | 4 | 2 tasks | 14 files |
+| Phase 04-white-label-widget P04 | 6 | 2 tasks | 7 files |
 | Phase 04 P03 | 5 | 2 tasks | 15 files |
 
 ## Accumulated Context
@@ -125,6 +127,10 @@ Recent decisions affecting current work:
 - [Phase 04]: fetch+ReadableStream for SSE (not EventSource) — EventSource cannot set Authorization headers; required for bearer-token-protected streams
 - [Phase 04]: CSS custom properties applied from inside shadow root via getRootNode() instanceof ShadowRoot — avoids threading branding back up to ShadowDOMWrapper parent
 - [Phase 04]: App.tsx owns branding fetch (not ChatPanel) — single source of truth passed to both WidgetProvider context and shadow root :host CSS override
+- [04-04]: DOMPurify.sanitize(text, { ALLOWED_TAGS: [] }) strips ALL HTML — user input and API content sanitized as defense-in-depth (WSEC-03)
+- [04-04]: apiClient throws Error on 401/403 instead of returning Response — auth failures surface to React error states rather than silently failing
+- [04-04]: VALID_EVENT_TYPES validated at route layer not service layer — record_analytics_event swallows errors so validation must precede the call
+- [04-04]: GET /widget/analytics uses get_database() directly with explicit tenant_id filter — analytics documents already have tenant_id from TenantAwareCollection upserts
 
 ### Pending Todos
 
@@ -138,5 +144,5 @@ None yet.
 ## Session Continuity
 
 Last session: 2026-02-27
-Stopped at: Completed 04-03-PLAN.md — Chat UI, lead capture form, estimate display wired into widget. fetch+ReadableStream SSE, DOMPurify sanitization, P50/P80 range bar, accordion cost breakdown, streamed narrative. Requirements WFTR-01, WFTR-02, WFTR-03 satisfied.
+Stopped at: Completed 04-04-PLAN.md — DOMPurify XSS sanitization, 401/403 auth errors in apiClient, analytics event_type validation, GET /widget/analytics, trackEvent at widget_view/chat_start/estimate_complete, 24 tests. Phase 4 complete. Requirements WSEC-02, WSEC-03, WFTR-04 satisfied.
 Resume file: None

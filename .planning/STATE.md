@@ -2,13 +2,13 @@
 gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
-status: in_progress
-last_updated: "2026-02-27T17:00:00.000Z"
+status: unknown
+last_updated: "2026-02-27T17:06:29.419Z"
 progress:
-  total_phases: 6
+  total_phases: 3
   completed_phases: 2
   total_plans: 13
-  completed_plans: 11
+  completed_plans: 12
 ---
 
 # Project State
@@ -18,23 +18,23 @@ progress:
 See: .planning/PROJECT.md (updated 2026-02-26)
 
 **Core value:** Trust through transparency — probabilistic estimates with explainable breakdowns that build contractor credibility with customers
-**Current focus:** Phase 3 — LLM Integration (in progress, plan 2 of 4 complete)
+**Current focus:** Phase 3 — LLM Integration (in progress, plan 3 of 4 complete)
 
 ## Current Position
 
 Phase: 3 of 6 (LLM Integration) — IN PROGRESS
-Plan: 2 of 4 in current phase (complete)
-Status: Phase 3 Plan 02 complete — PromptService registry with SHA-256 immutability enforcement, semver "latest" resolution, three v1.0.0 prompt JSON files (scoping, narrative, estimation), prompt_version traceability on EstimationSession, lifespan wiring; 14 new tests passing
-Last activity: 2026-02-27 — Plan 03-02 complete: PromptService.load_all() loads JSON prompts at startup, get/get_version_string/list_versions/clear classmethods, EstimationSession.prompt_version Optional[str] added, prompts fail-fast at startup
+Plan: 3 of 4 in current phase (complete)
+Status: Phase 3 Plan 03 complete — ChatService conversation state machine with ScopingContext, keyword/regex context extraction, rule-based readiness detection, auto-trigger confirmation, TTL expiry; 33 new tests passing
+Last activity: 2026-02-27 — Plan 03-03 complete: ChatService rewritten with embedded message history, PromptService/LLMService integration, MongoDB TTL index on chat_sessions.expires_at, 33 unit tests passing
 
-Progress: [████████░░] 65%
+Progress: [█████████░] 72%
 
 ## Performance Metrics
 
 **Velocity:**
-- Total plans completed: 3
-- Average duration: 3 min
-- Total execution time: 9 min
+- Total plans completed: 4
+- Average duration: 3.25 min
+- Total execution time: 13 min
 
 **By Phase:**
 
@@ -42,7 +42,7 @@ Progress: [████████░░] 65%
 |-------|-------|-------|----------|
 | 01-prerequisites | 2 | 6 min | 3 min |
 | 02-multi-tenant-foundation | 5 of 5 | 40 min | 8 min |
-| 03-llm-integration | 2 of 4 | 6 min | 3 min |
+| 03-llm-integration | 3 of 4 | 10 min | 3.3 min |
 
 **Recent Trend:**
 - Last 5 plans: 6 min avg
@@ -52,6 +52,7 @@ Progress: [████████░░] 65%
 | Phase 02 P07 | 10 | 2 tasks | 3 files |
 | Phase 03 P01 | 3 min | 2 tasks | 6 files |
 | Phase 03 P02 | 3 min | 2 tasks | 7 files |
+| Phase 03 P03 | 4 | 2 tasks | 5 files |
 
 ## Accumulated Context
 
@@ -103,6 +104,10 @@ Recent decisions affecting current work:
 - [03-02]: SHA-256 content hash stored at load time — immutability check compares hash on second load, not field-by-field diff
 - [03-02]: prompt_version is Optional[str] = None on EstimationSession — backward-compatible with existing MongoDB documents
 - [03-02]: Startup raises on PromptService failure — prompts are critical, fail fast rather than silently serve requests without registry
+- [Phase 03]: ScopingContext extraction uses keyword/regex patterns (not LLM) — fast, cost-free, good enough for readiness detection
+- [Phase 03]: Readiness requires all 4 fields: project_type, project_size, location, timeline — special_conditions is optional bonus
+- [Phase 03]: Conversation preserved on ANY error — session persisted before returning error response, never raises from send_message
+- [Phase 03]: Auto-trigger appends confirmation phrase to LLM response — not a separate message, feels natural in conversation
 
 ### Pending Todos
 
@@ -116,5 +121,5 @@ None yet.
 ## Session Continuity
 
 Last session: 2026-02-27
-Stopped at: Completed 03-02-PLAN.md — PromptService registry with SHA-256 immutability, semver latest resolution, three v1.0.0 JSON prompt files, EstimationSession.prompt_version added, lifespan wiring. 14 new tests passing. Requirements PRMT-01, PRMT-02, PRMT-03 satisfied.
+Stopped at: Completed 03-03-PLAN.md — ChatService conversation state machine with ScopingContext, keyword/regex context extraction, rule-based readiness detection, auto-trigger confirmation, TTL expiry. 33 new tests passing. Requirements CHAT-01 through CHAT-05 satisfied.
 Resume file: None

@@ -60,11 +60,11 @@ Requirements for Epics 3-7. Each maps to roadmap phases.
 
 ### Conversational Scoping
 
-- [ ] **CHAT-01**: User can describe their project through multi-turn chat conversation
-- [ ] **CHAT-02**: Chat session persists conversation history within active session (MongoDB with TTL)
-- [ ] **CHAT-03**: System determines when sufficient detail exists to generate estimate
-- [ ] **CHAT-04**: System asks targeted follow-up questions to gather missing project details
-- [ ] **CHAT-05**: Estimate generation triggered automatically or by user when ready
+- [x] **CHAT-01**: User can describe their project through multi-turn chat conversation
+- [x] **CHAT-02**: Chat session persists conversation history within active session (MongoDB with TTL)
+- [x] **CHAT-03**: System determines when sufficient detail exists to generate estimate
+- [x] **CHAT-04**: System asks targeted follow-up questions to gather missing project details
+- [x] **CHAT-05**: Estimate generation triggered automatically or by user when ready
 
 ### Narrative Generation
 
@@ -203,11 +203,11 @@ Which phases cover which requirements. Updated during roadmap creation.
 | PRMT-01 | Phase 3 | Complete |
 | PRMT-02 | Phase 3 | Complete |
 | PRMT-03 | Phase 3 | Complete |
-| CHAT-01 | Phase 3 | Pending |
-| CHAT-02 | Phase 3 | Pending |
-| CHAT-03 | Phase 3 | Pending |
-| CHAT-04 | Phase 3 | Pending |
-| CHAT-05 | Phase 3 | Pending |
+| CHAT-01 | Phase 3 | Complete |
+| CHAT-02 | Phase 3 | Complete |
+| CHAT-03 | Phase 3 | Complete |
+| CHAT-04 | Phase 3 | Complete |
+| CHAT-05 | Phase 3 | Complete |
 | NARR-01 | Phase 3 | Pending |
 | NARR-02 | Phase 3 | Pending |
 | NARR-03 | Phase 3 | Pending |

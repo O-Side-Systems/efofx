@@ -86,26 +86,6 @@ async def get_branding_by_prefix(
     )
 
 
-async def get_tenant_allowed_origins(api_key_prefix: str) -> list[str]:
-    """Return allowed CORS origins for a tenant identified by API key prefix.
-
-    Used to seed the CORS middleware cache without a separate branding call.
-    Returns empty list if tenant not found or no origins configured.
-    """
-    try:
-        tid = _prefix_to_tenant_id(api_key_prefix)
-    except (IndexError, ValueError):
-        return []
-
-    db = get_database()
-    tenant_doc = await db[DB_COLLECTIONS["TENANTS"]].find_one({"tenant_id": tid})
-
-    if not tenant_doc:
-        return []
-
-    return tenant_doc.get("settings", {}).get("allowed_origins", [])
-
-
 async def save_lead(tenant_id: str, lead: LeadCaptureRequest) -> str:
     """Save a lead capture document to the widget_leads collection.
 

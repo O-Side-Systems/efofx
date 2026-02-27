@@ -17,7 +17,7 @@ from app.core.rate_limit import limiter, get_tenant_id_for_limit, get_tier_limit
 from app.core.security import get_current_tenant
 from app.core.constants import API_MESSAGES, HTTP_STATUS
 from app.models.tenant import Tenant
-from app.models.estimation import EstimationRequest, EstimationResponse
+from app.models.estimation import EstimationResponse
 from app.models.chat import ChatRequest, ChatResponse
 from app.models.feedback import FeedbackCreate, FeedbackSummary
 from app.services.estimation_service import EstimationService
@@ -46,26 +46,6 @@ def get_feedback_service() -> FeedbackService:
 
 
 # Estimation endpoints
-@api_router.post("/estimate/start", response_model=EstimationResponse)
-@limiter.limit(get_tier_limit, key_func=get_tenant_id_for_limit)
-async def start_estimation(
-    http_request: Request,
-    request: EstimationRequest,
-    tenant: Tenant = Depends(get_current_tenant),
-    estimation_service: EstimationService = Depends(get_estimation_service)
-):
-    """Start a new estimation session."""
-    try:
-        response = await estimation_service.start_estimation(request, tenant)
-        return response
-    except Exception as e:
-        logger.error(f"Error starting estimation: {e}")
-        raise HTTPException(
-            status_code=HTTP_STATUS["INTERNAL_ERROR"],
-            detail=API_MESSAGES["DB_ERROR"]
-        )
-
-
 @api_router.get("/estimate/{session_id}", response_model=EstimationResponse)
 @limiter.limit(get_tier_limit, key_func=get_tenant_id_for_limit)
 async def get_estimation(

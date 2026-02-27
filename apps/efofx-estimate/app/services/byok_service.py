@@ -91,22 +91,6 @@ async def validate_and_store_openai_key(tenant_id: str, plaintext_key: str) -> s
     return mask_openai_key(plaintext_key)
 
 
-async def rotate_openai_key(tenant_id: str, new_plaintext_key: str) -> str:
-    """Rotate a tenant's OpenAI API key (new key immediately overwrites old).
-
-    Per locked decision: simple overwrite, no version history.
-    Functionally identical to validate_and_store_openai_key.
-
-    Args:
-        tenant_id:         The tenant's UUID string.
-        new_plaintext_key: The new raw OpenAI API key.
-
-    Returns:
-        Masked key string for the new key.
-    """
-    return await validate_and_store_openai_key(tenant_id, new_plaintext_key)
-
-
 async def decrypt_tenant_openai_key(tenant_id: str) -> str:
     """Decrypt and return a tenant's OpenAI API key for use in request scope.
 

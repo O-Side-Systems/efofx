@@ -114,6 +114,10 @@ Recent decisions affecting current work:
 - [03-04]: Region enum fallback to NORCAL_BAY_AREA when ScopingContext.location doesn't match Region enum — keyword-extracted location strings may not match canonical enum values exactly
 - [03-04]: SSE endpoint parameter must be named 'request' not 'http_request' — slowapi @limiter.limit inspects signature for exact name 'request' at decoration time
 - [03-04]: Rate limiter disabled (limiter.enabled = False) in SSE tests — Valkey not available in unit test environment; same pattern as pre-existing constraint
+- [04-01]: ?inline Vite import for widget.css is the only correct way to inject CSS into Shadow DOM — vite-plugin-css-injected-by-js injects to document.head which Shadow DOM does not inherit
+- [04-01]: document.currentScript captured at module top level before any async operations — it becomes null after synchronous execution completes
+- [04-01]: Host div for floating mode uses pointer-events:none; :host in CSS resets pointer-events:auto so shadow DOM buttons remain clickable
+- [04-01]: all: initial on :host fully resets host-page style inheritance; explicit font-family reapplied after reset
 - [Phase 04-white-label-widget]: Module-level _tenant_origins_cache dict shared by TenantAwareCORSMiddleware and widget_service — enables lazy CORS population without async DB calls in middleware
 - [Phase 04-white-label-widget]: Branding endpoint uses key_func=get_remote_address explicitly — global limiter uses tenant-scoped key but public endpoint has no auth so IP-based limiting is required
 - [Phase 04-white-label-widget]: Patch mocks at point of use (app.api.widget.save_lead) not at definition (app.services.widget_service.save_lead) — Python from-import creates local binding that must be patched where used
@@ -130,5 +134,5 @@ None yet.
 ## Session Continuity
 
 Last session: 2026-02-27
-Stopped at: Completed 04-02-PLAN.md — Public branding endpoint GET /widget/branding/{prefix}, TenantAwareCORSMiddleware with lazy _tenant_origins_cache, POST /widget/lead and /analytics. 11 new tests passing. Requirements BRND-01 through BRND-04, WDGT-05 satisfied.
+Stopped at: Completed 04-01-PLAN.md — Widget IIFE shell with Shadow DOM CSS isolation, FloatingButton, ChatPanel (slide-up/full-screen), WidgetContext, WidgetErrorBoundary, vite build produces dist/embed.js (594 kB). Requirements WDGT-01, WDGT-02, WDGT-03, WDGT-04, WSEC-01 satisfied.
 Resume file: None

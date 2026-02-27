@@ -75,10 +75,10 @@ Requirements for Epics 3-7. Each maps to roadmap phases.
 
 ### Widget Container
 
-- [ ] **WDGT-01**: Widget renders inside Shadow DOM with closed mode for style/script isolation
-- [ ] **WDGT-02**: Widget embeds on any site with single `<script>` tag (<5 lines of code)
-- [ ] **WDGT-03**: Widget is mobile-responsive (sidebar, modal, full-width layouts)
-- [ ] **WDGT-04**: Widget loads without visible "Powered by efOfX" branding (true white-label)
+- [x] **WDGT-01**: Widget renders inside Shadow DOM with closed mode for style/script isolation
+- [x] **WDGT-02**: Widget embeds on any site with single `<script>` tag (<5 lines of code)
+- [x] **WDGT-03**: Widget is mobile-responsive (sidebar, modal, full-width layouts)
+- [x] **WDGT-04**: Widget loads without visible "Powered by efOfX" branding (true white-label)
 - [x] **WDGT-05**: CORS configured per-tenant for widget API calls from contractor domains
 
 ### Widget Branding
@@ -97,7 +97,7 @@ Requirements for Epics 3-7. Each maps to roadmap phases.
 
 ### Widget Security
 
-- [ ] **WSEC-01**: Widget JavaScript wrapped in global error boundary (no host page crashes)
+- [x] **WSEC-01**: Widget JavaScript wrapped in global error boundary (no host page crashes)
 - [ ] **WSEC-02**: All widget API calls authenticated via tenant API key
 - [ ] **WSEC-03**: Widget input sanitized against XSS attacks
 
@@ -212,10 +212,10 @@ Which phases cover which requirements. Updated during roadmap creation.
 | NARR-02 | Phase 3 | Complete |
 | NARR-03 | Phase 3 | Complete |
 | NARR-04 | Phase 3 | Complete |
-| WDGT-01 | Phase 4 | Pending |
-| WDGT-02 | Phase 4 | Pending |
-| WDGT-03 | Phase 4 | Pending |
-| WDGT-04 | Phase 4 | Pending |
+| WDGT-01 | Phase 4 | Complete |
+| WDGT-02 | Phase 4 | Complete |
+| WDGT-03 | Phase 4 | Complete |
+| WDGT-04 | Phase 4 | Complete |
 | WDGT-05 | Phase 4 | Complete |
 | BRND-01 | Phase 4 | Complete |
 | BRND-02 | Phase 4 | Complete |
@@ -225,7 +225,7 @@ Which phases cover which requirements. Updated during roadmap creation.
 | WFTR-02 | Phase 4 | Pending |
 | WFTR-03 | Phase 4 | Pending |
 | WFTR-04 | Phase 4 | Pending |
-| WSEC-01 | Phase 4 | Pending |
+| WSEC-01 | Phase 4 | Complete |
 | WSEC-02 | Phase 4 | Pending |
 | WSEC-03 | Phase 4 | Pending |
 | FDBK-01 | Phase 5 | Pending |

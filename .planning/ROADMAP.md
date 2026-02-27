@@ -16,6 +16,7 @@ Decimal phases appear between their surrounding integers in numeric order.
 - [x] **Phase 2: Multi-Tenant Foundation** - Tenant registration, JWT auth, hard isolation, BYOK encryption, and rate limiting (Epic 3) (completed 2026-02-27)
 - [x] **Phase 3: LLM Integration** - Real OpenAI integration with BYOK, prompt versioning, streaming chat, and narrative generation (Epic 4) (completed 2026-02-27)
 - [x] **Phase 4: White-Label Widget** - Embeddable Shadow DOM widget with branding, chat UI, lead capture, and estimate display (Epic 5) (completed 2026-02-27)
+- [ ] **Phase 4.1: Integration Gap Closure** - Fix legacy tenant.id AttributeError, wire create_indexes(), remove legacy stub endpoint, clean dead code (INSERTED — audit gap closure)
 - [ ] **Phase 5: Feedback and Calibration** - Magic link feedback collection, variance tracking, and calibration dashboard (Epic 6)
 - [ ] **Phase 6: Code Quality and Hardening** - Extract shared utilities, remove dead code, document patterns (Epic 7)
 
@@ -96,6 +97,21 @@ Plans:
 - [ ] 04-03: Chat UI components, lead capture form, estimate range visualization, SSE narrative streaming, consultation CTA (WFTR-01, WFTR-02, WFTR-03)
 - [ ] 04-04: Widget security hardening — API key auth verification, XSS sanitization, analytics event tracking (WSEC-02, WSEC-03, WFTR-04)
 
+### Phase 4.1: Integration Gap Closure (INSERTED)
+**Goal**: All integration issues found in v1.0 milestone audit are fixed — legacy paths use correct tenant accessor, indexes are created at startup, and dead code is removed
+**Depends on**: Phase 4
+**Requirements**: None new (closes integration gaps affecting already-satisfied ISOL-03, CHAT-02, AUTH-02)
+**Gap Closure**: Closes INT-01, INT-02, INT-03 from v1.0-MILESTONE-AUDIT.md
+**Success Criteria** (what must be TRUE):
+  1. All `tenant.id` references in estimation_service.py and feedback_service.py replaced with `tenant.tenant_id` — legacy paths no longer raise AttributeError
+  2. `create_indexes()` is called from main.py lifespan after `connect_to_mongo()` — indexes exist after fresh deployment
+  3. Legacy POST `/estimate/start` stub endpoint is removed or deprecated — no hardcoded estimation paths remain
+  4. Dead code removed: `rotate_openai_key()` in byok_service.py, `get_tenant_allowed_origins()` in widget_service.py
+**Plans**: TBD
+
+Plans:
+- [ ] 04.1-01: Fix tenant.id AttributeError in legacy services, wire create_indexes() to lifespan, remove legacy stub endpoint, clean dead code (INT-01, INT-02, INT-03)
+
 ### Phase 5: Feedback and Calibration
 **Goal**: The system can measure its own accuracy — customers submit actual costs via magic link, contractors see variance data, and the feedback loop that differentiates efOfX begins accumulating real signal
 **Depends on**: Phase 4
@@ -141,5 +157,6 @@ Phases execute in strict dependency order: 1 → 2 → 3 → 4 → 5 → 6
 | 2. Multi-Tenant Foundation | 7/7 | Complete   | 2026-02-27 |
 | 3. LLM Integration | 4/4 | Complete   | 2026-02-27 |
 | 4. White-Label Widget | 4/4 | Complete   | 2026-02-27 |
+| 4.1 Integration Gap Closure | 0/1 | Not started | - |
 | 5. Feedback and Calibration | 0/4 | Not started | - |
 | 6. Code Quality and Hardening | 0/3 | Not started | - |

@@ -3,12 +3,12 @@ gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
 status: unknown
-last_updated: "2026-02-27T17:24:49.434Z"
+last_updated: "2026-02-27T18:18:25.776Z"
 progress:
-  total_phases: 3
+  total_phases: 4
   completed_phases: 3
-  total_plans: 13
-  completed_plans: 13
+  total_plans: 17
+  completed_plans: 14
 ---
 
 # Project State
@@ -18,16 +18,16 @@ progress:
 See: .planning/PROJECT.md (updated 2026-02-26)
 
 **Core value:** Trust through transparency — probabilistic estimates with explainable breakdowns that build contractor credibility with customers
-**Current focus:** Phase 3 — LLM Integration (COMPLETE — all 4 plans done)
+**Current focus:** Phase 4 — White Label Widget (In Progress — 1 of 4 plans done)
 
 ## Current Position
 
-Phase: 3 of 6 (LLM Integration) — COMPLETE
-Plan: 4 of 4 in current phase (complete)
-Status: Phase 3 Plan 04 complete — SSE streaming endpoint for estimate narrative generation, generate_from_chat, get_session/mark_completed, 31 new tests passing
-Last activity: 2026-02-27 — Plan 03-04 complete: SSE streaming endpoint (thinking/estimate/data*/done events), EstimationService.generate_from_chat, ChatService.get_session/mark_completed, 31 new unit tests passing. Phase 3 complete.
+Phase: 4 of 6 (White Label Widget) — In Progress
+Plan: 2 of 4 in current phase (complete)
+Status: Phase 4 Plan 02 complete — Public branding endpoint, TenantAwareCORSMiddleware, lead capture, analytics endpoints. 11 tests passing. Requirements BRND-01 through BRND-04, WDGT-05 satisfied.
+Last activity: 2026-02-27 — Plan 04-02 complete: GET /widget/branding/{prefix} (public, 30/min), TenantAwareCORSMiddleware with lazy _tenant_origins_cache, POST /widget/lead and /analytics (auth required). 11 new tests passing.
 
-Progress: [██████████] 100%
+Progress: [█████░░░░░] 50%
 
 ## Performance Metrics
 
@@ -54,6 +54,7 @@ Progress: [██████████] 100%
 | Phase 03 P02 | 3 min | 2 tasks | 7 files |
 | Phase 03 P03 | 4 min | 2 tasks | 5 files |
 | Phase 03 P04 | 8 min | 2 tasks | 5 files |
+| Phase 04-white-label-widget P02 | 4 | 2 tasks | 7 files |
 
 ## Accumulated Context
 
@@ -113,6 +114,9 @@ Recent decisions affecting current work:
 - [03-04]: Region enum fallback to NORCAL_BAY_AREA when ScopingContext.location doesn't match Region enum — keyword-extracted location strings may not match canonical enum values exactly
 - [03-04]: SSE endpoint parameter must be named 'request' not 'http_request' — slowapi @limiter.limit inspects signature for exact name 'request' at decoration time
 - [03-04]: Rate limiter disabled (limiter.enabled = False) in SSE tests — Valkey not available in unit test environment; same pattern as pre-existing constraint
+- [Phase 04-white-label-widget]: Module-level _tenant_origins_cache dict shared by TenantAwareCORSMiddleware and widget_service — enables lazy CORS population without async DB calls in middleware
+- [Phase 04-white-label-widget]: Branding endpoint uses key_func=get_remote_address explicitly — global limiter uses tenant-scoped key but public endpoint has no auth so IP-based limiting is required
+- [Phase 04-white-label-widget]: Patch mocks at point of use (app.api.widget.save_lead) not at definition (app.services.widget_service.save_lead) — Python from-import creates local binding that must be patched where used
 
 ### Pending Todos
 
@@ -126,5 +130,5 @@ None yet.
 ## Session Continuity
 
 Last session: 2026-02-27
-Stopped at: Completed 03-04-PLAN.md — SSE streaming endpoint for estimate narrative generation, generate_from_chat, get_session/mark_completed. 31 new tests passing. Requirements LLM-02, NARR-01, NARR-02, NARR-03, NARR-04 satisfied. Phase 3 complete.
+Stopped at: Completed 04-02-PLAN.md — Public branding endpoint GET /widget/branding/{prefix}, TenantAwareCORSMiddleware with lazy _tenant_origins_cache, POST /widget/lead and /analytics. 11 new tests passing. Requirements BRND-01 through BRND-04, WDGT-05 satisfied.
 Resume file: None

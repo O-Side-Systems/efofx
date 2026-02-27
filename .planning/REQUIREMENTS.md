@@ -79,14 +79,14 @@ Requirements for Epics 3-7. Each maps to roadmap phases.
 - [ ] **WDGT-02**: Widget embeds on any site with single `<script>` tag (<5 lines of code)
 - [ ] **WDGT-03**: Widget is mobile-responsive (sidebar, modal, full-width layouts)
 - [ ] **WDGT-04**: Widget loads without visible "Powered by efOfX" branding (true white-label)
-- [ ] **WDGT-05**: CORS configured per-tenant for widget API calls from contractor domains
+- [x] **WDGT-05**: CORS configured per-tenant for widget API calls from contractor domains
 
 ### Widget Branding
 
-- [ ] **BRND-01**: Contractor can configure widget colors (primary, secondary, accent)
-- [ ] **BRND-02**: Contractor can set company logo URL displayed in widget header
-- [ ] **BRND-03**: Contractor can customize widget button text and welcome message
-- [ ] **BRND-04**: Branding config fetched via unauthenticated API endpoint (rate-limited by IP)
+- [x] **BRND-01**: Contractor can configure widget colors (primary, secondary, accent)
+- [x] **BRND-02**: Contractor can set company logo URL displayed in widget header
+- [x] **BRND-03**: Contractor can customize widget button text and welcome message
+- [x] **BRND-04**: Branding config fetched via unauthenticated API endpoint (rate-limited by IP)
 
 ### Widget Features
 
@@ -216,11 +216,11 @@ Which phases cover which requirements. Updated during roadmap creation.
 | WDGT-02 | Phase 4 | Pending |
 | WDGT-03 | Phase 4 | Pending |
 | WDGT-04 | Phase 4 | Pending |
-| WDGT-05 | Phase 4 | Pending |
-| BRND-01 | Phase 4 | Pending |
-| BRND-02 | Phase 4 | Pending |
-| BRND-03 | Phase 4 | Pending |
-| BRND-04 | Phase 4 | Pending |
+| WDGT-05 | Phase 4 | Complete |
+| BRND-01 | Phase 4 | Complete |
+| BRND-02 | Phase 4 | Complete |
+| BRND-03 | Phase 4 | Complete |
+| BRND-04 | Phase 4 | Complete |
 | WFTR-01 | Phase 4 | Pending |
 | WFTR-02 | Phase 4 | Pending |
 | WFTR-03 | Phase 4 | Pending |

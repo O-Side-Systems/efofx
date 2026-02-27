@@ -48,7 +48,7 @@ Plans:
   4. Two tenants cannot see each other's data — any query from tenant A returns zero results from tenant B regardless of what parameters are used
   5. A contractor can store their OpenAI API key and it is used for their LLM calls — the key is never stored in plaintext and can be rotated without re-registration
   6. A trial-tier tenant is rate-limited after exceeding their threshold — login is rate-limited to 5 attempts per 15 minutes per IP
-**Plans**: TBD
+**Plans**: 7 plans (5 original + 2 gap closure)
 
 Plans:
 - [ ] 02-01: Tenant registration, email verification, and profile management (AUTH-01, AUTH-02, AUTH-06, AUTH-07)
@@ -56,6 +56,8 @@ Plans:
 - [ ] 02-03: TenantAwareCollection wrapper and MongoDB compound indexes for hard isolation (ISOL-01, ISOL-02, ISOL-03, ISOL-04)
 - [ ] 02-04: BYOK Fernet encryption with per-tenant HKDF derivation and trial fallback (BYOK-01, BYOK-02, BYOK-03, BYOK-04)
 - [ ] 02-05: Per-tenant rate limiting with Valkey backend and login brute-force protection (RATE-01, RATE-02, RATE-03)
+- [ ] 02-06: [GAP CLOSURE] Refactor tenant_service.py — replace deprecated collection accessors with TenantAwareCollection (ISOL-02)
+- [ ] 02-07: [GAP CLOSURE] Fix BYOK-04 docs contradiction, wire LLMService to accept BYOK key (BYOK-02, BYOK-04)
 
 ### Phase 3: LLM Integration
 **Goal**: Contractors and their customers can converse with the system about a project and receive a real AI-generated estimate narrative — no stubs, no hardcoded values

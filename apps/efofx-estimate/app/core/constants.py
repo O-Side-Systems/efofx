@@ -129,6 +129,8 @@ DB_COLLECTIONS = {
     "CHAT_SESSIONS": "chat_sessions",
     "VERIFICATION_TOKENS": "verification_tokens",
     "REFRESH_TOKENS": "refresh_tokens",
+    "WIDGET_LEADS": "widget_leads",
+    "WIDGET_ANALYTICS": "widget_analytics",
 }
 
 

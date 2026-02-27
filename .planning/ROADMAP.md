@@ -88,13 +88,13 @@ Plans:
   3. A site visitor can describe their project through the chat, submit their email and phone, and receive a P50/P80 estimate with cost breakdown — all within the widget
   4. The widget renders correctly on mobile viewports and in sidebar, modal, and full-width layout configurations
   5. All widget API calls use the tenant API key — requests without a valid key are rejected
-**Plans**: TBD
+**Plans**: 4 plans
 
 Plans:
-- [ ] 04-01: Widget IIFE bundle with Shadow DOM isolation, mobile-responsive layouts, and error boundary (WDGT-01, WDGT-02, WDGT-03, WDGT-04, WSEC-01)
-- [ ] 04-02: Branding config API and WidgetBrandingProvider — unauthenticated endpoint with IP rate limiting, CSS custom properties (BRND-01, BRND-02, BRND-03, BRND-04, WDGT-05)
-- [ ] 04-03: Chat UI, lead capture form, and estimate results display within widget (WFTR-01, WFTR-02, WFTR-03)
-- [ ] 04-04: Widget security hardening, API key authentication, input sanitization, and analytics (WSEC-02, WSEC-03, WFTR-04)
+- [ ] 04-01: Widget IIFE shell — Shadow DOM isolation, CSS injection, floating/inline modes, responsive layouts, error boundary (WDGT-01, WDGT-02, WDGT-03, WDGT-04, WSEC-01)
+- [ ] 04-02: Backend branding API, per-tenant CORS middleware, widget models/service, lead capture endpoint (BRND-01, BRND-02, BRND-03, BRND-04, WDGT-05)
+- [ ] 04-03: Chat UI components, lead capture form, estimate range visualization, SSE narrative streaming, consultation CTA (WFTR-01, WFTR-02, WFTR-03)
+- [ ] 04-04: Widget security hardening — API key auth verification, XSS sanitization, analytics event tracking (WSEC-02, WSEC-03, WFTR-04)
 
 ### Phase 5: Feedback and Calibration
 **Goal**: The system can measure its own accuracy — customers submit actual costs via magic link, contractors see variance data, and the feedback loop that differentiates efOfX begins accumulating real signal

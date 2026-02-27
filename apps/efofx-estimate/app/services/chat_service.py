@@ -61,6 +61,14 @@ class ChatService:
         self.llm_service = llm_service
 
     # ------------------------------------------------------------------
+    # Internal helpers
+    # ------------------------------------------------------------------
+
+    def _collection(self, tenant_id: str):
+        """Get tenant-scoped chat sessions collection."""
+        return get_tenant_collection(DB_COLLECTIONS["CHAT_SESSIONS"], tenant_id)
+
+    # ------------------------------------------------------------------
     # Public API
     # ------------------------------------------------------------------
 
@@ -185,6 +193,24 @@ class ChatService:
             is_ready=session.is_ready,
             scoping_context=session.scoping_context,
             status=session.status,
+        )
+
+    async def get_session(self, session_id: str, tenant: Tenant) -> ChatSession:
+        """Retrieve a chat session by ID. Raises ValueError if not found."""
+        sessions_collection = self._collection(tenant.tenant_id)
+        session_data = await sessions_collection.find_one({"session_id": session_id})
+        if not session_data:
+            raise ValueError(f"Chat session not found: {session_id}")
+        return ChatSession(**session_data)
+
+    async def mark_completed(
+        self, session_id: str, tenant: Tenant, estimation_session_id: str
+    ) -> None:
+        """Mark a chat session as completed and link to the estimation session."""
+        sessions_collection = self._collection(tenant.tenant_id)
+        await sessions_collection.update_one(
+            {"session_id": session_id},
+            {"$set": {"status": "completed", "updated_at": datetime.utcnow()}},
         )
 
     async def get_chat_history(self, session_id: str, tenant: Tenant) -> List[Dict[str, Any]]:

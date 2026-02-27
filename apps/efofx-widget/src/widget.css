@@ -272,6 +272,196 @@
 }
 
 /* ============================================================
+   Message Input
+   ============================================================ */
+
+.efofx-input-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.efofx-input {
+  flex: 1;
+  border: 1px solid rgba(0, 0, 0, 0.15);
+  border-radius: 20px;
+  padding: 8px 14px;
+  font-size: 14px;
+  font-family: var(--widget-font);
+  outline: none;
+  background: #ffffff;
+  color: #1a1a1a;
+  transition: border-color 0.15s ease;
+  min-width: 0;
+}
+
+.efofx-input:focus {
+  border-color: var(--brand-primary);
+}
+
+.efofx-input:disabled {
+  background: #f5f5f5;
+  color: #999;
+  cursor: not-allowed;
+}
+
+.efofx-send-btn {
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  background: var(--brand-primary);
+  border: none;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  transition: background 0.15s ease, transform 0.1s ease;
+  padding: 0;
+}
+
+.efofx-send-btn:hover:not(:disabled) {
+  background: var(--brand-accent);
+}
+
+.efofx-send-btn:active:not(:disabled) {
+  transform: scale(0.9);
+}
+
+.efofx-send-btn:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+.efofx-send-btn svg {
+  width: 16px;
+  height: 16px;
+  fill: none;
+  stroke: #ffffff;
+  stroke-width: 2;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+/* ============================================================
+   Chat Bubbles
+   ============================================================ */
+
+.efofx-bubble-wrapper {
+  display: flex;
+  max-width: 80%;
+}
+
+.efofx-bubble-wrapper--user {
+  align-self: flex-end;
+  justify-content: flex-end;
+  margin-left: auto;
+}
+
+.efofx-bubble-wrapper--assistant {
+  align-self: flex-start;
+  justify-content: flex-start;
+}
+
+.efofx-bubble {
+  padding: 10px 14px;
+  border-radius: 18px;
+  font-size: 14px;
+  line-height: 1.4;
+  word-wrap: break-word;
+  font-family: var(--widget-font);
+}
+
+.efofx-bubble-user {
+  background: var(--brand-primary);
+  color: #ffffff;
+  border-bottom-right-radius: 4px;
+}
+
+.efofx-bubble-assistant {
+  background: var(--brand-secondary);
+  color: #1a1a1a;
+  border-bottom-left-radius: 4px;
+  border: 1px solid rgba(0, 0, 0, 0.08);
+}
+
+/* ============================================================
+   Typing Indicator
+   ============================================================ */
+
+.efofx-typing-indicator {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding: 10px 14px;
+  background: var(--brand-secondary);
+  border-radius: 18px;
+  border-bottom-left-radius: 4px;
+  border: 1px solid rgba(0, 0, 0, 0.08);
+}
+
+.efofx-typing-dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: rgba(0, 0, 0, 0.4);
+  display: inline-block;
+  animation: efofx-bounce 1.2s ease-in-out infinite;
+}
+
+.efofx-typing-dot:nth-child(2) {
+  animation-delay: 0.15s;
+}
+
+.efofx-typing-dot:nth-child(3) {
+  animation-delay: 0.3s;
+}
+
+@keyframes efofx-bounce {
+  0%, 80%, 100% {
+    transform: scale(0);
+    opacity: 0.5;
+  }
+  40% {
+    transform: scale(1);
+    opacity: 1;
+  }
+}
+
+/* ============================================================
+   Error States (WSEC-02)
+   ============================================================ */
+
+.efofx-error {
+  background: #fef2f2;
+  color: #991b1b;
+  padding: 8px 12px;
+  border-radius: 8px;
+  font-size: 13px;
+  margin: 8px 0;
+  border: 1px solid #fecaca;
+  font-family: var(--widget-font);
+}
+
+.efofx-retry-btn {
+  display: inline-block;
+  background: var(--brand-primary);
+  color: #ffffff;
+  border: none;
+  padding: 6px 16px;
+  border-radius: 6px;
+  cursor: pointer;
+  font-size: 13px;
+  margin-top: 4px;
+  font-family: var(--widget-font);
+  transition: background 0.15s ease;
+}
+
+.efofx-retry-btn:hover {
+  background: var(--brand-accent);
+}
+
+/* ============================================================
    Transitions & animations
    ============================================================ */
 

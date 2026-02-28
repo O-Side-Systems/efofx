@@ -1,0 +1,127 @@
+# Requirements: efOfX Estimation Service
+
+**Defined:** 2026-02-28
+**Core Value:** Trust through transparency — probabilistic estimates with explainable breakdowns that build contractor credibility with customers
+
+## v1.1 Requirements
+
+Requirements for Feedback & Quality milestone. Each maps to roadmap phases.
+
+### Tech Debt
+
+- [ ] **DEBT-01**: Fix EstimationSession tenant_id type to match TenantAwareCollection expectations (INT-04)
+- [ ] **DEBT-02**: Add compound indexes for widget_analytics and widget_leads collections (INT-05)
+- [ ] **DEBT-03**: Remove 5 deprecated collection accessors from mongodb.py
+- [ ] **DEBT-04**: Wire ConsultationCTA button to contractor contact flow destination
+- [ ] **DEBT-05**: YAGNI pass — remove unused code paths and dead imports
+- [ ] **DEBT-06**: Sync requirements.txt with pyproject.toml (fastapi-mail, valkey)
+
+### Infrastructure
+
+- [ ] **INFR-01**: Replace per-process LLM dict cache with distributed Valkey cache
+- [ ] **INFR-02**: Valkey cache keys prefixed with tenant_id to prevent cross-tenant collisions
+- [ ] **INFR-03**: Graceful Valkey fallback — cache outage falls back to live LLM call, not 500
+
+### Feedback
+
+- [ ] **FEED-01**: Email infrastructure setup — transactional provider, SPF/DKIM/DMARC configuration
+- [ ] **FEED-02**: Magic link token generation (secrets.token_urlsafe) with SHA-256 hashed storage and 72h TTL
+- [ ] **FEED-03**: Two-step token validation — idempotent GET renders form, POST consumes token
+- [ ] **FEED-04**: Contextualized feedback email with estimate range summary and CTA
+- [ ] **FEED-05**: Customer feedback form with structured fields (actual_cost, actual_timeline, rating, discrepancy reason enum)
+- [ ] **FEED-06**: Feedback document storage with immutable estimate snapshot and reference class linkage
+- [ ] **FEED-07**: Graceful token states — valid (form), expired (friendly message), used (thank you)
+
+### Calibration
+
+- [ ] **CALB-01**: Tag existing synthetic reference classes with data_source: "synthetic"
+- [ ] **CALB-02**: Calibration metrics API — mean variance, accuracy buckets (10/20/30%), per-reference-class breakdown
+- [ ] **CALB-03**: Minimum 10 real outcome threshold enforced before displaying any metrics
+- [ ] **CALB-04**: Tenant-scoped $lookup aggregation with explicit tenant_id in inner pipeline
+- [ ] **CALB-05**: Calibration dashboard app (apps/efofx-dashboard/) with Recharts charts
+- [ ] **CALB-06**: Dashboard shows progress indicator below minimum threshold ("X more outcomes needed")
+
+### Extraction
+
+- [ ] **EXTR-01**: Shared library boundary document — what goes in shared vs stays in apps
+- [ ] **EXTR-02**: Extract packages/efofx-shared/ Python package (crypto, validation, calculation utils) with uv workspace
+- [ ] **EXTR-03**: Extract packages/efofx-ui/ React components (EstimateCard, ChatBubble, TypingIndicator) with npm workspaces
+- [ ] **EXTR-04**: CI test verifying shared packages install in fresh env with zero app imports
+- [ ] **EXTR-05**: Code quality standards documentation
+
+## v2 Requirements
+
+Deferred to future release. Tracked but not in current roadmap.
+
+### Feedback Automation
+
+- **FAUTO-01**: Automated contractor notification after customer feedback submission
+- **FAUTO-02**: Email drip campaign for non-responders (requires CAN-SPAM compliance)
+
+### Advanced Calibration
+
+- **ACALB-01**: Temporal calibration trend charts (rolling 30/90-day accuracy)
+- **ACALB-02**: Synthetic data weight adjustment workflow (semi-automated)
+- **ACALB-03**: Per-estimate drill-down view for contractors
+
+### Second Vertical
+
+- **VERT-01**: IT/dev vertical reference classes using shared library
+- **VERT-02**: Vertical-specific prompt templates
+
+## Out of Scope
+
+Explicitly excluded. Documented to prevent scope creep.
+
+| Feature | Reason |
+|---------|--------|
+| Automated LLM prompt tuning | Reliability disaster without human-reviewed evaluation harness |
+| Customer login accounts | Doubles auth surface for one-time quote requestors; magic link is correct model |
+| Public-facing accuracy statistics | Exposes calibration data that could undermine contractor relationships |
+| Email drip campaigns for non-responders | Harms contractor-customer relationships; requires CAN-SPAM compliance |
+| Full Storybook documentation | Over-engineered for 2-vertical extraction; TypeScript types + JSDoc sufficient |
+| Shared component npm registry publish | No external consumers; pnpm workspace protocol for internal sharing |
+| Automated reference class splitting/merging | Insufficient sample size at v1.1 volumes; noise chasing |
+
+## Traceability
+
+Which phases cover which requirements. Updated during roadmap creation.
+
+| Requirement | Phase | Status |
+|-------------|-------|--------|
+| DEBT-01 | — | Pending |
+| DEBT-02 | — | Pending |
+| DEBT-03 | — | Pending |
+| DEBT-04 | — | Pending |
+| DEBT-05 | — | Pending |
+| DEBT-06 | — | Pending |
+| INFR-01 | — | Pending |
+| INFR-02 | — | Pending |
+| INFR-03 | — | Pending |
+| FEED-01 | — | Pending |
+| FEED-02 | — | Pending |
+| FEED-03 | — | Pending |
+| FEED-04 | — | Pending |
+| FEED-05 | — | Pending |
+| FEED-06 | — | Pending |
+| FEED-07 | — | Pending |
+| CALB-01 | — | Pending |
+| CALB-02 | — | Pending |
+| CALB-03 | — | Pending |
+| CALB-04 | — | Pending |
+| CALB-05 | — | Pending |
+| CALB-06 | — | Pending |
+| EXTR-01 | — | Pending |
+| EXTR-02 | — | Pending |
+| EXTR-03 | — | Pending |
+| EXTR-04 | — | Pending |
+| EXTR-05 | — | Pending |
+
+**Coverage:**
+- v1.1 requirements: 27 total
+- Mapped to phases: 0
+- Unmapped: 27
+
+---
+*Requirements defined: 2026-02-28*
+*Last updated: 2026-02-28 after initial definition*

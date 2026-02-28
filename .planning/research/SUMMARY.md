@@ -1,17 +1,17 @@
 # Project Research Summary
 
-**Project:** efOfX Estimation Service — Epics 3-7
-**Domain:** Multi-tenant B2B SaaS estimation platform with LLM integration, white-label widget, and self-improving feedback loop
-**Researched:** 2026-02-26
-**Confidence:** MEDIUM-HIGH
+**Project:** efOfX Estimation Service — v1.1 Feedback & Quality Milestone
+**Domain:** Multi-tenant SaaS estimation platform — brownfield feature addition
+**Researched:** 2026-02-28
+**Confidence:** HIGH (codebase audited directly; stack verified via PyPI/npm/official docs; pitfalls confirmed against authoritative sources)
 
 ## Executive Summary
 
-efOfX is a brownfield multi-tenant SaaS platform that converts a working construction estimation engine (Epics 1-2) into a commercially deployable product through four capability pillars: multi-tenant security (Epic 3), LLM conversational estimation (Epic 4), white-label embeddable widget (Epic 5), and a self-improving feedback/calibration loop (Epic 6). The research consensus is clear: JWT-based tenant isolation is the keystone dependency that unlocks every other capability, and it must be implemented correctly from the start — retrofitting multi-tenancy into a live system is a high-cost, high-risk operation that can be avoided entirely by building the isolation layer first.
+v1.1 is a brownfield milestone built on top of a shipped v1.0 foundation. The core estimation engine, tenant isolation model, JWT/API key auth, MongoDB Atlas persistence, React widget, and DigitalOcean deployment are all in production. This milestone adds the feedback loop (customer magic-link emails, structured outcome collection), contractor calibration dashboard (accuracy metrics per reference class), distributed LLM caching (Valkey replacing per-process dict), shared library extraction (monorepo workspace setup for future verticals), and a set of non-negotiable tech debt items from the v1.0 audit (INT-04 tenant_id type, INT-05 missing indexes, deprecated MongoDB accessors, ConsultationCTA dead link). The work is well-bounded: almost all required libraries are already declared in `pyproject.toml`; the principal gaps are wiring existing declarations into code and closing the `requirements.txt`/`pyproject.toml` sync.
 
-The recommended technical approach is FastAPI middleware-enforced tenant isolation (not service-layer filtering), Fernet encryption with per-tenant HKDF key derivation for BYOK OpenAI keys, OpenAI SDK v2 with per-request key injection for LLM calls, and Shadow DOM isolation with Vite IIFE bundling for the embeddable widget. The platform's competitive differentiation — probabilistic estimates, white-label embedding, and a self-improving feedback loop — is achievable with these choices. Several critical dependency upgrades are required before Epic 3 begins: `python-jose` and `passlib` are both abandoned packages that must be replaced with `PyJWT` and `pwdlib` respectively, and the OpenAI SDK must be upgraded from v1.51 to v2.x.
+The recommended approach is incremental and risk-ordered: clean the codebase first (tech debt), then add infrastructure (Valkey), then build user-facing features (feedback email, calibration dashboard), then extract shared libraries last when the codebase is stable. This ordering avoids introducing new features on top of known bugs and ensures the shared library extraction happens against clean, tested code rather than a codebase mid-refactor. All new Python dependencies are already declared; the only truly new frontend dependencies are `recharts` and `@tanstack/react-query` for the new `apps/efofx-dashboard/` Vite app.
 
-The primary risks are a known tenant isolation gap in `rcf_engine.py` (cross-tenant reference class queries), a stubbed LLM parser that bills tenants without delivering value, an existing `NameError` in `security.py` that breaks API key auth, and the potential for synthetic training data to contaminate the calibration loop if not explicitly tagged before Epic 6 begins. None of these are unsolvable — all have clear mitigations documented in the research — but each must be addressed in the correct phase to avoid compounding technical debt.
+The critical risks are concentrated in the magic-link email subsystem: corporate email security scanners (Microsoft Safe Links, Proofpoint, Mimecast) automatically follow every URL in every email, meaning a naive single-use token consumed on HTTP GET will be redeemed before the user clicks. The mitigation is a two-step model where GET to the feedback URL is idempotent (renders form, does not consume token) and only the form POST consumes the token. A secondary risk is email deliverability: a new sending domain with no reputation will immediately land in spam. Both of these must be resolved in the first story of the feedback phase — not retrofitted later.
 
 ---
 
@@ -19,194 +19,185 @@ The primary risks are a known tenant isolation gap in `rcf_engine.py` (cross-ten
 
 ### Recommended Stack
 
-The existing stack (FastAPI, MongoDB Atlas with Motor, React 19, Vite, DigitalOcean) is sound and requires no replacement. Epics 3-7 add targeted libraries for specific capabilities. Four packages in the current `requirements.txt` are abandoned or severely outdated and must be replaced before building on top of them: `python-jose` (abandoned 2021, security CVE) → `PyJWT[crypto]==2.11.0`; `passlib[bcrypt]` (abandoned 2020, broken with bcrypt 5.0+) → `pwdlib[argon2]==0.3.0`; `openai==1.51.0` (v1 end-of-life) → `openai>=2.20.0,<3.0.0`; `redis==5.0.8` → `valkey>=6.1.0` (DigitalOcean deprecated Managed Redis in June 2025, now runs Managed Valkey).
+The v1.1 stack is almost entirely the existing v1.0 stack. No new Python dependencies are needed beyond what is already declared in `pyproject.toml`. The principal code-level work is syncing `requirements.txt` to match `pyproject.toml` (specifically: `fastapi-mail==1.6.2` and `valkey>=6.1.0,<7.0.0`), then wiring those declared libraries into the application.
 
-**Core technology additions:**
-- `PyJWT[crypto]==2.11.0`: JWT auth with tenant_id claims — actively maintained, FastAPI official docs migrated to this from python-jose
-- `pwdlib[argon2]==0.3.0`: Password hashing — Argon2 is memory-hard and GPU-resistant, superior to bcrypt for multi-tenant environments
-- `cryptography>=46.0.0` (upgrade): Fernet symmetric encryption for BYOK key storage at rest
-- `valkey>=6.1.0`: Caching and rate limiting backend — drop-in redis-py fork required for DigitalOcean Managed Valkey
-- `slowapi==0.1.9`: Per-tenant, per-tier rate limiting middleware with Valkey backend
-- `openai>=2.20.0,<3.0.0`: LLM client — v2 `AsyncOpenAI` supports per-request api_key override, enabling BYOK without module-level key storage
-- `fastapi-mail==1.6.2`: Async SMTP for magic link emails — provider-agnostic, FastAPI-native
-- `react-shadow==20.6.0`: React Shadow DOM root creation for widget isolation
-- Vite `build.lib` IIFE mode (existing): Widget bundling as single `<script>` — no separate bundler needed
-- `jinja2>=3.1.0`: Prompt template rendering for git-versioned prompt files
+The one genuinely new addition is a frontend dashboard application (`apps/efofx-dashboard/`) built with Vite + React 19 (matching the existing widget) that requires `recharts@^3.7.0` for calibration charts and `@tanstack/react-query@^5.0.0` for async data fetching. Both packages are React 19 compatible and align with the existing Tailwind CSS convention. No additional charting libraries should be added — Recharts is SVG-based, Tailwind-compatible, and has no vendor lock-in.
 
-**What NOT to use:** LiteLLM (over-engineered for single-provider MVP), CSS-in-JS inside Shadow DOM (150-200ms overhead), iframes for widget embedding (cross-origin complexity, mobile UX degradation), or automated RLHF fine-tuning before sufficient real outcome data volume exists.
+**Core technologies (v1.1 additions):**
+- `valkey>=6.1.0` (already in pyproject.toml): Distributed LLM response cache replacing the per-process dict in `llm_service.py`. Required for multi-worker correctness. DigitalOcean Managed Valkey at $15/month.
+- `fastapi-mail==1.6.2` (already in pyproject.toml): Magic-link email dispatch. Reuses the SMTP config already wired in `auth_service.py`. No new SMTP env vars needed; only `MAGIC_LINK_SECRET` and `FEEDBACK_FORM_URL` are new config keys.
+- `recharts@^3.7.0` + `@tanstack/react-query@^5.0.0` (new, frontend only): Calibration dashboard charts and server state management in the new `apps/efofx-dashboard/` app.
+- `secrets.token_urlsafe(32)` (Python stdlib): Magic link token generation. No external library needed; MongoDB provides single-use invalidation via atomic `findOneAndUpdate`.
+- uv workspace + npm workspaces: Monorepo structure for shared library extraction. No new package managers; uses existing uv and npm tooling.
 
-See `.planning/research/STACK.md` for full installation commands, version compatibility matrix, and open questions.
+See `.planning/research/STACK.md` for full version compatibility matrix and alternatives analysis.
 
 ### Expected Features
 
-The feature research identifies four table-stakes clusters and a set of clear differentiators. JWT auth with tenant isolation is the unconditional prerequisite — no other feature is meaningful without it. Streaming SSE for the chat interface is no longer a nice-to-have but the expected baseline for any LLM chat UX in 2026.
+v1.1 is feature-scoped. All P1 features are required to ship. P2 features are deferred until post-v1.1 validation.
 
-**Must have (table stakes for launch):**
-- JWT auth with `tenant_id` claims + tenant registration/email verification — the entire platform collapses without this
-- Hard tenant isolation middleware (every MongoDB query includes `tenant_id` filter) — a hard security requirement, not a feature
-- BYOK encryption (Fernet + HKDF) for OpenAI keys — required for tenants to use LLM features without platform absorbing unbounded LLM costs
-- Per-tenant rate limiting by tier — prevents noisy-neighbor degradation and enables tier monetization
-- Streaming SSE conversational chat — users trained by ChatGPT/Claude expect token-by-token output; full-response wait causes abandonment
-- Estimate trigger recognition — the system must know when sufficient project detail exists to generate an estimate vs. continue scoping
-- Shadow DOM widget with branding config (no "Powered by efOfX" visible) — white-label means the contractor's brand, full stop
-- Single-script embed (under 5 lines) — contractors are not developers; complex integration means no adoption
-- Lead capture in widget flow — the business justification for contractors to embed the widget
-- Magic link customer feedback — token-based, 72-hour expiry, single-use, no customer login required
-- Variance calculation and calibration metrics display — even at low data volumes, contractors need to see the system is measuring accuracy
+**Must have (table stakes):**
+- Magic link token generation and email send — the feedback loop cannot start without this; customers need a zero-friction path to submit outcomes
+- Customer feedback form with structured outcome fields (actual_cost, actual_timeline, discrepancy reason enum) — structured data only; free text alone is not tunable
+- Token validation endpoint — idempotent GET (renders form without consuming token), single-use POST (consumes token on form submit)
+- Feedback document storage with estimate snapshot and reference class linkage — immutable snapshot; do not overwrite original estimate
+- Calibration metrics calculation — mean variance, accuracy buckets (within 10/20/30%), per-reference-class breakdown; minimum 10 real outcomes threshold before any metric is displayed
+- Contractor calibration dashboard (new `apps/efofx-dashboard/`) — read-only, tenant-scoped; contractors never see individual customer responses
+- INT-04 fix (EstimationSession tenant_id type) — risk of silent tenant isolation bugs before feedback data accumulates under wrong type
+- INT-05 fix (widget analytics missing compound indexes) — performance correctness before calibration dashboard queries the same collections
+- Valkey cache migration — multi-worker deployments are broken without shared cache
+- ConsultationCTA wiring — dead UI element in production; one-line fix requiring a product decision on destination URL
+- Deprecated MongoDB accessor removal — code clarity before shared library extraction
+- Shared backend utilities extraction (`packages/efofx-shared/`) — crypto, validation, calculation utils; stdlib only, zero FastAPI/Motor imports
+- Shared frontend component extraction (`packages/efofx-ui/`) — EstimateCard, ChatBubble, TypingIndicator; no widget-specific state
+- YAGNI pass — delete unused code paths before extraction compounds the maintenance burden
 
-**Should have (competitive differentiators):**
-- BYOK as explicit feature proposition — competitors host keys themselves, creating cost liability; tenants controlling their own LLM costs is a real differentiator
-- P50/P80 probabilistic ranges (not single numbers) — breaks industry norm of false-precision quotes
-- Git-based prompt versioning — prompt changes are auditable, rollbackable, and linked to estimate accuracy outcomes
-- Per-tenant reference class accuracy tracking — contractors can demonstrate historical accuracy to their customers
-- Contractor feedback form (structured) — customer-reported actuals alone are unreliable signal
+**Should have (competitive differentiators within v1.1 scope):**
+- Estimate-contextualized feedback email — pre-populating the email with the original estimate range dramatically improves response quality vs. cold surveys
+- Reference class level accuracy labels (when N >= 5 per class) — contractors can use per-category accuracy as a sales signal
 
-**Defer to v1.x (after 5+ active tenants):**
-- Contractor-facing calibration trend charts — not meaningful until sufficient data volume
-- Automated synthetic data tuning from real outcomes — requires ~100 real feedback submissions for statistical signal
-- Audit log query interface — useful for enterprise tenants, not needed for initial contractor base
-- Widget embed analytics
+**Defer (v1.2+):**
+- Automated contractor notification after customer feedback submission — useful only after feedback volume makes it worthwhile
+- Temporal calibration trend charts — requires >30 days of data per tenant to be meaningful
+- Synthetic data weight adjustment workflow — requires N >= 10 per reference class for statistical confidence
+- IT/dev vertical reference classes — uses shared library from v1.1; this is the next milestone, not v1.1
 
-**Defer to v2+ (after product-market fit):**
-- Communication coaching UI (internal/external narrative toggle) — architecture supports it now; UX complexity is high
-- Multiple LLM providers (Anthropic, Gemini) — BYOK solves cost concern; add provider abstraction post-MVP
-- SSO (SAML/OAuth) for enterprise tenants — contractor SMB target does not require this
-- Automated RLHF fine-tuning — premature without labeled dataset volume and training infrastructure
+**Anti-features (never build in v1.x):**
+- Automated LLM prompt tuning from feedback — reliability disaster without a human-reviewed evaluation harness
+- Email drip campaigns for non-responders — harms contractor-customer relationships; requires CAN-SPAM compliance work
+- Customer login accounts — doubles auth surface for one-time quote requestors; magic link is the correct model
 
-**Anti-features to explicitly avoid:** Multi-user real-time collaboration, customer accounts and login (magic link is the correct model), global (not per-tenant) rate limits, and LiteLLM multi-provider abstraction at MVP stage.
-
-See `.planning/research/FEATURES.md` for full feature dependency graph and prioritization matrix.
+See `.planning/research/FEATURES.md` for full prioritization matrix and dependency graph.
 
 ### Architecture Approach
 
-The architecture is brownfield-extension: the FastAPI layered architecture, MongoDB Atlas with Motor, and React widget scaffolding all exist. What is missing are real implementations for six service stubs (`TenantService`, `LLMService`, `ChatService`, `FeedbackService`, plus new `BYOKKeyService` and `CalibrationService`), plus the isolation middleware, prompt registry, and branding config system. The project structure is sound and requires no major reorganization — Epic 7 will clean up the monolithic `routes.py` after implementation is complete.
+v1.1 follows the existing FastAPI layered service pattern strictly. The middleware stack, `TenantAwareCollection` isolation model, and dual-auth (JWT + API key) are untouched. Three new services are added (`FeedbackEmailService`, `CalibrationService`, `ValkeyCache`), one existing service is modified (`LLMService`), and a new frontend app (`apps/efofx-dashboard/`) is scaffolded. Two new shared packages (`packages/efofx-shared/` Python, `packages/efofx-ui/` React) are extracted using uv workspaces and npm workspaces respectively.
 
-**Major components and responsibilities:**
+**Major components (new in v1.1):**
+1. `FeedbackEmailService` — HMAC-signed magic link token generation + `fastapi-mail` dispatch (fire-and-forget via `asyncio.create_task()`). Separate from `FeedbackService` because SMTP failure semantics must not affect feedback CRUD.
+2. `CalibrationService` — MongoDB aggregation pipeline computing accuracy metrics per reference class. Critical: `$lookup` joins to `estimates` collection must manually scope `tenant_id` in the inner pipeline — `TenantAwareCollection.aggregate()` only scopes the source collection, not the join target.
+3. `ValkeyCache` — module-level singleton async connection pool. Must wrap all calls in try/except for graceful degradation (Valkey outage falls back to uncached LLM call, not a 500 error).
+4. `magic_link_tokens` MongoDB collection — TTL index on `expires_at`, unique index on `token_hash`, two-step redemption schema with distinct `opened_at` and `used_at` fields.
+5. `apps/efofx-dashboard/` — New Vite + React 19 app with Recharts calibration charts and React Query for API state. JWT-authenticated, contractor-facing, read-only.
+6. `packages/efofx-shared/` + `packages/efofx-ui/` — Extracted pure utilities. The Python package must have zero imports from any `apps/` directory; the React package must contain no estimation-domain logic.
 
-1. **TenantIsolationMiddleware** — Extracts and validates `tenant_id` from every JWT at the middleware layer (before any route code executes). Services receive `tenant_id` as their first parameter; they never read request state themselves. This is the enforcement point that makes all tenant isolation reliable regardless of developer discipline.
+The build order is mandated by dependency analysis: Phase 1 tech debt → Phase 2 Valkey → Phase 3 feedback email → Phase 4 calibration → Phase 5 shared extraction.
 
-2. **BYOKKeyService** — Isolated encryption/decryption service. Raw decrypted keys are scoped to the calling function's stack frame; they never appear in logs, object state, or shared memory. Uses HKDF-derived per-tenant keys (not a single master Fernet key) to limit blast radius of a key compromise.
-
-3. **LLMService + PromptRegistry** — `AsyncOpenAI` instantiated per-request with the tenant's decrypted key (never at service init). Prompts loaded from `app/prompts/*.json` at startup and cached in memory; `prompt_version` stored on every EstimationResult for calibration traceability.
-
-4. **ShadowDOMWrapper + WidgetBrandingProvider** — Widget bundled as IIFE with Vite `build.lib`; Shadow DOM isolation via `react-shadow`. Branding config fetched once at `init()` and applied as CSS custom properties on the shadow host — not re-fetched on every chat interaction.
-
-5. **FeedbackService + CalibrationService** — HMAC-signed magic link tokens (not JWT) with 72-hour expiry and single-use enforcement via atomic MongoDB update. Calibration operates exclusively on `data_source: "real"` documents — synthetic data provides prior distribution only.
-
-6. **TenantAwareCollection wrapper** — Every MongoDB `find()`, `find_one()`, `aggregate()`, `update_one()`, and `delete_one()` call goes through a wrapper that auto-injects `tenant_id` filter. This makes cross-tenant queries impossible rather than just discouraged.
-
-**Key patterns:** JWT tenant context propagation via `request.state`; BYOK decrypt-at-call-time; git-versioned JSON prompt files; CSS custom properties for widget branding; atomic magic link single-use enforcement.
-
-See `.planning/research/ARCHITECTURE.md` for full system diagram, data flow sequences, and anti-patterns with code examples.
+See `.planning/research/ARCHITECTURE.md` for full data flow diagrams, code patterns, anti-patterns, and component detail.
 
 ### Critical Pitfalls
 
-The research identifies six critical pitfalls, two of which are confirmed existing bugs and one of which is a pre-Epic 3 blocker:
+1. **Email security scanners consume GET-based magic link tokens** — Corporate email scanners (Microsoft Safe Links, Proofpoint, Mimecast) auto-follow every URL in every email. If the token is consumed on HTTP GET, the scanner redeems it before the user clicks. Avoid by making GET to the feedback URL idempotent (renders form, sets `opened_at`, does NOT set `used_at`); only the form POST consumes the token. The `opened_at`/`used_at` distinction must be in the schema before the first token document is written.
 
-1. **Tenant isolation in application code instead of database layer** — The existing `rcf_engine.py` queries reference classes without tenant_id filtering (confirmed bug). Fix: `TenantAwareCollection` wrapper that auto-injects `tenant_id` on all MongoDB operations. Write a cross-tenant test (two tenants; assert tenant A cannot see tenant B's data) and make it pass before closing Epic 3.
+2. **New sending domain with no reputation goes to spam immediately** — A cold domain sending time-limited magic links to corporate inboxes triggers every spam heuristic. Use a dedicated transactional email provider (Resend, Postmark, or SendGrid) with established IP reputation, configure SPF/DKIM/DMARC before the first send, and test delivery to Gmail, Outlook, and a GSuite corporate inbox. This is an infrastructure prerequisite, not a code story.
 
-2. **LLM parsing stub ships to production** — `_parse_estimation_response()` in `llm_service.py` is hardcoded with default values (confirmed bug). Tenants pay OpenAI API costs (on their BYOK key) for zero-value responses. Fix: OpenAI JSON mode + Pydantic response model. Must be resolved as the first story in Epic 4.
+3. **FastAPI BackgroundTasks silently drops failed email sends** — The default BackgroundTasks exception handler swallows errors with no retry and no monitoring surface. Magic link tokens must be persisted to MongoDB before the background task fires (not conditional on email success). The task body must have explicit try/except with structured logging and a failed-send record written to the DB.
 
-3. **Fernet single master key exposes all tenant OpenAI keys on compromise** — Use per-tenant HKDF-derived keys from day one, not a shared master Fernet key. Add `key_version` field to tenant document for future rotation. Implement startup validation that fails fast if `ENCRYPTION_KEY` is missing.
+4. **Calibration dashboard shows metrics before statistically meaningful sample sizes** — Displaying calibration metrics based on 3 data points trains contractors to distrust the system. Enforce a minimum of 10 confirmed real outcomes per tenant before any metric renders. Show a progress indicator below the threshold. Tag all existing synthetic reference class documents with `data_source: "synthetic"` before v1.1 ships; calibration queries must filter exclusively to `data_source: "real"`.
 
-4. **`DB_COLLECTIONS` import missing in `security.py`** — Existing `NameError` causes 500 errors on any API key auth attempt. This is a pre-Epic 3 fix that must happen immediately.
+5. **Valkey cross-tenant cache key collision** — If LLM cache keys are not prefixed with `tenant_id`, a cache hit for Tenant A's estimate can be served to Tenant B. All cache keys must be prefixed: `v1:llm:{tenant_id}:{sha256_hash}`. Use `hashlib.sha256` (deterministic across processes), never Python's `hash()` (randomized per process start). Serialize cached values as JSON, never pickle.
 
-5. **Shadow DOM does not isolate JavaScript** — CSS/DOM isolation only; JS runs in the same global scope as the host page. Widget must wrap all initialization in `try/catch`; bundle all dependencies into the IIFE; test against adversarial host environments (jQuery 1.x, broken `fetch`, CSP-restricted pages).
-
-6. **Synthetic training data contaminating the calibration loop** — Confirmed by ICLR 2025 research on model collapse. Tag all existing synthetic reference classes with `data_source: "synthetic"` before Epic 6 begins. Calibration calculations must filter exclusively to `data_source: "real"`.
-
-**Additional pitfalls to track:** Async context bleed via module-level globals (replace rate limiter dictionary with Valkey-backed solution); CORS wildcard in production (set explicit origin whitelist with startup warning); widget embed URL versioning (never break existing contractor embeds by changing the script interface).
-
-See `.planning/research/PITFALLS.md` for full recovery strategies, "Looks Done But Isn't" checklist, and integration gotchas.
+6. **Shared package circular import discovered after second vertical tries to use it** — The shared package acquires implicit imports from `apps/efofx_estimate` over time. By the time the second vertical tries to install `efofx-shared` standalone, it has hidden transitive dependencies on FastAPI and Motor. Enforce zero `apps/` imports in the shared package. Write a CI test that installs the package in a fresh venv with only declared dependencies and runs `import efofx_shared` — failure means a circular import leaked in.
 
 ---
 
 ## Implications for Roadmap
 
-The research is unambiguous about phase ordering. JWT auth with tenant isolation is not one of five parallel workstreams — it is the prerequisite for all others. Building BYOK, chat, or the widget before the isolation layer means retrofitting security into every subsequent implementation. The architecture's build order implications directly map to an epic ordering that is already validated by the existing project structure.
+The dependency graph mandates a specific phase order. No phase can be safely reordered because each phase either fixes issues that would complicate subsequent work or provides capabilities the next phase requires.
 
-### Phase 1: Multi-Tenant Foundation (Epic 3)
+### Phase 1: Tech Debt & Foundation Cleanup
 
-**Rationale:** JWT auth with `tenant_id` propagation is the keystone dependency for every other feature. The rate limiter, BYOK encryption, and CORS configuration must all exist before LLM integration can be tenant-aware. Starting elsewhere creates security debt that compounds with every subsequent implementation. Pre-work: fix the `DB_COLLECTIONS` NameError in `security.py` and upgrade `python-jose` → `PyJWT`, `passlib` → `pwdlib`.
+**Rationale:** The v1.0 audit identified concrete correctness bugs (INT-04 tenant_id type, INT-05 missing indexes) and code quality issues (deprecated MongoDB accessors, ConsultationCTA dead link) that would complicate or mask bugs in subsequent feature work. Extracting shared libraries into a messy codebase embeds the debt permanently. This phase has zero external dependencies — it can start immediately without infrastructure provisioning.
 
-**Delivers:** Working multi-tenant platform where tenants can register, authenticate, and have their data isolated from each other with no cross-tenant leakage. Tenant API keys are encrypted at rest with per-tenant HKDF derivation.
+**Delivers:** A codebase where all known bugs are fixed, deprecated patterns are removed, and dead code is eliminated. The shared extraction in Phase 5 will extract clean, tested code rather than working around dead code.
 
-**Addresses:** JWT auth, BYOK encryption storage, tenant isolation middleware, per-tenant rate limiting, CORS origin whitelist, audit logging skeleton.
+**Addresses features from FEATURES.md:** INT-04 fix, INT-05 fix, deprecated accessor removal, ConsultationCTA wiring, YAGNI pass.
 
-**Avoids:** Cross-tenant data leakage (implement TenantAwareCollection wrapper), async context bleed (ContextVar for tenant identity, no globals), single Fernet master key vulnerability (use HKDF from day one), CORS wildcard in production.
+**Avoids pitfalls:** "Deprecated accessor removal breaking test scripts" — full test suite including `scripts/` must run after removal. "YAGNI removal of in-use feature" — MongoDB usage check before any removal (query for 90-day usage, only remove if count == 0).
 
-**Research flag:** Standard well-documented patterns (FastAPI middleware, PyJWT, Fernet). No additional phase research needed. Write cross-tenant isolation tests early — they are the acceptance criteria for this phase.
+**Research flag:** Standard patterns — no research-phase needed. Mechanical cleanup with well-defined acceptance criteria from the v1.0 audit.
 
-### Phase 2: LLM Integration (Epic 4)
+---
 
-**Rationale:** BYOK key service from Phase 1 is required before LLM calls can be tenant-aware. The LLM parsing stub must be replaced as the first story in this phase — not at the end — because every subsequent story builds on the assumption that `generate_response()` returns real parsed values. Prompt registry can be built in parallel with BYOK refactor since it has no Phase 1 dependencies.
+### Phase 2: Valkey Infrastructure
 
-**Delivers:** Working conversational scoping chat with streaming SSE responses, real LLM narrative generation (not stubs), and git-versioned prompt management. Every estimate records `prompt_version` for calibration traceability.
+**Rationale:** The per-process `_response_cache: dict` in `llm_service.py` is a documented correctness bug in multi-worker deployments. Fixing this before adding more user load (feedback emails triggering estimation calls, calibration queries) prevents the feedback loop from running on a broken cache. Provisioning DigitalOcean Managed Valkey is a prerequisite — the infrastructure must be live before the application can connect to it.
 
-**Uses:** `openai>=2.20.0,<3.0.0` with per-request BYOK key injection, Jinja2/JSON prompt templates, `valkey` for LLM response hash-based caching (SHA-256 cache key, 24h TTL).
+**Delivers:** A shared distributed LLM response cache that works correctly across all Gunicorn workers. Cache survives app restarts and is scoped per tenant to prevent cross-tenant collisions.
 
-**Implements:** LLMService BYOK refactor, PromptRegistry, ChatService with multi-turn context, streaming SSE endpoint.
+**Uses from STACK.md:** `valkey>=6.1.0` (already in pyproject.toml), `fakeredis>=2.0.0` for unit tests (already in pyproject.toml dev extras), `VALKEY_URL` config already present in `app/core/config.py`.
 
-**Avoids:** LLM parsing stub shipping (replace as story 1), inline prompt strings (all prompts in `app/prompts/*.json`), global OpenAI client instantiation, prompt injection via widget user input (validate LLM output schema, prefix user input with role separator).
+**Implements architecture:** `ValkeyCache` singleton module (`app/services/valkey_cache.py`) with graceful fallback; `llm_service.py` modification (same SHA-256 cache key logic, Valkey replacing in-process dict).
 
-**Research flag:** Verify `openai` v1→v2 migration scope in `llm_service.py` before starting. The CHANGELOG has breaking changes in `output` field types. Audit existing service stubs for v1 API usage.
+**Avoids pitfalls:** Cross-tenant cache key collision (prefix all keys with `tenant_id`), non-deterministic cache keys (use `hashlib.sha256`, never `hash()`), Valkey outage crashes (try/except with fallback to live LLM call), pickle serialization breaks (JSON only, never pickle Pydantic models), TTL not set (always set explicit TTL; no unbounded cache growth).
 
-### Phase 3: White-Label Widget (Epic 5)
+**Research flag:** Standard patterns — no research-phase needed. Official Valkey docs are authoritative. One open question to verify before starting: whether slowapi's `limits` library accepts the `valkeys://` TLS URL scheme used by DO Managed Valkey. If not, the workaround (`redis://...?ssl=true`) is known.
 
-**Rationale:** The widget is the distribution mechanism — but it requires the chat streaming endpoint from Phase 2 and the tenant branding model (part of tenant registration) from Phase 1. The Shadow DOM scaffolding already exists; new work is the branding config API, BrandingProvider component, and widget IIFE bundling for CDN distribution. Frontend and backend work in this phase can proceed in parallel once the branding API contract is defined.
+---
 
-**Delivers:** Embeddable single-script widget with Shadow DOM CSS isolation, per-tenant branding (colors, logo, welcome message), multi-turn chat UI, lead capture form, and P50/P80 estimate results display. Hosted on DigitalOcean Spaces CDN at versioned URL.
+### Phase 3: Feedback Email & Magic Links
 
-**Uses:** Vite `build.lib` IIFE mode, `react-shadow==20.6.0`, CSS custom properties for branding, `?inline` CSS import for Shadow DOM style injection.
+**Rationale:** This is the central user-facing feature of v1.1. It depends on Phase 1 (clean feedback model, no deprecated accessor bugs) but does not depend on Phase 4 (calibration). It must be built before calibration because calibration metrics can only be computed after real feedback data exists. Email infrastructure (transactional provider account, SPF/DKIM/DMARC records) must be verified as the first story in this phase — before any magic link code is written. Getting this wrong silently breaks the entire feedback loop.
 
-**Implements:** ShadowDOMWrapper extension, WidgetBrandingProvider, ChatInterface, LeadCaptureForm, EstimateDisplay, widget IIFE bundle + CDN deploy pipeline.
+**Delivers:** Contractors can trigger a customer feedback email after an estimate is delivered. Customers receive a contextualized, time-limited magic link, fill in actual project outcomes on a stateless public form, and the data is stored against the estimate snapshot for calibration.
 
-**Avoids:** Widget breaking host page on exception (global try/catch around all init), CSS-in-JS inside Shadow DOM (use `?inline` extracted CSS), branding fetch on every chat interaction (fetch once at init, cache in React context), widget embed URL breaking existing contractor sites (version embed URL from day one: `/widget/v1/embed.js`).
+**Addresses features from FEATURES.md:** Magic link token generation, email send, token validation (idempotent GET / single-use POST), feedback form (customer-facing), feedback document storage with estimate snapshot and reference class linkage.
 
-**Research flag:** Verify `react-shadow==20.6.0` compatibility with React 19.2.0 before starting (published ~1 year ago; check GitHub issues). Alternative is manual `useEffect` + `attachShadow()`. Write adversarial host page test matrix (jQuery 1.x, broken `fetch`, strict CSP).
+**Avoids pitfalls:** Email security scanners consuming GET-based tokens (two-step GET/POST model committed before any token doc schema is finalized), email deliverability (transactional provider + SPF/DKIM/DMARC + inbox testing as the first story), silent background task failure (explicit try/except + failed-send record in DB).
 
-### Phase 4: Feedback and Calibration Loop (Epic 6)
+**Research flag:** Needs research-phase during planning for email deliverability specifics. Which transactional email provider integrates cleanly with `fastapi-mail`? Does the efofx.ai domain have existing SPF/DKIM records? Resend, Postmark, and SendGrid each have different SMTP API configuration. This is operations-heavy, not code-heavy, and the wrong choice here silently breaks the entire feedback loop.
 
-**Rationale:** Feedback collection requires completed estimates (Phases 2+3) and tenant email capability (Phase 1). This is the self-improvement moat — the architecture is sound but real calibration value requires data volume. Phase 4 should be shipped promptly to start accumulating real outcome data, even though the calibration metrics will show near-empty values initially.
+---
 
-**Delivers:** Magic link email delivery for customer feedback, contractor feedback form with structured discrepancy fields, actual vs. estimated variance calculation, and tenant calibration dashboard showing mean variance and accuracy trend. Data source tagging (`synthetic` vs. `real`) must be applied retroactively to all existing reference classes before calibration calculations begin.
+### Phase 4: Calibration Dashboard
 
-**Uses:** `fastapi-mail==1.6.2` for magic link delivery, HMAC-signed tokens (not JWT) with 72-hour expiry, atomic MongoDB single-use enforcement, MongoDB aggregation pipeline for calibration metrics.
+**Rationale:** Calibration metrics are only meaningful once feedback data exists (Phase 3). This phase builds the aggregation layer and the new `apps/efofx-dashboard/` frontend. The `$lookup` tenant scoping requirement (explicitly scoping `tenant_id` in the inner aggregation pipeline, not relying on `TenantAwareCollection` alone) is a security-critical constraint that must be in the task acceptance criteria for every calibration story.
 
-**Implements:** FeedbackService (magic link generation + outcome capture), CalibrationService (variance calculation, `data_source: "real"` filtering), tenant calibration dashboard endpoint, contractor feedback form.
+**Delivers:** Contractors see their historical estimate accuracy: mean variance, accuracy buckets (within 10/20/30% of actual), per-reference-class breakdown. The dashboard shows a progress indicator ("X more outcomes needed") until the minimum 10-outcome threshold is reached. Synthetic reference class data is excluded from all metric calculations.
 
-**Avoids:** Magic link single-use not enforced (atomic MongoDB update with `returnDocument: AFTER`), synthetic data contaminating calibration (filter to `data_source: "real"` exclusively), calibration dashboard showing misleading metrics before minimum sample threshold (show "N more projects needed" below ~20 real outcomes), platform OpenAI key fallback when BYOK fails (return explicit error; never absorb tenant LLM costs).
+**Uses from STACK.md:** `recharts@^3.7.0` + `@tanstack/react-query@^5.0.0` in the new `apps/efofx-dashboard/` Vite app. uv workspace root `pyproject.toml` needed before this phase if not already set up in Phase 5 prep.
 
-**Research flag:** The data source migration (tagging existing synthetic reference classes) is a prerequisite migration that must be planned and executed before Epic 6 development begins. Include this in the first story of Phase 4.
+**Implements architecture:** `CalibrationService` with tenant-scoped MongoDB aggregation pipeline, calibration Pydantic models (`app/models/calibration.py`), new calibration endpoints (`/calibration/summary`, `/calibration/accuracy`), new `apps/efofx-dashboard/` Vite frontend app.
 
-### Phase 5: Code Quality and Hardening (Epic 7)
+**Avoids pitfalls:** Calibration metrics with insufficient or synthetic data (minimum 10-outcome threshold enforced in service; `data_source: "real"` filter required — the `data_source` field migration on existing synthetic data is the first story of this phase), tenant-unscoped `$lookup` (inner pipeline must include its own `tenant_id` match).
 
-**Rationale:** With all four capability pillars working, Epic 7 addresses the accumulated shortcuts from the rapid implementation phase. The CONCERNS.md audit identified 55+ broad `except Exception` catch-alls, the global in-memory rate limiter that must migrate to Valkey, and route organization that needs splitting from monolithic `routes.py` into domain-separated modules. This phase cannot be done before the features it is hardening.
+**Research flag:** Standard patterns for MongoDB aggregation and Recharts. One lightweight check: verify Recharts + Tailwind integration in a new Vite app before starting the dashboard UI stories, since this is the first time the team will use Recharts.
 
-**Delivers:** Exception hierarchy replacing broad catch-alls, routes split into domain modules, Valkey-backed rate limiting replacing in-memory dictionary, MongoDB connection pool configuration, performance profiling of reference class matching, and cleanup of service stubs that were never properly implemented (YAGNI pass).
+---
 
-**Avoids:** Global rate limiter memory leak (unbounded dictionary growth, OOM risk under load), catch-all exception masking (distinguish OpenAI rate limits from DB failures from validation errors), service instantiation per-request (move to app-lifespan singletons).
+### Phase 5: Shared Library Extraction
 
-**Research flag:** Standard refactoring patterns — no additional phase research needed. Primary input is the CONCERNS.md audit and runtime performance data collected during Phases 1-4.
+**Rationale:** This phase is deliberately last. Extracting shared libraries after the codebase has been cleaned (Phase 1) and features have stabilized (Phases 3-4) minimizes the risk of extracting code that immediately needs to change. A boundary document (what is allowed in shared, what is not) must be the first deliverable of this phase — before any code moves. The Python package must be installable in a fresh venv with only stdlib; the React package must contain no estimation-domain logic.
+
+**Delivers:** `packages/efofx-shared/` (Python crypto, validation, calculation utilities) and `packages/efofx-ui/` (EstimateCard, ChatBubble, TypingIndicator) extracted as workspace packages. uv workspace root `pyproject.toml` and npm workspaces `package.json` configured. The IT/dev vertical can be initialized in v1.2 as a configuration-plus-reference-classes addition, not a rewrite.
+
+**Avoids pitfalls:** Shared package circular import (zero imports from `apps/`; CI test verifies fresh-venv install), shared package published to public registry accidentally (mark `private: true` in `package.json`; do not configure PyPI publishing in `pyproject.toml` for internal packages), widget embed behavior change after extraction (treat widget embed API as versioned contract; test existing embed script against refactored widget before releasing).
+
+**Research flag:** Standard patterns — no research-phase needed. uv workspaces and npm workspaces are well-documented in official docs. One open question to resolve before starting: whether the DigitalOcean App Platform build uses `pyproject.toml` with `pip install -e .` or `requirements.txt`. If it uses `requirements.txt`, editable install of `packages/efofx-shared` must be added to `requirements.txt` explicitly.
+
+---
 
 ### Phase Ordering Rationale
 
-- **Phases 1→2→3→4 are a hard dependency chain:** Tenant isolation must exist before BYOK, BYOK must exist before LLM integration, LLM integration must exist before the chat widget has a backend, and the widget must produce estimates before feedback collection is meaningful.
-- **Phase 5 (hardening) is correctly last:** Hardening targets identified during Phase 1-4 implementation. Doing it earlier means hardening code that will be rewritten anyway.
-- **The dependency chain does not mean sequential sprints:** Within each phase, backend and frontend work can often proceed in parallel once the API contract is defined. Phase 3 especially has parallel tracks.
-- **Two immediate pre-work items do not belong in any phase:** Fix the `DB_COLLECTIONS` NameError (pre-Epic 3 blocker) and upgrade the four abandoned/outdated packages (`python-jose`, `passlib`, `openai`, `redis`). These should be tickets that close before Phase 1 begins.
+- **Tech debt first:** INT-04 (tenant_id type) and INT-05 (missing indexes) are correctness bugs that could silently corrupt calibration data if feedback data accumulates under the wrong type. Fixing these before any feedback data exists eliminates the risk of a migration against real production data.
+- **Valkey before user-facing features:** Multi-worker cache correctness is a prerequisite for reliable LLM estimation. Shipping more users onto a broken per-process cache while adding the feedback loop means every feedback-triggered estimation call risks cache misses on all but one worker.
+- **Feedback before calibration:** Calibration metrics require real feedback data. The calibration service can be built against synthetic test data in development, but the minimum-threshold logic assumes real data has started flowing.
+- **Extraction last:** Shared library extraction is a pure refactoring milestone with no user-visible impact. Doing it last means the code being extracted is already tested, clean, and stable. Doing it earlier risks mid-milestone churn if feature work requires changing the code being extracted.
+
+---
 
 ### Research Flags
 
-**Needs validation before starting (but no full research-phase required):**
-- **Phase 2:** Audit `llm_service.py` for OpenAI v1→v2 API breaking changes before writing any new LLM code. The CHANGELOG is the source; the audit is an hour of work, not a research sprint.
-- **Phase 3:** Verify `react-shadow==20.6.0` works with React 19.2.0. Check the GitHub issues page. If it doesn't, the fallback (manual `useEffect` + `attachShadow()`) is well-documented and requires no additional research.
-- **Phase 3:** Verify DigitalOcean App Platform Python 3.11 support (required for `pwdlib` and `fastapi-mail`). Check DO docs or create a test app component before Phase 1 begins.
+**Phases likely needing `/gsd:research-phase` during planning:**
 
-**Standard patterns (skip research-phase):**
-- **Phase 1:** JWT auth, FastAPI middleware, Fernet encryption — all well-documented with official sources verified.
-- **Phase 4:** Magic link pattern, HMAC token signing, MongoDB aggregation — straightforward and covered in ARCHITECTURE.md with code examples.
-- **Phase 5:** Exception hierarchy, route organization, connection pool tuning — standard Python/FastAPI patterns with no ambiguity.
+- **Phase 3 (Feedback Email):** Email deliverability infrastructure is the highest-risk area in the entire milestone. Before writing the FeedbackEmailService integration story, verify: (1) which transactional email provider integrates cleanly with `fastapi-mail`, (2) whether the efofx.ai domain has any pre-existing SPF/DKIM records, (3) SPF/DKIM/DMARC configuration steps for the chosen provider. This is operations-heavy, not code-heavy, and the wrong choice silently breaks the entire feedback loop.
+
+**Phases with standard patterns (skip research-phase):**
+
+- **Phase 1 (Tech Debt):** Mechanical cleanup. All acceptance criteria are defined in the v1.0 audit (CONCERNS.md, v1.0-MILESTONE-AUDIT.md). No research needed.
+- **Phase 2 (Valkey):** Official Valkey docs are authoritative. Integration patterns are documented in STACK.md and ARCHITECTURE.md with working code examples. Verify the `valkeys://` TLS URL scheme with slowapi before starting — that is a verification task, not a research sprint.
+- **Phase 4 (Calibration):** MongoDB aggregation patterns are well-documented. The calibration math is straightforward. The tenant-scoped `$lookup` pattern is documented in ARCHITECTURE.md with a working code example.
+- **Phase 5 (Shared Extraction):** uv workspaces and npm workspaces are documented in official sources. Boundary definition is the risk, not the tooling — resolve with a one-page document before moving any code.
 
 ---
 
@@ -214,63 +205,65 @@ The research is unambiguous about phase ordering. JWT auth with tenant isolation
 
 | Area | Confidence | Notes |
 |------|------------|-------|
-| Stack | HIGH | Core technology choices verified against official docs and PyPI. Package abandonment/deprecation status confirmed with FastAPI community discussions and DigitalOcean official announcements. One MEDIUM-confidence item: `react-shadow` React 19 compatibility needs verification before Phase 3. |
-| Features | MEDIUM | Platform architecture (JWT, BYOK, Shadow DOM, magic links) is high-confidence from PRD and codebase. Market expectations for construction contractor UX are LOW-confidence — thin market research, limited to public competitor analysis. Anti-features are well-reasoned and consistent with established patterns. |
-| Architecture | HIGH | Based on direct codebase review (existing stubs, models, and service structure confirmed) and official MongoDB, FastAPI, and Fernet documentation. Integration patterns have code examples that align with official SDK documentation. |
-| Pitfalls | MEDIUM-HIGH | Six critical pitfalls all verified with multiple sources. Two are confirmed by direct codebase audit (CONCERNS.md). Synthetic data contamination finding backed by ICLR 2025 peer-reviewed research. One LOW-confidence area: Shadow DOM security characteristics drawn from a single source. |
+| Stack | HIGH | All Python deps verified via PyPI; all npm deps verified via npm registry and peerDependency inspection. The only uncertainty is runtime verification of `valkeys://` with slowapi — marked as an open question to verify before Phase 2 begins. |
+| Features | MEDIUM | Core feature requirements are HIGH confidence (from PRD.md and v1.0 audit). Construction-specific calibration accuracy expectations ("what good looks like" for contractors) are MEDIUM confidence — no direct industry precedent found. The 10-outcome minimum threshold is a defensible recommendation but not an industry-verified constant; treat as a product decision to validate with the stakeholder. |
+| Architecture | HIGH | Existing v1.0 source was read directly. All integration patterns are based on actual code, not inference. The CalibrationService `$lookup` tenant scoping requirement is verified against MongoDB documentation. The magic link two-step redemption model is verified against documented email scanner behavior from official vendor docs. |
+| Pitfalls | HIGH | Critical pitfalls verified against official docs and multiple corroborating sources. Email scanner GET-consumption is documented by Supabase, Mimecast (official), and community discussion. BackgroundTasks silent failure is documented in FastAPI official docs. Valkey cross-tenant cache key collision is a structural security requirement, not speculative. |
 
-**Overall confidence:** MEDIUM-HIGH
+**Overall confidence:** HIGH
 
 ### Gaps to Address
 
-- **React 19 + react-shadow compatibility:** Unverified. Check GitHub issues for `react-shadow` before Phase 3 begins. Low-risk gap — the fallback path is known.
-- **DigitalOcean Python 3.11 App Platform support:** Unverified. `pwdlib` and `fastapi-mail` both require Python 3.10+; current `requirements.txt` may specify 3.9. Verify before Phase 1 begins; this blocks the dependency upgrades.
-- **openai v1→v2 migration scope:** The `llm_service.py` stub uses v1 patterns. Full audit needed before Phase 2. Not a research gap — just a code audit task.
-- **Construction contractor market expectations:** Feature research for the contractor SMB market was thin. The PRD is the authoritative source here. If tenant feedback during Phase 3-4 reveals unexpected feature expectations, be prepared to reprioritize v1.x features.
-- **Valkey SSL/TLS configuration:** DO Managed Valkey requires SSL (`valkeys://` URI). Verify `valkey-py 6.1.0` handles this identically to `redis-py`'s `rediss://` before Phase 1 Valkey integration.
+- **Email provider selection:** The research recommends a transactional email provider but does not specify which one. Resolution: verify which provider integrates cleanly with `fastapi-mail` and whether the efofx.ai domain has pre-existing SPF/DKIM records. This must be resolved as the first story of Phase 3 before any magic-link code is written.
+
+- **`requirements.txt` vs `pyproject.toml` build authority on DigitalOcean:** If DO App Platform uses `requirements.txt`, the sync gap (missing `fastapi-mail`, `valkey`) causes production missing-dependency failures. Resolution: inspect `.do/app.yaml` build command and DO App Platform docs before Phase 1 begins.
+
+- **slowapi `valkeys://` TLS URL scheme compatibility:** The `limits` library used by slowapi may require `redis://` scheme syntax even for a Valkey host on TLS. DO Managed Valkey uses `valkeys://`. Resolution: test the connection string against a provisioned DO Managed Valkey instance before Phase 2 code changes begin.
+
+- **Minimum feedback threshold for calibration:** The recommended 10-outcome minimum is defensible but is a product decision, not a statistical constant. Resolution: validate with the product stakeholder before Phase 4 begins, as it affects acceptance criteria for the "insufficient data" placeholder state.
+
+- **ConsultationCTA destination URL:** The CTA wiring (Phase 1) requires a business decision on the contractor contact flow destination. Resolution: confirm the destination URL before Phase 1 begins — the code fix is one line, but the product decision must come first.
 
 ---
 
 ## Sources
 
 ### Primary (HIGH confidence)
-- `docs/PRD.md` — authoritative product requirements source
-- `.planning/PROJECT.md` — validated project requirements and constraints
-- `docs/architecture.md` — confirmed architectural decisions
-- CONCERNS.md codebase audit (2026-02-26) — direct code analysis confirming existing bugs
-- PyJWT 2.11.0 — [PyPI](https://pypi.org/project/PyJWT/) — verified 2026-02-26
-- openai 2.24.0 — [GitHub releases](https://github.com/openai/openai-python/releases) — verified 2026-02-26
-- Fernet encryption — [cryptography 47.0 official docs](https://cryptography.io/en/latest/fernet/)
-- MongoDB multi-tenant architecture — [MongoDB Atlas official docs](https://www.mongodb.com/docs/atlas/build-multi-tenant-arch/)
-- Vite build lib mode — [Vite build options docs](https://vite.dev/config/build-options)
-- OWASP LLM01:2025 Prompt Injection — [OWASP Gen AI Security Project](https://genai.owasp.org/llmrisk/llm01-prompt-injection/)
-- AWS SaaS Lens — Identity and Access Management — [AWS official docs](https://docs.aws.amazon.com/wellarchirected/latest/saas-lens/identity-and-access-management.html)
-- fastapi-mail 1.6.2 — [PyPI](https://pypi.org/project/fastapi-mail/) — verified 2026-02-26
-- cryptography 46.0.5 — [PyPI](https://pypi.org/project/cryptography/) — verified 2026-02-26
-- prometheus-fastapi-instrumentator — [GitHub](https://github.com/trallnag/prometheus-fastapi-instrumentator)
+
+- efOfX codebase — direct source read of `apps/efofx-estimate/app/` (authoritative; all architecture integration patterns based on actual code)
+- efOfX PRD — `docs/PRD.md` (authoritative product requirements)
+- efOfX v1.0 audit — `.planning/milestones/v1.0-MILESTONE-AUDIT.md` and `.planning/codebase/CONCERNS.md` (authoritative; confirms INT-04, INT-05, and all tech debt items)
+- PyPI — `fastapi-mail==1.6.2`, `valkey==6.1.1`, `fakeredis` — verified 2026-02-28
+- npm — `recharts@3.7.0` peerDependencies (React 19 confirmed), `@tanstack/react-query@5` — verified 2026-02-28
+- DigitalOcean official docs — Managed Valkey product page, DO Blog: Introducing Managed Valkey (confirms Redis → Valkey migration June 2025)
+- Valkey.io official docs — valkey-py async connection pool, migration guide
+- MongoDB documentation — `$lookup` with pipeline sub-array and `let` variable binding for correlated lookups
+- FastAPI official docs — BackgroundTasks behavior and exception handling
+- Supabase Docs — OTP verification failures / email prefetching (official documentation of scanner behavior)
+- Mimecast — URL pre-scanning official documentation
+- Amazon Forecast Docs — P50/P80 accuracy metric definitions
+- uv workspace docs — astral.sh/uv/concepts/workspaces (official)
 
 ### Secondary (MEDIUM confidence)
-- python-jose abandonment — [FastAPI discussion #11345](https://github.com/fastapi/fastapi/discussions/11345)
-- passlib abandonment — [FastAPI discussion #11773](https://github.com/fastapi/fastapi/discussions/11773)
-- DigitalOcean Valkey migration — [DO blog](https://www.digitalocean.com/blog/introducing-managed-valkey)
-- WorkOS Developer Guide to Multi-Tenant Architecture — https://workos.com/blog/developers-guide-saas-multi-tenant-architecture
-- Frontegg Multi-tenancy Security Best Practices — https://frontegg.com/blog/saas-multitenancy
-- JWT Vulnerabilities 2026 — [Red Sentry](https://redsentry.com/resources/blog/jwt-vulnerabilities-list-2026-security-risks-mitigation-guide)
-- IronCore Labs: 5 Things SaaS Companies Get Wrong with BYOK — https://ironcorelabs.com/blog/2024/five-things-saas-mess-up-with-byok/
-- MakerKit Embeddable Widgets production guide — https://makerkit.dev/blog/tutorials/embeddable-widgets-react
-- Buildxact competitor features — https://www.buildxact.com/us/features/construction-estimating-software/
-- Streaming LLM responses guide — dev.to and Microsoft Tech Community (multiple sources agree)
+
+- Baytech Consulting — Magic Links UX, Security and Growth (2025)
+- WorkOS — A Guide to Magic Links
+- guptadeepak.com — Magic Link Security Best Practices
+- Cultivate Labs — What is Forecast Calibration
+- AskYazi — Survey Response Rates Guide (NPS and Post-Interaction)
+- Monorepo.tools — Monorepo Explained
+- Feature-Sliced Design — Frontend Monorepo Guide 2025
+- Mailgun — Domain Warm-up Reputation Guide
+- Milan Jovanovic — Solving the Distributed Cache Invalidation Problem with Redis
+- Gmail/Hacker News discussion (2021) — email clients pre-fetching URLs in emails (confirms scanner behavior)
+- DNV — Terminology Explained P10, P50, P90 (engineering standards organization)
 
 ### Tertiary (LOW confidence)
-- Construction contractor UX expectations — limited market research; PRD is authoritative fallback
-- react-shadow React 19 compatibility — unpublished; requires verification before Phase 3
-- Shadow DOM security characteristics — single source (CyberSGuards); MDN confirms browser support
 
-### Research (ICLR/Academic)
-- Strong Model Collapse — [ICLR 2025](https://proceedings.iclr.cc/paper_files/paper/2025/file/284afdc2309f9667d2d4fb9290235b0c-Paper-Conference.pdf) — confirms synthetic data contamination risk
-- Reference Class Forecasting: Problems and Research Agenda — [Taylor & Francis (2025)](https://www.tandfonline.com/doi/full/10.1080/09537287.2025.2578708)
-- Fairness Feedback Loops: Training on Synthetic Data Amplifies Bias — [FAccT 2024](https://facctconference.org/static/papers24/facct24-144.pdf)
+- Feedback → reference class linkage for calibration tuning — inferred from RCF engine design, not externally verified. Treat as a product assumption to validate once feedback data starts flowing.
+- Construction industry calibration benchmarks — no direct industry study found. The PRD target of 70% of estimates within 20% of actual is a product goal, not an industry-validated baseline. Do not present this to contractors as an industry standard.
 
 ---
-*Research completed: 2026-02-26*
+
+*Research completed: 2026-02-28*
 *Ready for roadmap: yes*

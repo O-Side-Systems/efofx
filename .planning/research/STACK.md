@@ -1,361 +1,356 @@
 # Stack Research
 
-**Domain:** Multi-tenant SaaS estimation platform — stack additions for Epics 3-7
-**Researched:** 2026-02-26
-**Confidence:** HIGH (core choices verified via official sources and PyPI; version numbers confirmed)
+**Domain:** Multi-tenant SaaS estimation platform — v1.1 additions only
+**Researched:** 2026-02-28
+**Confidence:** HIGH (versions verified via PyPI, npm, official DO docs; codebase audited)
 
-> **Scope:** This file covers only additions to the established stack. Existing tech (FastAPI, MongoDB Atlas, Motor, Pydantic, React 19, Vite, DigitalOcean) is already validated. Do not re-research those.
-
----
-
-## Critical Upgrades Required (Existing Dependencies That Are Broken or Abandoned)
-
-These are not new additions — they are in `requirements.txt` but must be replaced before building Epic 3.
-
-| Package | Current Pin | Status | Action |
-|---------|-------------|--------|--------|
-| `python-jose[cryptography]==3.3.0` | 3.3.0 | **Abandoned** — last release 2021, CVE in ecdsa dependency, incompatible with Python >=3.10 in some cases | Replace with `PyJWT[crypto]==2.11.0` |
-| `passlib[bcrypt]==1.7.4` | 1.7.4 | **Abandoned** — last release 2020, broken with `bcrypt>=5.0.0`, raises errors on Python 3.13 | Replace with `pwdlib[argon2]==0.3.0` |
-| `openai==1.51.0` | 1.51.0 | **Outdated** — openai v2.x is current (v2.24.0 as of 2026-02-24); v1.x no longer supported | Upgrade to `openai>=2.20.0,<3.0.0` |
-| `redis==5.0.8` (optional) | 5.0.8 | **Obsolete for DigitalOcean** — DigitalOcean deprecated Managed Redis on 2025-06-30, now runs Managed Valkey | Replace with `valkey>=6.1.0` |
-
-**Sources:**
-- python-jose status: [FastAPI community discussion #11345](https://github.com/fastapi/fastapi/discussions/11345), [PyJWT migration guide](https://github.com/jpadilla/pyjwt/issues/942)
-- passlib status: [FastAPI community discussion #11773](https://github.com/fastapi/fastapi/discussions/11773)
-- openai v2: [PyPI openai 2.24.0](https://pypi.org/project/openai/) — verified 2026-02-26
-- DigitalOcean Valkey: [DO blog](https://www.digitalocean.com/blog/introducing-managed-valkey) — Managed Caching discontinued June 2025
+> **Scope:** v1.1 Feedback & Quality milestone only. Existing stack (FastAPI, MongoDB Atlas, Motor, Pydantic, React 19, Vite, DigitalOcean, PyJWT, pwdlib, openai v2, slowapi, cryptography) is validated and shipped in v1.0. This file covers only what is NEW or CHANGED for v1.1.
 
 ---
 
-## Recommended Stack Additions
+## Actual State After Codebase Audit
 
-### Authentication & Security (Epic 3)
+Before recommending anything new, auditing what's already declared vs what's missing:
 
-| Library | Version | Purpose | Why Recommended |
-|---------|---------|---------|-----------------|
-| `PyJWT[crypto]` | 2.11.0 | JWT encode/decode with tenant_id claims | Actively maintained (released Jan 2026), official FastAPI docs migrated from python-jose to PyJWT; `[crypto]` extra enables RS256/ES256. HS256 sufficient for MVP. |
-| `pwdlib[argon2]` | 0.3.0 | Password hashing for tenant accounts | FastAPI's current recommended passlib replacement; Argon2 is memory-hard and GPU-resistant, superior to bcrypt. Python 3.10+ only — matches DO App Platform runtime. |
-| `cryptography` | >=46.0.0 | Fernet symmetric encryption for BYOK OpenAI key storage | Already in requirements (needs version bump to 46.x). Fernet = AES-128-CBC + HMAC-SHA256, authenticated, sufficient for single-server MVP. Per-tenant encryption key derived from master secret + tenant_id. |
-| `slowapi` | 0.1.9 | Per-tenant, per-tier rate limiting middleware | Starlette/FastAPI-native, decorator-based, supports Redis/Valkey backend for distributed counters. Use tenant_id as rate limit key (not IP) so limits are per-account not per-IP. |
+| Library | `requirements.txt` | `pyproject.toml` | Actually installed | Status |
+|---------|-------------------|------------------|--------------------|--------|
+| `fastapi-mail==1.6.2` | MISSING | Present | Unknown | Already declared in pyproject.toml; missing from requirements.txt |
+| `valkey>=6.1.0` | MISSING | Present | Not in .venv | Already declared in pyproject.toml; missing from requirements.txt |
+| `fakeredis>=2.0.0` | MISSING | Present (dev) | Unknown | In pyproject.toml dev extras; missing from requirements.txt |
+| `recharts` | N/A | N/A | N/A | Not added to any app yet — needed for calibration dashboard |
 
-**Installation:**
+**Key insight:** `pyproject.toml` is the authoritative source and is ahead of `requirements.txt`. The v1.1 dependency work is largely about:
+1. Closing the `requirements.txt` / `pyproject.toml` sync gap (tech debt)
+2. Wiring the existing `valkey` client into `llm_service.py` (code change, no new dep)
+3. Adding `recharts` to a new calibration dashboard app (new frontend only)
+4. Setting up workspace config for shared library extraction (infrastructure, no new dep)
+
+---
+
+## What v1.1 Actually Needs
+
+| Feature | Gap Type | Resolution |
+|---------|----------|------------|
+| Email magic links (feedback) | `fastapi-mail` in pyproject.toml, missing from requirements.txt; pattern from `auth_service.py` needs a `send_feedback_invite_email()` function | Sync requirements.txt; write the new service method |
+| Distributed LLM cache | `valkey` in pyproject.toml, missing from requirements.txt; `_response_cache: dict` in `llm_service.py` is per-process | Sync requirements.txt; replace in-memory dict with `valkey.asyncio` client |
+| Calibration dashboard | No React dashboard UI exists anywhere | New `apps/efofx-dashboard/` Vite app with recharts |
+| Shared library extraction | No workspace config; `TenantAwareCollection`, JWT helpers, Fernet utils are embedded in `efofx-estimate` | uv workspace root + `packages/efofx-core/` |
+| Feedback token storage | MongoDB `feedback_tokens` collection needs TTL index on `expires_at` | One-time `create_index()` call in startup; no new library |
+
+---
+
+## New Libraries Required
+
+### Python Backend (truly new — not yet in pyproject.toml)
+
+None. All required Python libraries are already declared in `pyproject.toml`. The work is:
+1. Sync `requirements.txt` to match pyproject.toml (see Installation section)
+2. Wire the declared libraries into code (Valkey cache, magic link email)
+
+### React Frontend (new Vite app: `apps/efofx-dashboard/`)
+
+| Library | Version | Purpose | Why |
+|---------|---------|---------|-----|
+| `recharts` | ^3.7.0 | Line/bar/scatter charts for calibration metrics | recharts 3.7.0 (Jan 2025) explicitly supports React ^16.8.0 \|\| ^17.0.0 \|\| ^18.0.0 \|\| ^19.0.0 as peerDependencies. Lightweight SVG-based (D3 under the hood), 3.6M weekly downloads, works with Tailwind CSS classes directly on SVG elements. No vendor dependency. |
+| `@tanstack/react-query` | ^5.0.0 | Server state for dashboard API calls | Calibration metrics, feedback lists, and session data are all async fetches that need loading/error/refresh handling. React Query v5 handles this without Redux boilerplate. Supports React 19. ~6M weekly downloads. |
+
+**What NOT to add for the dashboard:**
+- `tremor` — Tremor wraps Recharts in opinionated components. Use Recharts directly; it's simpler and aligns with existing Tailwind usage.
+- `Chart.js` / `react-chartjs-2` — Canvas-based (not SVG). Harder to style with Tailwind. No advantage over Recharts for this use case.
+- `shadcn/ui` — Adds component scaffolding complexity for what is an internal contractor tool. Plain Tailwind + Recharts is sufficient.
+- `D3` directly — Too low-level. Recharts is the right abstraction for a calibration dashboard with standard chart types.
+- Redux or Zustand — React Query covers server state. Local UI state is minimal and component-local.
+
+**Installation (new `apps/efofx-dashboard/`):**
 ```bash
-pip install "PyJWT[crypto]==2.11.0" "pwdlib[argon2]==0.3.0" "cryptography>=46.0.0" "slowapi==0.1.9"
+npm create vite@latest efofx-dashboard -- --template react-ts
+cd apps/efofx-dashboard
+npm install recharts @tanstack/react-query
+# tailwindcss + postcss shared from workspace config
+npm install -D tailwindcss @tailwindcss/postcss postcss
 ```
 
-**What NOT to use:**
-- `python-jose` — abandoned, security vulnerabilities in ecdsa dep, do not use
-- `passlib` — abandoned since 2020, breaks with bcrypt 5.0+, do not use
-- `bcrypt` standalone without wrapper — more boilerplate, pwdlib wraps it cleanly with Argon2 option
-
 ---
 
-### Caching & Session Store (Epic 3, 4)
+## Valkey Integration Pattern
 
-| Library | Version | Purpose | Why Recommended |
-|---------|---------|---------|-----------------|
-| `valkey` | >=6.1.0 | Async Valkey/Redis client for rate limiting + LLM response caching | DigitalOcean Managed Redis was discontinued June 2025 and converted to Managed Valkey. valkey-py is a drop-in redis-py fork — change import from `redis` to `valkey`, API identical. Supports async via `valkey.asyncio`. |
+### Problem
+`llm_service.py` line 47: `_response_cache: dict[str, str] = {}  # In-memory; upgrade to Valkey for multi-worker`
 
-**Installation:**
-```bash
-pip install "valkey>=6.1.0"
-```
+This is a per-process dict. Multiple Gunicorn workers = no shared cache = cache miss on every non-first-worker request.
 
-**DigitalOcean setup:**
-- Add a Managed Valkey cluster via DO console (~$15/month for smallest tier)
-- Set `VALKEY_URL` env var in `.do/app.yaml`
-- Same connection string format as Redis: `valkeys://user:pass@host:port`
+### Solution: `valkey.asyncio` connection pool
 
-**What NOT to use:**
-- `redis==5.0.8` (current) — works but targets Redis, not Valkey; DigitalOcean will return Valkey; use the native valkey client to avoid confusion
-- `aioredis` — deprecated and merged into redis-py, then forked into valkey-py; no longer needed
+The `valkey` package is already declared in `pyproject.toml` (`valkey>=6.1.0`). `VALKEY_URL` is already in `settings` and used by slowapi. No new package needed — this is a code wiring task.
 
-**Caching strategy for LLM responses (Epic 4):**
-
-Use hash-based exact-match caching for MVP (not semantic). The key is SHA-256(prompt_template + normalized_inputs). TTL = 24 hours. This avoids the complexity of vector embeddings for semantic similarity. Semantic caching with Redis/Valkey Vector Sets is a post-MVP upgrade.
-
+**Shared connection pool (new file `app/core/valkey_client.py`):**
 ```python
-# Pseudocode: LLM response cache key pattern
-cache_key = f"llm:{sha256(f'{prompt_id}:{sorted_params}').hexdigest()}"
+import valkey.asyncio as valkey_async
+from app.core.config import settings
+
+_pool: valkey_async.ConnectionPool | None = None
+
+def get_valkey_pool() -> valkey_async.ConnectionPool:
+    global _pool
+    if _pool is None:
+        _pool = valkey_async.ConnectionPool.from_url(
+            settings.VALKEY_URL,
+            max_connections=20,
+            decode_responses=True,
+        )
+    return _pool
+
+async def get_valkey_client() -> valkey_async.Valkey:
+    """FastAPI dependency — returns a Valkey client backed by the shared pool."""
+    return valkey_async.Valkey(connection_pool=get_valkey_pool())
 ```
 
----
-
-### LLM Integration (Epic 4)
-
-| Library | Version | Purpose | Why Recommended |
-|---------|---------|---------|-----------------|
-| `openai` | >=2.20.0,<3.0.0 | OpenAI API client with BYOK support | v2.x is current stable (2.24.0 released 2026-02-24); `AsyncOpenAI` supports full async; pass `api_key=tenant_openai_key` per-request to implement BYOK without storing keys in client constructor |
-
-**BYOK implementation pattern (Epic 4):**
-
-Do NOT instantiate `AsyncOpenAI` at module level with a global key. Instantiate per-request with the tenant's decrypted key:
-
+**Cache key (no change from current pattern):**
 ```python
-async def get_llm_client(tenant: Tenant) -> AsyncOpenAI:
-    decrypted_key = fernet_decrypt(tenant.encrypted_openai_key)
-    return AsyncOpenAI(api_key=decrypted_key)
+cache_key = f"llm:{sha256(json.dumps(messages, sort_keys=True)).hexdigest()}"
+cached = await client.get(cache_key)
+if cached:
+    return cached
+# ... call OpenAI ...
+await client.set(cache_key, response, ex=86400)  # 24h TTL
 ```
 
-**What NOT to use:**
-- `LiteLLM` — adds significant complexity (proxy server or SDK wrapper), Python GIL-constrained, latency spikes at >500 RPS. For MVP with single provider (OpenAI only), direct SDK is simpler, faster, and easier to debug. Use LiteLLM only if multi-provider support becomes a requirement.
-- `openai==1.51.0` (current pin) — outdated major version, no longer supported
+**DigitalOcean Managed Valkey:**
+- DO replaced Managed Redis with Managed Valkey in June 2025 (official announcement)
+- Smallest tier: 1GB RAM, ~$15/month
+- Connection string: `valkeys://doadmin:{password}@{host}:{port}` (note `valkeys://` for TLS)
+- The `limits` library used by slowapi accepts `redis://` scheme for Valkey — the existing `VALKEY_URL` setting works for both slowapi and the new LLM cache client
+- Inject `VALKEY_URL` as env var in `.do/app.yaml`
 
-**Prompt management (Epic 4):**
-
-Use a file-based git-versioned approach for MVP rather than OpenAI's dashboard Prompt feature (which only works with Responses API, not the standard chat completions API). Store prompts as `.jinja2` template files in `apps/efofx-estimate/prompts/`:
-
-```
-prompts/
-  estimate_narrative_v1.jinja2
-  scoping_chat_v1.jinja2
-```
-
-Version by filename convention (`_v1`, `_v2`). Load at startup, cache in memory. This gives git diff, rollback, and PR review on prompt changes — no external service dependency for MVP.
-
-**Installation:**
+**Dev without Valkey:**
 ```bash
-pip install "openai>=2.20.0,<3.0.0" "jinja2>=3.1.0"
+# Docker — matches production Valkey 8.0
+docker run -d -p 6379:6379 valkey/valkey:8.0
+
+# Unit tests — fakeredis is in pyproject.toml dev extras
+# fakeredis works as a drop-in for valkey.asyncio.Valkey
 ```
 
 ---
 
-### Email (Epic 6 — Magic Links)
+## Magic Link Token Pattern
 
-| Library | Version | Purpose | Why Recommended |
-|---------|---------|---------|-----------------|
-| `fastapi-mail` | 1.6.2 | Async SMTP email sending for magic link delivery | FastAPI-native async mail library; supports HTML templates, attachments, TLS/SSL, env-var config; actively maintained (1.6.2 released Feb 2026); requires Python 3.10+. Use with any SMTP provider (SendGrid, Postmark, AWS SES). |
+Magic link tokens for feedback invites use the stdlib `secrets` module already imported in `auth_service.py`. No new library needed.
 
-**Installation:**
-```bash
-pip install "fastapi-mail==1.6.2"
-```
+**Why not itsdangerous:** itsdangerous `URLSafeTimedSerializer` creates self-verifying tokens (data + signature, no DB lookup). This project already has MongoDB for every auth check. Storing the feedback token in MongoDB gives: single-use invalidation (mark `used: True`), audit trail, admin visibility, and no secret key rotation risk. The stdlib `secrets.token_urlsafe(32)` (256-bit entropy) is cryptographically secure for this purpose.
 
-**Magic link implementation (Epic 6):**
-
-Magic links are not authentication tokens — they are single-use feedback invite tokens. Do not use JWT for magic links (no revocation without Redis). Use this pattern:
-
+**Token storage pattern:**
 ```python
-# On estimate completion:
-token = secrets.token_urlsafe(32)
-# Store: {token: {estimate_id, tenant_id, customer_email, expires_at}} in MongoDB
-# Email: https://api.efofx.com/feedback?token={token}
+# New: services/feedback_service.py — create_feedback_token()
+import secrets
+from datetime import datetime, timedelta, timezone
 
-# On click:
-# 1. Look up token in MongoDB
-# 2. Verify not expired (7-day TTL for feedback)
-# 3. Mark token used (single-use)
-# 4. Return feedback form with pre-filled estimate context
-```
+token = secrets.token_urlsafe(32)      # stdlib — no new dep
+expires_at = datetime.now(timezone.utc) + timedelta(days=7)
 
-**What NOT to use:**
-- Raw `smtplib` — synchronous, blocks FastAPI event loop
-- `python-sendgrid` or `postmarker` SDKs — vendor lock-in; fastapi-mail is provider-agnostic via SMTP
-
----
-
-### Widget Bundling & Shadow DOM (Epic 5)
-
-| Tool | Version | Purpose | Why Recommended |
-|------|---------|---------|-----------------|
-| `react-shadow` | 20.6.0 | React component for Shadow DOM root creation | 150k weekly downloads, integrates natively with React; wraps any React subtree in a Shadow DOM boundary; works with Vite dev server |
-| Vite `build.lib` IIFE mode | 7.x (existing) | Bundle widget as single `<script>` tag | Vite uses Rollup internally; `lib.formats: ['iife']` produces a self-executing bundle. No separate bundler needed — extend existing Vite config |
-
-**Vite config addition for widget IIFE build:**
-
-```typescript
-// apps/efofx-widget/vite.config.ts
-export default defineConfig({
-  build: {
-    lib: {
-      entry: 'src/widget-entry.ts',
-      name: 'EfofxWidget',
-      formats: ['iife'],
-      fileName: () => 'widget.js',
-    },
-    rollupOptions: {
-      // Do NOT externalize React — bundle everything for standalone widget
-      external: [],
-    },
-  },
+await db["feedback_tokens"].insert_one({
+    "token": token,
+    "estimate_id": estimate_id,
+    "tenant_id": tenant_id,
+    "customer_email": customer_email,
+    "expires_at": expires_at,
+    "used": False,
 })
 ```
 
-**Shadow DOM CSS injection pattern:**
-
-Vite's `build.lib` mode does not auto-inject CSS into Shadow DOM. Use `vite-plugin-shadow-style` OR manually inject stylesheet into the shadow root:
-
-```typescript
-// src/widget-entry.ts
-import styles from './index.css?inline'  // Vite ?inline query
-const shadow = host.attachShadow({ mode: 'open' })
-const styleEl = document.createElement('style')
-styleEl.textContent = styles
-shadow.appendChild(styleEl)
-```
-
-**Installation:**
-```bash
-npm install react-shadow@20.6.0
-```
-
-**What NOT to use:**
-- Separate Rollup config alongside Vite — redundant; Vite's lib mode is sufficient
-- CSS-in-JS (styled-components, emotion) inside Shadow DOM — requires additional setup to scope styles to shadow root; `?inline` CSS import is simpler
-- iframes — heavier, cross-origin messaging complexity, worse UX
-
----
-
-### Observability & Metrics (Epics 3-6)
-
-| Library | Version | Purpose | Why Recommended |
-|---------|---------|---------|-----------------|
-| `prometheus-fastapi-instrumentator` | >=0.10.0 | Auto-instrument FastAPI with Prometheus metrics | Zero-config HTTP metrics (latency, status codes, throughput); add tenant label via custom middleware for per-tenant dashboards; existing Prometheus client is already in requirements — this wraps it cleanly |
-
-**Installation:**
-```bash
-pip install "prometheus-fastapi-instrumentator>=0.10.0"
-```
-
-**Custom tenant label pattern:**
-
+**MongoDB TTL index (one-time startup call):**
 ```python
-from prometheus_fastapi_instrumentator import Instrumentator
-from prometheus_client import Counter
-
-estimate_counter = Counter(
-    'estimates_total',
-    'Total estimates generated',
-    ['tenant_id', 'status']
+# app/db/mongodb.py or app/main.py startup handler
+await db["feedback_tokens"].create_index(
+    "expires_at",
+    expireAfterSeconds=0  # MongoDB purges at expires_at
 )
 ```
 
----
-
-## Version Compatibility Matrix
-
-| Package | Required Version | Reason |
-|---------|-----------------|--------|
-| `openai` | >=2.20.0,<3.0.0 | v2.x breaking from v1; pin to avoid v3 surprises |
-| `PyJWT[crypto]` | ==2.11.0 | Latest stable (Jan 2026); pin for determinism |
-| `pwdlib[argon2]` | ==0.3.0 | Latest stable; requires Python 3.10+ |
-| `fastapi-mail` | ==1.6.2 | Latest stable (Feb 2026); requires Python 3.10+ |
-| `valkey` | >=6.1.0 | Compatible with DO Managed Valkey (Redis 7.2) |
-| `cryptography` | >=46.0.0 | Fernet stable; upgrade from >=41.0.0 |
-| `slowapi` | ==0.1.9 | Last stable release (Feb 2024); Redis/Valkey backend |
-| `react-shadow` | ==20.6.0 | Last stable; React 19 compatible |
-| Python runtime | 3.10+ | Required by pwdlib, fastapi-mail |
-| Node.js runtime | 18+ | Existing requirement — no change |
+**Email delivery:** reuse `fastapi-mail` pattern from `auth_service.py::send_verification_email()`. Same SMTP config (`SMTP_USERNAME`, `SMTP_PASSWORD`, `SMTP_SERVER`, `SMTP_PORT`, `SMTP_FROM`). No new env vars.
 
 ---
 
-## Full Installation Reference
+## Shared Library Extraction
 
-**Python additions (append to `requirements.txt`):**
+### Python: uv Workspace
 
-```bash
-# Replace python-jose (REMOVE: python-jose[cryptography]==3.3.0)
-PyJWT[crypto]==2.11.0
+The goal: extract `TenantAwareCollection`, JWT helpers, and Fernet/HKDF utils into `packages/efofx-core/` so a second vertical (IT/dev) can import them without copying code.
 
-# Replace passlib (REMOVE: passlib[bcrypt]==1.7.4)
-pwdlib[argon2]==0.3.0
+`pyproject.toml` uses `setuptools` as build backend. uv workspaces work with any PEP 517 backend.
 
-# Upgrade OpenAI SDK (REPLACE: openai==1.51.0)
-openai>=2.20.0,<3.0.0
-
-# Upgrade cryptography (already present, bump version constraint)
-cryptography>=46.0.0
-
-# Cache & rate limiting (already optional, make explicit)
-valkey>=6.1.0
-slowapi==0.1.9
-
-# Email for magic links
-fastapi-mail==1.6.2
-
-# Prompt templating
-jinja2>=3.1.0
-
-# Metrics instrumentation
-prometheus-fastapi-instrumentator>=0.10.0
+**Workspace structure:**
+```
+efofx-workspace/                   ← git root
+  pyproject.toml                   ← new: workspace root
+  apps/
+    efofx-estimate/
+      pyproject.toml               ← existing: becomes workspace member
+  packages/
+    efofx-core/                    ← new: shared utilities
+      pyproject.toml
+      src/efofx_core/
+        db/                        ← TenantAwareCollection
+        auth/                      ← JWT helpers
+        crypto/                    ← Fernet/HKDF
+        models/                    ← base Pydantic models
 ```
 
-**Node.js additions (in `apps/efofx-widget/`):**
+**New root `pyproject.toml`:**
+```toml
+[tool.uv.workspace]
+members = ["apps/efofx-estimate", "packages/efofx-core"]
+```
 
+**Add to `apps/efofx-estimate/pyproject.toml` dependencies:**
+```toml
+dependencies = [
+  # ... existing deps ...
+  "efofx-core",
+]
+
+[tool.uv.sources]
+efofx-core = { workspace = true }
+```
+
+**Important scope constraint:** Extract only what a second vertical ACTUALLY needs in v1.1. Do not extract the entire service. Start with:
+- `TenantAwareCollection` wrapper class
+- JWT token encode/decode helpers
+- Fernet key derivation (HKDF pattern)
+
+Defer extracting API models, RCF engine, estimation logic — those are domain-specific.
+
+### TypeScript: npm Workspaces
+
+**Workspace structure:**
+```
+efofx-workspace/
+  package.json                     ← new: workspace root
+  apps/
+    efofx-widget/package.json      ← existing
+    efofx-dashboard/package.json   ← new
+  packages/
+    efofx-ui/package.json          ← new: shared types + components
+      src/
+        types/                     ← API response TypeScript interfaces
+        components/                ← Button, LoadingSpinner, ErrorBanner
+```
+
+**Root `package.json`:**
+```json
+{
+  "name": "efofx-workspace",
+  "private": true,
+  "workspaces": ["apps/*", "packages/*"]
+}
+```
+
+**Vite alias in each app's `vite.config.ts`:**
+```typescript
+import path from 'path'
+resolve: {
+  alias: {
+    '@efofx/ui': path.resolve(__dirname, '../../packages/efofx-ui/src')
+  }
+}
+```
+
+**Scope constraint for v1.1:** Extract TypeScript API response interfaces and 2-3 shared UI primitives. Do not build a full component library — that is post-v1.1 scope when the second vertical exists to validate what's actually shared.
+
+---
+
+## Version Compatibility Matrix (v1.1)
+
+| Package | Version | Constraint Reason |
+|---------|---------|-----------------|
+| `fastapi-mail` | ==1.6.2 | Latest stable (Feb 17, 2026); already in pyproject.toml; sync to requirements.txt |
+| `valkey` | >=6.1.0,<7.0.0 | 6.1.1 current (Aug 2025); upper bound prevents v7 breaking API changes; already in pyproject.toml |
+| `fakeredis` | >=2.0.0 | Dev/test only; compatible with valkey.asyncio; already in pyproject.toml dev extras |
+| `recharts` | ^3.7.0 | 3.7.0 (Jan 2025); peerDependencies confirmed: React ^16\|\|^17\|\|^18\|\|^19; new dashboard dep |
+| `@tanstack/react-query` | ^5.0.0 | v5 is current LTS; React 19 compatible; new dashboard dep |
+| Python runtime | >=3.11 | pyproject.toml specifies requires-python = ">=3.11"; fastapi-mail requires 3.10+ |
+| Node.js runtime | 18+ | No change from v1.0 |
+| Valkey server | 8.0 | DO Managed Valkey runs Valkey 8.0 (Redis 7.2.4 protocol compatible) |
+
+---
+
+## Installation Summary
+
+**Python — sync `requirements.txt` with `pyproject.toml`:**
+```
+# These are declared in pyproject.toml but missing from requirements.txt:
+
+# Email (magic links — already lazy-imported in auth_service.py)
+fastapi-mail==1.6.2
+
+# Distributed cache (replaces per-process dict in llm_service.py)
+valkey>=6.1.0,<7.0.0
+
+# Dev-only (add to requirements-dev.txt or keep in pyproject.toml extras)
+fakeredis>=2.0.0
+```
+
+**Node.js — `apps/efofx-dashboard/` (new app):**
 ```bash
-npm install react-shadow@20.6.0
+npm install recharts @tanstack/react-query
+npm install -D tailwindcss @tailwindcss/postcss postcss
+```
+
+**Python workspace — new root `pyproject.toml`:**
+```toml
+[tool.uv.workspace]
+members = ["apps/efofx-estimate", "packages/efofx-core"]
 ```
 
 ---
 
 ## Alternatives Considered
 
-| Category | Recommended | Alternative | Why Not Alternative |
-|----------|-------------|-------------|---------------------|
-| JWT | `PyJWT[crypto]` | `python-jose` | Abandoned since 2021, CVE in dependency, FastAPI docs migrated away |
-| Password hashing | `pwdlib[argon2]` | `passlib[bcrypt]` | Abandoned since 2020, broken with bcrypt 5.0+ |
-| Password hashing | `pwdlib[argon2]` | `bcrypt` standalone | More boilerplate, no upgrade path to Argon2 |
-| Cache client | `valkey` | `redis-py` | DO deprecated Redis; valkey is drop-in replacement |
-| LLM client | `openai` direct | `LiteLLM` | Over-engineered for single-provider MVP; Python GIL overhead; adds 25-100x latency vs native at high throughput |
-| LLM caching | Hash-based (Redis) | Semantic (vector) | Semantic caching requires embedding model, vector DB, threshold tuning — post-MVP complexity |
-| Email | `fastapi-mail` | `smtplib` | Synchronous, blocks event loop |
-| Email | `fastapi-mail` | Vendor SDKs (SendGrid, Postmark) | Vendor lock-in; fastapi-mail is SMTP-provider-agnostic |
-| Widget isolation | Shadow DOM (`react-shadow`) | iframes | Heavier, cross-origin complexity, worse UX for embedded widgets |
-| Widget isolation | Shadow DOM | CSS namespacing/BEM | Can still be overridden by `!important` host styles; Shadow DOM is the only true boundary |
-| Prompt management | File-based git templates | OpenAI Dashboard Prompts | Dashboard prompts only work with Responses API; adds external dependency; git history is simpler |
+| Category | Recommended | Alternative | Why Not |
+|----------|-------------|-------------|---------|
+| Magic link tokens | `secrets.token_urlsafe` + MongoDB | `itsdangerous` URLSafeTimedSerializer | MongoDB lookup is already required for single-use invalidation; signed tokens provide no benefit when you're already hitting the DB |
+| Valkey client | `valkey` (valkey-py) | `valkey-glide` | GLIDE is Rust-core, higher throughput, but heavier install; overkill for 15-tenant MVP; revisit at 500+ tenants |
+| Valkey client | `valkey` (valkey-py) | `redis-py` | DO retired Managed Redis in June 2025; use the native Valkey client to avoid scheme/version confusion |
+| Dashboard charts | `recharts` | `tremor` | Tremor wraps Recharts in opinionated components; conflicts with existing Tailwind conventions; adds abstraction for no gain |
+| Dashboard charts | `recharts` | `Chart.js` | Canvas-based, not SVG; harder to style with Tailwind; worse React integration |
+| Dashboard charts | `recharts` | `D3` directly | Too low-level for standard calibration chart types; recharts is the right abstraction |
+| Python shared lib | uv workspace | pip editable install | uv workspace is native monorepo support; `pip install -e` is legacy approach |
+| Python shared lib | uv workspace | Poetry workspaces | Project uses setuptools + uv; no toolchain switch needed |
+| TS shared lib | npm workspaces | pnpm workspaces | Project uses npm (package-lock.json exists); don't switch package managers mid-project |
+| Email | `fastapi-mail` (existing) | SendGrid/Postmark SDK | Vendor lock-in; fastapi-mail is SMTP-provider-agnostic via env vars |
 
 ---
 
-## Stack Patterns by Scenario
+## Open Questions / Phase Verification Required
 
-**If DigitalOcean Managed Valkey is not available (dev environment):**
-- Use `fakeredis` for tests: `pip install fakeredis` — valkey-py compatible
-- Use `docker run -p 6379:6379 valkey/valkey` locally
+1. **`requirements.txt` vs `pyproject.toml` authority** — The project has both. Verify which one the DigitalOcean App Platform build uses. If DO uses `pyproject.toml` with `pip install -e .`, then `requirements.txt` is just a dev convenience and the sync gap is less critical. If DO uses `pip install -r requirements.txt`, then the gap causes missing deps in production.
 
-**If OpenAI BYOK tenant key is not yet provided (tenant onboarding incomplete):**
-- Fall back to platform OpenAI key with usage capped per tier
-- Track usage in Valkey counter: `INCR tenant:{id}:openai_tokens`
+2. **slowapi VALKEY_URL scheme** — The `limits` library (slowapi backend) may require `redis://` scheme even for a Valkey host. DO Managed Valkey requires TLS, so the URL is `valkeys://...`. Verify this works with slowapi before Phase 1. If not, use `redis://...?ssl=true` workaround.
 
-**If rate limiting without Valkey (single instance, dev):**
-- slowapi supports in-memory backend: `Limiter(key_func=get_remote_address)` with no Redis config
-- Switch to Valkey backend via `storage_uri` when deploying multi-instance
+3. **fakeredis valkey-py compatibility** — `fakeredis` was originally written for redis-py. Verify `fakeredis.aioredis.FakeRedis()` is a drop-in for `valkey.asyncio.Valkey` in unit tests. Confirmed in pyproject.toml dev extras, but needs functional verification.
 
-**If Python runtime is 3.9 (current minimum in requirements):**
-- Upgrade DO App Platform runtime to Python 3.11 — required for pwdlib, fastapi-mail
-- Python 3.11 is available on DigitalOcean App Platform and has significant performance gains (~25% faster than 3.9)
+4. **uv workspace with existing setuptools pyproject.toml** — The existing `apps/efofx-estimate/pyproject.toml` uses `setuptools` build backend. Confirm uv workspace membership works with setuptools (it should — uv workspaces are PEP 517 build-backend agnostic).
+
+5. **recharts React 19 actual install** — peerDependency range confirms React 19 support in recharts 3.7.0. Still run `npm install` in the new dashboard app to confirm no `--legacy-peer-deps` flag is needed (some transitive deps may still declare React 18 peer requirements).
 
 ---
 
 ## Sources
 
-- PyJWT 2.11.0 — [PyPI](https://pypi.org/project/PyJWT/) — verified 2026-02-26
-- python-jose abandonment — [FastAPI discussion #11345](https://github.com/fastapi/fastapi/discussions/11345), [PyJWT migration issue #942](https://github.com/jpadilla/pyjwt/issues/942)
-- passlib abandonment — [FastAPI discussion #11773](https://github.com/fastapi/fastapi/discussions/11773), [pwdlib announcement](https://github.com/frankie567/pwdlib/discussions/1)
-- pwdlib 0.3.0 — [PyPI](https://pypi.org/project/pwdlib/) — verified 2026-02-26
-- openai 2.24.0 — [GitHub releases](https://github.com/openai/openai-python/releases) — verified 2026-02-26
-- DigitalOcean Valkey migration — [DO blog](https://www.digitalocean.com/blog/introducing-managed-valkey) — MEDIUM confidence (official DO announcement)
-- valkey-py 6.1.0 — [PyPI](https://pypi.org/project/valkey/) — MEDIUM confidence (official client)
-- slowapi 0.1.9 — [PyPI](https://pypi.org/project/slowapi/) — HIGH confidence
-- fastapi-mail 1.6.2 — [PyPI](https://pypi.org/project/fastapi-mail/) — HIGH confidence (released Feb 2026)
-- react-shadow 20.6.0 — [npm trends](https://npmtrends.com/react-shadow), [GitHub](https://github.com/Wildhoney/ReactShadow) — MEDIUM confidence (last published ~1 year ago; needs check if React 19 compatible)
-- Vite IIFE lib mode — [Vite build options docs](https://vite.dev/config/build-options) — HIGH confidence
-- cryptography 46.0.5 — [PyPI](https://pypi.org/project/cryptography/) — HIGH confidence (released Feb 2026)
-- LiteLLM vs OpenAI SDK — [TrueFoundry LiteLLM review](https://www.truefoundry.com/blog/a-detailed-litellm-review-features-pricing-pros-and-cons-2026) — MEDIUM confidence (multiple sources agree)
-- prometheus-fastapi-instrumentator — [GitHub](https://github.com/trallnag/prometheus-fastapi-instrumentator) — HIGH confidence
+- fastapi-mail 1.6.2 — [PyPI](https://pypi.org/project/fastapi-mail/) — verified 2026-02-28 (released Feb 17, 2026) — HIGH confidence
+- valkey-py 6.1.1 — [PyPI](https://pypi.org/project/valkey/) — verified 2026-02-28 — HIGH confidence
+- valkey async connection pool pattern — [valkey-py docs](https://valkey-py.readthedocs.io/en/latest/examples/asyncio_examples.html) — HIGH confidence
+- DigitalOcean Managed Valkey — [DO blog](https://www.digitalocean.com/blog/introducing-managed-valkey), [DO product page](https://www.digitalocean.com/products/managed-databases-valkey) — HIGH confidence (official DO announcement)
+- recharts 3.7.0 peerDependencies — [recharts GitHub package.json](https://github.com/recharts/recharts/blob/main/package.json) — HIGH confidence (React 19 confirmed in peerDep range)
+- recharts latest version (3.7.0) — WebSearch confirmed Jan 2025 release — HIGH confidence
+- @tanstack/react-query v5 — [TanStack docs](https://tanstack.com/query/v5) — HIGH confidence
+- uv workspaces — [uv docs](https://docs.astral.sh/uv/concepts/workspaces/) — HIGH confidence
+- itsdangerous 2.2.0 — [PyPI](https://pypi.org/project/itsdangerous/), [docs](https://itsdangerous.palletsprojects.com/) — HIGH confidence (evaluated and NOT recommended for this use case)
+- secrets.token_urlsafe — [Python stdlib](https://docs.python.org/3/library/secrets.html) — HIGH confidence
+- slowapi Redis/Valkey backend — [slowapi docs](https://slowapi.readthedocs.io/en/latest/) — HIGH confidence
+- pyproject.toml audit — direct file read of `apps/efofx-estimate/pyproject.toml` — HIGH confidence
 
 ---
 
-## Open Questions / Items Needing Phase-Specific Verification
-
-1. **react-shadow React 19 compatibility** — Last published ~1 year ago. Before Epic 5, verify react-shadow 20.6.0 works with React 19.2.0 by checking the GitHub issues page. Alternative: use manual `useEffect` + `attachShadow()` without the library.
-
-2. **openai v1→v2 migration scope** — The codebase has `openai==1.51.0` with `llm_service.py`. Before Epic 4, audit `llm_service.py` for API calls that changed in v2 (e.g., `output` field type changes). v2 migration guide: [openai-python CHANGELOG](https://github.com/openai/openai-python/blob/main/CHANGELOG.md).
-
-3. **DO App Platform Python 3.11 availability** — pwdlib and fastapi-mail require Python 3.10+. Verify DigitalOcean App Platform supports Python 3.11 for the `apps/efofx-estimate` component before Epic 3 begins.
-
-4. **Valkey SSL/TLS** — DO Managed Valkey requires SSL (`valkeys://` URI). Confirm valkey-py 6.1.0 handles this identically to redis-py's `rediss://` URI before adding Valkey to Epic 3.
-
----
-
-*Stack research for: efOfX Estimation Service — Epics 3-7 additions*
-*Researched: 2026-02-26*
+*Stack research for: efOfX Estimation Service — v1.1 Feedback & Quality additions*
+*Researched: 2026-02-28*

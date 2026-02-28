@@ -42,16 +42,33 @@ Trust through transparency — probabilistic estimates (P50/P80 ranges) with exp
 
 ### Active
 
-- [ ] Customer feedback via magic link system (Epic 6)
-- [ ] Contractor feedback dashboard (Epic 6)
-- [ ] Calibration metrics calculation from actual outcomes (Epic 6)
-- [ ] Calibration dashboard for tenants (Epic 6)
-- [ ] Synthetic data validation and tuning from real feedback (Epic 6)
-- [ ] LLM prompt refinement from feedback patterns (Epic 6)
-- [ ] Shared backend utilities extraction (Epic 7)
-- [ ] Shared frontend components library (Epic 7)
-- [ ] YAGNI pass — remove unused code and features (Epic 7)
-- [ ] Code quality standards and documentation (Epic 7)
+#### Current Milestone: v1.1 Feedback & Quality
+
+**Goal:** Close the feedback loop so estimates self-improve, clean up codebase for second vertical.
+
+**Target features:**
+- Customer feedback via email magic links after estimates
+- Aggregate calibration dashboard for contractors
+- Feedback data collection for manual prompt/weight tuning
+- Shared backend/frontend extraction for vertical reuse
+- Tech debt cleanup (all 5 items from v1.0 audit)
+
+**Requirements:**
+- [ ] Customer feedback via email magic link system
+- [ ] Contractor aggregate calibration dashboard
+- [ ] Calibration metrics calculation from actual outcomes
+- [ ] Feedback data collection and storage
+- [ ] Manual synthetic data tuning from real feedback
+- [ ] Manual LLM prompt refinement from feedback patterns
+- [ ] Shared backend utilities extraction (vertical prep)
+- [ ] Shared frontend components library (vertical prep)
+- [ ] YAGNI pass — remove unused code and features
+- [ ] Code quality standards and documentation
+- [ ] Fix EstimationSession tenant_id type (INT-04)
+- [ ] Add missing widget indexes (INT-05)
+- [ ] Replace per-process LLM cache with Valkey
+- [ ] Wire ConsultationCTA button destination
+- [ ] Remove deprecated collection accessors
 
 ### Out of Scope
 
@@ -104,4 +121,4 @@ Trust through transparency — probabilistic estimates (P50/P80 ranges) with exp
 | Per-process LLM response cache | Simplest cache for single-worker deployments | ⚠️ Revisit — needs Valkey for multi-worker |
 
 ---
-*Last updated: 2026-02-28 after v1.0 milestone*
+*Last updated: 2026-02-28 after v1.1 milestone started*

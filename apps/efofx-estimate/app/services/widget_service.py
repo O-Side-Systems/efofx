@@ -85,6 +85,8 @@ async def get_branding_by_prefix(
         welcome_message=branding.welcome_message,
         button_text=branding.button_text,
         company_name=company_name,
+        locale=branding.locale,
+        consultation_form_labels=branding.consultation_form_labels,
     )
 
 

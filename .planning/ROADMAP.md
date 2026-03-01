@@ -24,7 +24,7 @@ See: milestones/v1.0-ROADMAP.md for full details
 
 **Milestone Goal:** Close the feedback loop so estimates self-improve and clean up the codebase for a second vertical.
 
-- [x] **Phase 5: Tech Debt & Foundation Cleanup** - Fix all v1.0 audit items before adding features (completed 2026-03-01)
+- [ ] **Phase 5: Tech Debt & Foundation Cleanup** - Fix all v1.0 audit items before adding features (gap closure in progress)
 - [ ] **Phase 6: Valkey Infrastructure** - Replace broken per-process LLM cache with distributed Valkey
 - [ ] **Phase 7: Feedback Email & Magic Links** - Customers submit actual project outcomes via email magic link
 - [ ] **Phase 8: Calibration Dashboard** - Contractors see historical estimate accuracy against real outcomes
@@ -42,11 +42,12 @@ See: milestones/v1.0-ROADMAP.md for full details
   3. All 5 deprecated collection accessors are removed from mongodb.py — no code references them
   4. The ConsultationCTA button navigates to a real destination — it does not log to console or throw a JavaScript error
   5. requirements.txt and pyproject.toml declare the same dependencies — no production dependency is missing from requirements.txt
-**Plans**: 2 plans (Wave 1 parallel)
+**Plans**: 3 plans (Wave 1 parallel + Wave 2 gap closure)
 
 Plans:
-- [ ] 05-01: Fix tenant_id type + migration (DEBT-01), add widget indexes (DEBT-02), remove deprecated accessors (DEBT-03), delete dead code (DEBT-05), sync requirements.txt (DEBT-06)
-- [ ] 05-02: Wire ConsultationCTA to inline contact form with backend endpoint and email notification (DEBT-04)
+- [x] 05-01: Fix tenant_id type + migration (DEBT-01), add widget indexes (DEBT-02), remove deprecated accessors (DEBT-03), delete dead code (DEBT-05), sync requirements.txt (DEBT-06)
+- [x] 05-02: Wire ConsultationCTA to inline contact form with backend endpoint and email notification (DEBT-04)
+- [ ] 05-03: Gap closure — wire locale and consultation_form_labels through branding API response (DEBT-04)
 
 ### Phase 6: Valkey Infrastructure
 **Goal**: LLM response caching works correctly across all Gunicorn workers — the per-process cache bug is gone, cache is tenant-scoped, and Valkey outages do not crash the service
@@ -124,7 +125,7 @@ Plans:
 | 3. LLM Integration | v1.0 | 4/4 | Complete | 2026-02-27 |
 | 4. White-Label Widget | v1.0 | 4/4 | Complete | 2026-02-27 |
 | 4.1 Integration Gap Closure | v1.0 | 1/1 | Complete | 2026-02-27 |
-| 5. Tech Debt & Foundation Cleanup | 2/2 | Complete   | 2026-03-01 | - |
+| 5. Tech Debt & Foundation Cleanup | v1.1 | 2/3 | Gap closure | - |
 | 6. Valkey Infrastructure | v1.1 | 0/1 | Not started | - |
 | 7. Feedback Email & Magic Links | v1.1 | 0/4 | Not started | - |
 | 8. Calibration Dashboard | v1.1 | 0/4 | Not started | - |

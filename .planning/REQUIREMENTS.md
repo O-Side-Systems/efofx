@@ -89,39 +89,39 @@ Which phases cover which requirements. Updated during roadmap creation.
 
 | Requirement | Phase | Status |
 |-------------|-------|--------|
-| DEBT-01 | — | Pending |
-| DEBT-02 | — | Pending |
-| DEBT-03 | — | Pending |
-| DEBT-04 | — | Pending |
-| DEBT-05 | — | Pending |
-| DEBT-06 | — | Pending |
-| INFR-01 | — | Pending |
-| INFR-02 | — | Pending |
-| INFR-03 | — | Pending |
-| FEED-01 | — | Pending |
-| FEED-02 | — | Pending |
-| FEED-03 | — | Pending |
-| FEED-04 | — | Pending |
-| FEED-05 | — | Pending |
-| FEED-06 | — | Pending |
-| FEED-07 | — | Pending |
-| CALB-01 | — | Pending |
-| CALB-02 | — | Pending |
-| CALB-03 | — | Pending |
-| CALB-04 | — | Pending |
-| CALB-05 | — | Pending |
-| CALB-06 | — | Pending |
-| EXTR-01 | — | Pending |
-| EXTR-02 | — | Pending |
-| EXTR-03 | — | Pending |
-| EXTR-04 | — | Pending |
-| EXTR-05 | — | Pending |
+| DEBT-01 | Phase 5 | Pending |
+| DEBT-02 | Phase 5 | Pending |
+| DEBT-03 | Phase 5 | Pending |
+| DEBT-04 | Phase 5 | Pending |
+| DEBT-05 | Phase 5 | Pending |
+| DEBT-06 | Phase 5 | Pending |
+| INFR-01 | Phase 6 | Pending |
+| INFR-02 | Phase 6 | Pending |
+| INFR-03 | Phase 6 | Pending |
+| FEED-01 | Phase 7 | Pending |
+| FEED-02 | Phase 7 | Pending |
+| FEED-03 | Phase 7 | Pending |
+| FEED-04 | Phase 7 | Pending |
+| FEED-05 | Phase 7 | Pending |
+| FEED-06 | Phase 7 | Pending |
+| FEED-07 | Phase 7 | Pending |
+| CALB-01 | Phase 8 | Pending |
+| CALB-02 | Phase 8 | Pending |
+| CALB-03 | Phase 8 | Pending |
+| CALB-04 | Phase 8 | Pending |
+| CALB-05 | Phase 8 | Pending |
+| CALB-06 | Phase 8 | Pending |
+| EXTR-01 | Phase 9 | Pending |
+| EXTR-02 | Phase 9 | Pending |
+| EXTR-03 | Phase 9 | Pending |
+| EXTR-04 | Phase 9 | Pending |
+| EXTR-05 | Phase 9 | Pending |
 
 **Coverage:**
 - v1.1 requirements: 27 total
-- Mapped to phases: 0
-- Unmapped: 27
+- Mapped to phases: 27
+- Unmapped: 0
 
 ---
 *Requirements defined: 2026-02-28*
-*Last updated: 2026-02-28 after initial definition*
+*Last updated: 2026-02-28 after roadmap creation — all 27 requirements mapped*

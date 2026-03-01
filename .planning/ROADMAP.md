@@ -3,7 +3,7 @@
 ## Milestones
 
 - ✅ **v1.0 MVP** — Phases 1-4.1 (shipped 2026-02-28)
-- 📋 **v1.1** — Phases 5-6 (planned)
+- 🚧 **v1.1 Feedback & Quality** — Phases 5-9 (in progress)
 
 ## Phases
 
@@ -20,46 +20,100 @@ See: milestones/v1.0-ROADMAP.md for full details
 
 </details>
 
-### 📋 Next Milestone (Planned)
+### 🚧 v1.1 Feedback & Quality (In Progress)
 
-- [ ] **Phase 5: Feedback and Calibration** — Magic link feedback collection, variance tracking, and calibration dashboard (Epic 6)
-- [ ] **Phase 6: Code Quality and Hardening** — Extract shared utilities, remove dead code, document patterns (Epic 7)
+**Milestone Goal:** Close the feedback loop so estimates self-improve and clean up the codebase for a second vertical.
+
+- [ ] **Phase 5: Tech Debt & Foundation Cleanup** - Fix all v1.0 audit items before adding features
+- [ ] **Phase 6: Valkey Infrastructure** - Replace broken per-process LLM cache with distributed Valkey
+- [ ] **Phase 7: Feedback Email & Magic Links** - Customers submit actual project outcomes via email magic link
+- [ ] **Phase 8: Calibration Dashboard** - Contractors see historical estimate accuracy against real outcomes
+- [ ] **Phase 9: Shared Library Extraction** - Extract shared packages to enable second vertical
 
 ## Phase Details
 
-### Phase 5: Feedback and Calibration
-**Goal**: The system can measure its own accuracy — customers submit actual costs via magic link, contractors see variance data, and the feedback loop that differentiates efOfX begins accumulating real signal
-**Depends on**: Phase 4 (v1.0)
-**Requirements**: FDBK-01, FDBK-02, FDBK-03, FDBK-04, FDBK-05, CALB-01, CALB-02, CALB-03, CALB-04, TUNE-01, TUNE-02
+### Phase 5: Tech Debt & Foundation Cleanup
+**Goal**: The codebase is correct and clean — all v1.0 audit bugs are fixed, deprecated patterns are removed, dead code is gone, and the foundation is solid for feature work
+**Depends on**: Phase 4.1 (v1.0)
+**Requirements**: DEBT-01, DEBT-02, DEBT-03, DEBT-04, DEBT-05, DEBT-06
 **Success Criteria** (what must be TRUE):
-  1. After a project completes, the customer receives a magic link email — clicking it opens a feedback form without requiring a customer login
-  2. Each magic link works exactly once and expires after 7 days — a used or expired link returns a clear error
-  3. A contractor's calibration dashboard shows mean variance and percentage of estimates within 20% of actual — only real outcomes are counted, not synthetic data
-  4. All existing synthetic reference classes are tagged with data_source: "synthetic" — the calibration aggregation query explicitly filters them out
-  5. A contractor can submit structured feedback on a specific estimate discrepancy (scope creep, market change, etc.)
-**Plans**: 4 plans
+  1. EstimationSession.tenant_id stores the correct tenant identifier type — no silent type mismatch between creation and TenantAwareCollection filter
+  2. widget_analytics and widget_leads compound indexes exist in the database — the analytics collections are not doing full-collection scans
+  3. All 5 deprecated collection accessors are removed from mongodb.py — no code references them
+  4. The ConsultationCTA button navigates to a real destination — it does not log to console or throw a JavaScript error
+  5. requirements.txt and pyproject.toml declare the same dependencies — no production dependency is missing from requirements.txt
+**Plans**: TBD
 
 Plans:
-- [ ] 05-01: Data source migration — tag all existing synthetic reference classes with data_source field (CALB-04)
-- [ ] 05-02: Magic link feedback system — HMAC token generation, single-use enforcement, customer feedback form (FDBK-01, FDBK-02, FDBK-03)
-- [ ] 05-03: Contractor feedback dashboard and structured discrepancy submission (FDBK-04, FDBK-05)
-- [ ] 05-04: Calibration service — variance calculation, real-data-only aggregation, and calibration dashboard endpoint (CALB-01, CALB-02, CALB-03, TUNE-01, TUNE-02)
+- [ ] 05-01: Fix EstimationSession tenant_id type (DEBT-01) and add missing widget analytics/leads indexes (DEBT-02)
+- [ ] 05-02: Remove deprecated MongoDB collection accessors (DEBT-03), wire ConsultationCTA destination (DEBT-04), YAGNI dead code pass (DEBT-05), and sync requirements.txt (DEBT-06)
 
-### Phase 6: Code Quality and Hardening
-**Goal**: The codebase is clean, shared code lives in shared packages, dead code is removed, and patterns are documented so the next contributor (human or AI) can work efficiently
+### Phase 6: Valkey Infrastructure
+**Goal**: LLM response caching works correctly across all Gunicorn workers — the per-process cache bug is gone, cache is tenant-scoped, and Valkey outages do not crash the service
 **Depends on**: Phase 5
-**Requirements**: QUAL-01, QUAL-02, QUAL-03, QUAL-04
+**Requirements**: INFR-01, INFR-02, INFR-03
 **Success Criteria** (what must be TRUE):
-  1. Shared backend logic is in a shared utility module — no copy-pasted service code exists across apps
-  2. The frontend has a shared component library — no duplicated widget components
-  3. The codebase has no dead endpoints, unused dependencies, or unimplemented stubs — every file does something real
-  4. Code quality standards are documented and the existing codebase conforms to them (naming conventions, error handling patterns, testing expectations)
-**Plans**: 3 plans
+  1. Two simultaneous workers serve the same LLM cache hit — a response cached by Worker A is returned by Worker B without a live LLM call
+  2. Cache keys include tenant_id — a cached response for Tenant A cannot be served to Tenant B
+  3. With Valkey unreachable, estimation requests complete successfully via live LLM call — no 500 errors, no user-visible cache errors
+**Plans**: TBD
 
 Plans:
-- [ ] 06-01: Extract shared backend utilities and shared frontend components library (QUAL-01, QUAL-02)
-- [ ] 06-02: YAGNI pass — remove unused code, dead endpoints, unused dependencies, and unimplemented stubs (QUAL-03)
-- [ ] 06-03: Document code quality standards and audit existing code for conformance (QUAL-04)
+- [ ] 06-01: Provision DigitalOcean Managed Valkey, implement ValkeyCache service with tenant-prefixed keys and graceful fallback (INFR-01, INFR-02, INFR-03)
+
+### Phase 7: Feedback Email & Magic Links
+**Goal**: Customers can submit actual project costs and outcomes via a time-limited email link after an estimate — no customer login required, and the data is stored against the estimate for calibration
+**Depends on**: Phase 6
+**Requirements**: FEED-01, FEED-02, FEED-03, FEED-04, FEED-05, FEED-06, FEED-07
+**Success Criteria** (what must be TRUE):
+  1. After an estimate is delivered, a contractor can trigger a feedback email — the customer receives a contextualized email showing the original P50/P80 range with a magic link CTA
+  2. A customer clicks the magic link and sees a feedback form — no account creation required, and email security scanners following the link URL do not consume the token
+  3. A customer submits actual cost, actual timeline, rating, and a discrepancy reason from a structured enum — the form accepts and stores the submission
+  4. A submitted magic link cannot be used a second time — the form shows a "thank you" message on re-visit; an expired link shows a friendly expiry message
+  5. The feedback document is stored with an immutable snapshot of the original estimate and a reference class linkage — the stored data is not affected by later estimate changes
+**Plans**: TBD
+
+Plans:
+- [ ] 07-01: Email infrastructure setup — transactional provider account, SPF/DKIM/DMARC configuration, inbox delivery verification (FEED-01)
+- [ ] 07-02: Magic link token generation, hashed storage, TTL index, and two-step GET/POST validation endpoint (FEED-02, FEED-03, FEED-07)
+- [ ] 07-03: Feedback email composition with estimate context and FeedbackEmailService integration (FEED-04)
+- [ ] 07-04: Customer feedback form UI, structured field schema, feedback document storage with estimate snapshot (FEED-05, FEED-06)
+
+### Phase 8: Calibration Dashboard
+**Goal**: Contractors can see how accurate their estimates have been against real outcomes — accuracy metrics are displayed only when statistically meaningful, and synthetic data is never mixed into calibration calculations
+**Depends on**: Phase 7
+**Requirements**: CALB-01, CALB-02, CALB-03, CALB-04, CALB-05, CALB-06
+**Success Criteria** (what must be TRUE):
+  1. All existing synthetic reference class documents have data_source: "synthetic" — a calibration query run against the production database returns zero synthetic records in its result set
+  2. A contractor with fewer than 10 real outcomes sees a progress indicator showing how many more outcomes are needed — no partial accuracy metrics are shown
+  3. A contractor with 10 or more real outcomes sees mean variance, accuracy buckets (within 10/20/30% of actual), and per-reference-class breakdown in the dashboard
+  4. The calibration dashboard is accessible to authenticated contractors at its own URL — it loads without errors and displays tenant-scoped data only
+  5. The calibration aggregation pipeline explicitly filters tenant_id in every $lookup inner pipeline — a database query log shows no cross-tenant joins
+**Plans**: TBD
+
+Plans:
+- [ ] 08-01: Tag existing synthetic reference class documents with data_source field migration (CALB-01)
+- [ ] 08-02: CalibrationService — tenant-scoped MongoDB aggregation, accuracy metrics calculation, minimum threshold enforcement (CALB-02, CALB-03, CALB-04)
+- [ ] 08-03: Scaffold apps/efofx-dashboard/ Vite + React 19 app with JWT auth and React Query (CALB-05)
+- [ ] 08-04: Calibration dashboard UI — accuracy charts with Recharts, threshold progress indicator, per-reference-class breakdown (CALB-05, CALB-06)
+
+### Phase 9: Shared Library Extraction
+**Goal**: Shared backend utilities and shared frontend components live in workspace packages that any future vertical can consume — the IT/dev vertical can be initialized in v1.2 without copying code
+**Depends on**: Phase 8
+**Requirements**: EXTR-01, EXTR-02, EXTR-03, EXTR-04, EXTR-05
+**Success Criteria** (what must be TRUE):
+  1. A written boundary document exists specifying what belongs in packages/efofx-shared/ and packages/efofx-ui/ versus staying in apps/ — it resolves any ambiguous future extraction decisions
+  2. packages/efofx-shared/ installs in a fresh Python virtualenv with only its declared dependencies — no FastAPI, Motor, or apps/ imports leak in
+  3. packages/efofx-ui/ contains EstimateCard, ChatBubble, and TypingIndicator with no widget-specific state or estimation-domain logic
+  4. A CI test runs on every PR and fails if the shared Python package cannot be imported in a fresh environment — the circular import protection is automated
+  5. Code quality standards are documented and the existing codebase is audited for conformance
+**Plans**: TBD
+
+Plans:
+- [ ] 09-01: Write shared library boundary document (EXTR-01)
+- [ ] 09-02: Extract packages/efofx-shared/ Python package with uv workspace, add CI isolation test (EXTR-02, EXTR-04)
+- [ ] 09-03: Extract packages/efofx-ui/ React components with npm workspaces (EXTR-03)
+- [ ] 09-04: Code quality standards documentation and codebase conformance audit (EXTR-05)
 
 ## Progress
 
@@ -70,5 +124,8 @@ Plans:
 | 3. LLM Integration | v1.0 | 4/4 | Complete | 2026-02-27 |
 | 4. White-Label Widget | v1.0 | 4/4 | Complete | 2026-02-27 |
 | 4.1 Integration Gap Closure | v1.0 | 1/1 | Complete | 2026-02-27 |
-| 5. Feedback and Calibration | — | 0/4 | Not started | - |
-| 6. Code Quality and Hardening | — | 0/3 | Not started | - |
+| 5. Tech Debt & Foundation Cleanup | v1.1 | 0/2 | Not started | - |
+| 6. Valkey Infrastructure | v1.1 | 0/1 | Not started | - |
+| 7. Feedback Email & Magic Links | v1.1 | 0/4 | Not started | - |
+| 8. Calibration Dashboard | v1.1 | 0/4 | Not started | - |
+| 9. Shared Library Extraction | v1.1 | 0/4 | Not started | - |

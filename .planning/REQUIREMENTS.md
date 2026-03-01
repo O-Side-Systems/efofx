@@ -9,12 +9,12 @@ Requirements for Feedback & Quality milestone. Each maps to roadmap phases.
 
 ### Tech Debt
 
-- [ ] **DEBT-01**: Fix EstimationSession tenant_id type to match TenantAwareCollection expectations (INT-04)
-- [ ] **DEBT-02**: Add compound indexes for widget_analytics and widget_leads collections (INT-05)
-- [ ] **DEBT-03**: Remove 5 deprecated collection accessors from mongodb.py
+- [x] **DEBT-01**: Fix EstimationSession tenant_id type to match TenantAwareCollection expectations (INT-04)
+- [x] **DEBT-02**: Add compound indexes for widget_analytics and widget_leads collections (INT-05)
+- [x] **DEBT-03**: Remove 5 deprecated collection accessors from mongodb.py
 - [x] **DEBT-04**: Wire ConsultationCTA button to contractor contact flow destination
-- [ ] **DEBT-05**: YAGNI pass — remove unused code paths and dead imports
-- [ ] **DEBT-06**: Sync requirements.txt with pyproject.toml (fastapi-mail, valkey)
+- [x] **DEBT-05**: YAGNI pass — remove unused code paths and dead imports
+- [x] **DEBT-06**: Sync requirements.txt with pyproject.toml (fastapi-mail, valkey)
 
 ### Infrastructure
 
@@ -89,12 +89,12 @@ Which phases cover which requirements. Updated during roadmap creation.
 
 | Requirement | Phase | Status |
 |-------------|-------|--------|
-| DEBT-01 | Phase 5 | Pending |
-| DEBT-02 | Phase 5 | Pending |
-| DEBT-03 | Phase 5 | Pending |
+| DEBT-01 | Phase 5 | Complete |
+| DEBT-02 | Phase 5 | Complete |
+| DEBT-03 | Phase 5 | Complete |
 | DEBT-04 | Phase 5 | Complete |
-| DEBT-05 | Phase 5 | Pending |
-| DEBT-06 | Phase 5 | Pending |
+| DEBT-05 | Phase 5 | Complete |
+| DEBT-06 | Phase 5 | Complete |
 | INFR-01 | Phase 6 | Pending |
 | INFR-02 | Phase 6 | Pending |
 | INFR-03 | Phase 6 | Pending |

@@ -24,7 +24,7 @@ See: milestones/v1.0-ROADMAP.md for full details
 
 **Milestone Goal:** Close the feedback loop so estimates self-improve and clean up the codebase for a second vertical.
 
-- [ ] **Phase 5: Tech Debt & Foundation Cleanup** - Fix all v1.0 audit items before adding features
+- [x] **Phase 5: Tech Debt & Foundation Cleanup** - Fix all v1.0 audit items before adding features (completed 2026-03-01)
 - [ ] **Phase 6: Valkey Infrastructure** - Replace broken per-process LLM cache with distributed Valkey
 - [ ] **Phase 7: Feedback Email & Magic Links** - Customers submit actual project outcomes via email magic link
 - [ ] **Phase 8: Calibration Dashboard** - Contractors see historical estimate accuracy against real outcomes
@@ -124,7 +124,7 @@ Plans:
 | 3. LLM Integration | v1.0 | 4/4 | Complete | 2026-02-27 |
 | 4. White-Label Widget | v1.0 | 4/4 | Complete | 2026-02-27 |
 | 4.1 Integration Gap Closure | v1.0 | 1/1 | Complete | 2026-02-27 |
-| 5. Tech Debt & Foundation Cleanup | 1/2 | In Progress|  | - |
+| 5. Tech Debt & Foundation Cleanup | 2/2 | Complete   | 2026-03-01 | - |
 | 6. Valkey Infrastructure | v1.1 | 0/1 | Not started | - |
 | 7. Feedback Email & Magic Links | v1.1 | 0/4 | Not started | - |
 | 8. Calibration Dashboard | v1.1 | 0/4 | Not started | - |

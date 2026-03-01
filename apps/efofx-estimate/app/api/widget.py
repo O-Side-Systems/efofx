@@ -22,12 +22,15 @@ from app.db.mongodb import get_database
 from app.models.tenant import Tenant
 from app.models.widget import (
     BrandingConfigResponse,
+    ConsultationRequest,
+    ConsultationResponse,
     LeadCaptureRequest,
     LeadCaptureResponse,
 )
 from app.services.widget_service import (
     get_branding_by_prefix,
     record_analytics_event,
+    save_consultation,
     save_lead,
 )
 from slowapi.util import get_remote_address
@@ -94,6 +97,46 @@ async def capture_lead(
         message="Lead captured successfully",
         session_id=lead.session_id,
     )
+
+
+# ---------------------------------------------------------------------------
+# Consultation endpoint — API key auth required (DEBT-04)
+# ---------------------------------------------------------------------------
+
+
+@widget_router.post(
+    "/consultation",
+    response_model=ConsultationResponse,
+    summary="Submit consultation request from widget",
+    description=(
+        "Save a consultation request from the widget contact form. "
+        "Requires API key authentication. Returns 201 with the lead ID. "
+        "Sends email notification to contractor if mail is configured; "
+        "otherwise logs a warning and returns successfully."
+    ),
+    status_code=201,
+)
+async def submit_consultation(
+    consultation: ConsultationRequest,
+    tenant: Tenant = Depends(get_current_tenant),
+) -> ConsultationResponse:
+    """Save a consultation request and email the contractor.
+
+    The lead is saved to widget_leads regardless of email configuration.
+    Email failures are non-critical and do not affect the response.
+    """
+    lead_id = await save_consultation(
+        tenant_id=tenant.tenant_id,
+        consultation=consultation,
+        contractor_email=tenant.email,
+    )
+    logger.info(
+        "Consultation request saved for tenant %s, session %s, lead %s",
+        tenant.tenant_id,
+        consultation.session_id,
+        lead_id,
+    )
+    return ConsultationResponse(lead_id=lead_id)
 
 
 # ---------------------------------------------------------------------------

@@ -12,11 +12,13 @@ import logging
 from datetime import datetime, timezone
 from typing import Optional
 
+from app.core.config import settings
 from app.core.constants import DB_COLLECTIONS
 from app.db.mongodb import get_database, get_tenant_collection
 from app.models.widget import (
     BrandingConfig,
     BrandingConfigResponse,
+    ConsultationRequest,
     LeadCapture,
     LeadCaptureRequest,
 )
@@ -104,6 +106,79 @@ async def save_lead(tenant_id: str, lead: LeadCaptureRequest) -> str:
     col = get_tenant_collection(DB_COLLECTIONS["WIDGET_LEADS"], tenant_id)
     result = await col.insert_one(lead_doc.model_dump())
     return str(result.inserted_id)
+
+
+async def save_consultation(tenant_id: str, consultation: ConsultationRequest, contractor_email: str) -> str:
+    """Save consultation request to widget_leads and email the contractor (DEBT-04).
+
+    Saves the lead document first, then attempts email notification.
+    If email settings are not configured, logs a warning and returns successfully.
+    Email failures do NOT cause the endpoint to fail — the lead is already saved.
+    """
+    lead_doc = {
+        "tenant_id": tenant_id,
+        "session_id": consultation.session_id,
+        "name": consultation.name,
+        "email": consultation.email,
+        "phone": consultation.phone,
+        "message": consultation.message,
+        "lead_type": "consultation",
+        "captured_at": datetime.now(timezone.utc),
+    }
+    col = get_tenant_collection(DB_COLLECTIONS["WIDGET_LEADS"], tenant_id)
+    result = await col.insert_one(lead_doc)
+    lead_id = str(result.inserted_id)
+
+    # Attempt email notification — failure is non-critical; lead is already saved
+    await _send_consultation_email(contractor_email, consultation)
+
+    return lead_id
+
+
+async def _send_consultation_email(to_email: str, consultation: ConsultationRequest) -> None:
+    """Send consultation notification email to contractor. Silently skips if not configured."""
+    try:
+        if not settings.MAIL_SERVER or not settings.MAIL_USERNAME:
+            logger.warning(
+                "DEBT-04: Email not configured (MAIL_SERVER/MAIL_USERNAME not set) "
+                "— skipping consultation notification email"
+            )
+            return
+
+        from fastapi_mail import FastMail, MessageSchema, ConnectionConfig, MessageType
+
+        conf = ConnectionConfig(
+            MAIL_USERNAME=settings.MAIL_USERNAME,
+            MAIL_PASSWORD=settings.MAIL_PASSWORD or "",
+            MAIL_FROM=settings.MAIL_FROM or settings.MAIL_USERNAME,
+            MAIL_PORT=settings.MAIL_PORT,
+            MAIL_SERVER=settings.MAIL_SERVER,
+            MAIL_STARTTLS=True,
+            MAIL_SSL_TLS=False,
+            USE_CREDENTIALS=True,
+        )
+
+        body = (
+            f"New consultation request from your estimation widget:\n\n"
+            f"Name: {consultation.name}\n"
+            f"Email: {consultation.email}\n"
+            f"Phone: {consultation.phone}\n\n"
+            f"Message:\n{consultation.message}\n"
+        )
+
+        message = MessageSchema(
+            subject="New consultation request from your widget",
+            recipients=[to_email],
+            body=body,
+            subtype=MessageType.plain,
+        )
+
+        fm = FastMail(conf)
+        await fm.send_message(message)
+        logger.info("Consultation email sent to %s", to_email)
+    except Exception as e:
+        logger.error("Failed to send consultation email: %s", str(e))
+        # Do NOT re-raise — lead is already saved, email failure is non-critical
 
 
 async def record_analytics_event(tenant_id: str, event_type: str) -> None:

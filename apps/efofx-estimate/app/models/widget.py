@@ -4,11 +4,12 @@ Widget Pydantic models for efOfX white-label widget.
 Provides data models for:
 - Branding configuration (public endpoint, no PII)
 - Lead capture (widget prospects)
+- Consultation requests (DEBT-04)
 - Analytics events (no PII)
 """
 
 from pydantic import BaseModel, Field
-from typing import Optional
+from typing import Dict, Optional
 from datetime import datetime, timezone
 
 
@@ -24,6 +25,8 @@ class BrandingConfig(BaseModel):
     )
     button_text: str = Field(default="Get an Estimate")
     company_name: str = Field(default="")
+    locale: str = Field(default="en")
+    consultation_form_labels: Optional[Dict[str, str]] = Field(default=None)
 
 
 class BrandingConfigResponse(BaseModel):
@@ -36,6 +39,8 @@ class BrandingConfigResponse(BaseModel):
     welcome_message: str
     button_text: str
     company_name: str
+    locale: str = "en"
+    consultation_form_labels: Optional[Dict[str, str]] = None
 
 
 class LeadCapture(BaseModel):
@@ -76,3 +81,20 @@ class WidgetAnalyticsEvent(BaseModel):
         ..., description="widget_view, chat_start, estimate_complete"
     )
     date: str = Field(..., description="ISO date YYYY-MM-DD for daily bucketing")
+
+
+class ConsultationRequest(BaseModel):
+    """Contact form submission from widget ConsultationCTA (DEBT-04)."""
+
+    session_id: str = Field(..., description="Chat session ID")
+    name: str = Field(..., min_length=1, max_length=100, description="Customer name")
+    email: str = Field(..., description="Customer email")
+    phone: str = Field(..., min_length=1, max_length=30, description="Customer phone number")
+    message: str = Field(..., min_length=1, max_length=2000, description="Free-text message about the project")
+
+
+class ConsultationResponse(BaseModel):
+    """Response after consultation request is saved."""
+
+    lead_id: str
+    message: str = "Consultation request received"

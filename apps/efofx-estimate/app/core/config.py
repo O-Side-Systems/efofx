@@ -77,6 +77,14 @@ class Settings(BaseSettings):
     SMTP_PORT: int = 587
     SMTP_FROM: str = "noreply@efofx.ai"
 
+    # Email settings for widget consultation notifications (DEBT-04)
+    # All optional — email is silently skipped if not configured
+    MAIL_USERNAME: Optional[str] = None
+    MAIL_PASSWORD: Optional[str] = None
+    MAIL_FROM: Optional[str] = None
+    MAIL_PORT: int = 587
+    MAIL_SERVER: Optional[str] = None
+
     # Application base URL (for verification links in emails)
     APP_BASE_URL: str = "http://localhost:8000"
 

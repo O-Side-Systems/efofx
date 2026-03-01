@@ -14,6 +14,24 @@ export interface WidgetConfig {
   containerId: string;
 }
 
+export interface ConsultationFormLabels {
+  title: string;
+  name: string;
+  email: string;
+  phone: string;
+  message: string;
+  submit: string;
+  submitting: string;
+  success: string;
+}
+
+export interface ConsultationFormData {
+  name: string;
+  email: string;
+  phone: string;
+  message: string;
+}
+
 export interface BrandingConfig {
   primary_color: string;
   secondary_color: string;
@@ -22,6 +40,8 @@ export interface BrandingConfig {
   welcome_message: string;
   button_text: string;
   company_name: string;
+  locale?: string;
+  consultation_form_labels?: Partial<ConsultationFormLabels>;
 }
 
 export interface LeadData {

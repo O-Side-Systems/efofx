@@ -61,6 +61,9 @@ def get_tier_limit(request: Request) -> str:
 # In production: valkeys://user:pass@host:port (SSL).
 # Note: slowapi/limits library uses "redis" scheme even for Valkey (same protocol).
 # If Valkey is unreachable in dev, slowapi falls back to in-memory storage.
+# IMPORTANT: In production, VALKEY_URL must use rediss:// scheme (not valkeys://)
+# for slowapi/limits library compatibility. valkey.asyncio (used by ValkeyCache)
+# also accepts rediss://. See 06-RESEARCH.md Pitfall 1 for details.
 limiter = Limiter(
     key_func=get_tenant_id_for_limit,
     default_limits=[DEFAULT_LIMIT],

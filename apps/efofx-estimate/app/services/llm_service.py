@@ -17,8 +17,6 @@ FastAPI dependency to obtain a scoped LLMService with the tenant's key.
         result = await llm.generate_estimation(...)
 """
 
-import hashlib
-import json
 import logging
 from typing import Optional, Dict, Any
 
@@ -37,26 +35,9 @@ from app.core.security import get_current_tenant
 from app.models.estimation import EstimationOutput
 from app.models.tenant import Tenant
 from app.services.byok_service import decrypt_tenant_openai_key
+from app.services.valkey_cache import _cache as valkey_cache, ValkeyCache
 
 logger = logging.getLogger(__name__)
-
-# ---------------------------------------------------------------------------
-# In-memory response cache
-# ---------------------------------------------------------------------------
-
-_response_cache: dict[str, str] = {}  # In-memory; upgrade to Valkey for multi-instance
-
-
-# ---------------------------------------------------------------------------
-# Cache key helper
-# ---------------------------------------------------------------------------
-
-
-def _make_cache_key(messages: list[dict], model: str) -> str:
-    """SHA-256 hash of (messages + model) for deterministic cache key."""
-    payload = {"messages": messages, "model": model}
-    serialized = json.dumps(payload, sort_keys=True, ensure_ascii=True)
-    return hashlib.sha256(serialized.encode("utf-8")).hexdigest()
 
 
 # ---------------------------------------------------------------------------
@@ -97,9 +78,10 @@ class LLMService:
     Use the ``get_llm_service`` FastAPI dependency to obtain an instance.
     """
 
-    def __init__(self, api_key: str) -> None:
-        """api_key is REQUIRED — no fallback to settings.OPENAI_API_KEY."""
+    def __init__(self, api_key: str, tenant_id: str) -> None:
+        """api_key and tenant_id are REQUIRED — no fallback to settings.OPENAI_API_KEY."""
         self.api_key = api_key
+        self.tenant_id = tenant_id
         self.client = AsyncOpenAI(api_key=self.api_key)
         self.model = settings.OPENAI_MODEL
         self.max_tokens = settings.OPENAI_MAX_TOKENS
@@ -203,12 +185,14 @@ Region: {region}"""
             {"role": "user", "content": user_prompt},
         ]
 
-        cache_key = _make_cache_key(messages, settings.OPENAI_MODEL)
+        input_hash = ValkeyCache.make_input_hash(messages, settings.OPENAI_MODEL)
 
         # Cache lookup
-        if use_cache and cache_key in _response_cache:
-            logger.debug("Cache hit for estimation request (key=%s...)", cache_key[:8])
-            return EstimationOutput.model_validate_json(_response_cache[cache_key])
+        if use_cache:
+            cached = await valkey_cache.get(self.tenant_id, input_hash)
+            if cached is not None:
+                logger.debug("Cache hit for estimation request (key=%s...)", input_hash[:8])
+                return EstimationOutput.model_validate_json(cached)
 
         try:
             completion = await self.client.beta.chat.completions.parse(
@@ -225,7 +209,7 @@ Region: {region}"""
 
             # Store in cache
             if use_cache:
-                _response_cache[cache_key] = result.model_dump_json()
+                await valkey_cache.set(self.tenant_id, input_hash, result.model_dump_json())
 
             return result
 
@@ -272,4 +256,4 @@ async def get_llm_service(tenant: Tenant = Depends(get_current_tenant)) -> LLMSe
     Raises HTTP 402 if tenant has no stored OpenAI key.
     """
     api_key = await decrypt_tenant_openai_key(tenant.tenant_id)
-    return LLMService(api_key=api_key)
+    return LLMService(api_key=api_key, tenant_id=tenant.tenant_id)

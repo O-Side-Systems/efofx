@@ -21,6 +21,7 @@ from app.api.widget import widget_router
 from app.middleware.cors import TenantAwareCORSMiddleware
 from app.db.mongodb import connect_to_mongo, close_mongo_connection, health_check as db_health_check, create_indexes, migrate_estimation_session_tenant_id
 from app.services.prompt_service import PromptService
+from app.services.valkey_cache import _cache as valkey_cache
 
 # Configure logging
 logging.basicConfig(level=logging.INFO)
@@ -56,6 +57,8 @@ async def lifespan(app: FastAPI):
 
     # Shutdown
     logger.info("Shutting down efOfX Estimation Service...")
+    await valkey_cache.close()
+    logger.info("Valkey connection closed")
     await close_mongo_connection()
     logger.info("MongoDB connection closed")
 

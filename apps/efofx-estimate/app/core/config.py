@@ -69,6 +69,7 @@ class Settings(BaseSettings):
 
     # Valkey / Redis (for rate limiting — used in plan 02-03)
     VALKEY_URL: str = "redis://localhost:6379"
+    VALKEY_CACHE_TTL: int = 86400  # 24-hour TTL for LLM response cache (seconds)
 
     # SMTP (for email verification)
     SMTP_USERNAME: Optional[str] = None

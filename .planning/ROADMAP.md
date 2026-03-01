@@ -57,10 +57,10 @@ Plans:
   1. Two simultaneous workers serve the same LLM cache hit — a response cached by Worker A is returned by Worker B without a live LLM call
   2. Cache keys include tenant_id — a cached response for Tenant A cannot be served to Tenant B
   3. With Valkey unreachable, estimation requests complete successfully via live LLM call — no 500 errors, no user-visible cache errors
-**Plans**: TBD
+**Plans**: 1 plan (Wave 1)
 
 Plans:
-- [ ] 06-01: Provision DigitalOcean Managed Valkey, implement ValkeyCache service with tenant-prefixed keys and graceful fallback (INFR-01, INFR-02, INFR-03)
+- [ ] 06-01: Create ValkeyCache service with tenant-scoped keys and graceful fallback, wire into LLMService replacing per-process dict cache, add unit tests (INFR-01, INFR-02, INFR-03)
 
 ### Phase 7: Feedback Email & Magic Links
 **Goal**: Customers can submit actual project costs and outcomes via a time-limited email link after an estimate — no customer login required, and the data is stored against the estimate for calibration
@@ -125,7 +125,7 @@ Plans:
 | 3. LLM Integration | v1.0 | 4/4 | Complete | 2026-02-27 |
 | 4. White-Label Widget | v1.0 | 4/4 | Complete | 2026-02-27 |
 | 4.1 Integration Gap Closure | v1.0 | 1/1 | Complete | 2026-02-27 |
-| 5. Tech Debt & Foundation Cleanup | v1.1 | 2/3 | Gap closure | - |
+| 5. Tech Debt & Foundation Cleanup | v1.1 | 3/3 | Complete | 2026-02-28 |
 | 6. Valkey Infrastructure | v1.1 | 0/1 | Not started | - |
 | 7. Feedback Email & Magic Links | v1.1 | 0/4 | Not started | - |
 | 8. Calibration Dashboard | v1.1 | 0/4 | Not started | - |

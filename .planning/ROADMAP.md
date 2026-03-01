@@ -42,11 +42,11 @@ See: milestones/v1.0-ROADMAP.md for full details
   3. All 5 deprecated collection accessors are removed from mongodb.py — no code references them
   4. The ConsultationCTA button navigates to a real destination — it does not log to console or throw a JavaScript error
   5. requirements.txt and pyproject.toml declare the same dependencies — no production dependency is missing from requirements.txt
-**Plans**: TBD
+**Plans**: 2 plans (Wave 1 parallel)
 
 Plans:
-- [ ] 05-01: Fix EstimationSession tenant_id type (DEBT-01) and add missing widget analytics/leads indexes (DEBT-02)
-- [ ] 05-02: Remove deprecated MongoDB collection accessors (DEBT-03), wire ConsultationCTA destination (DEBT-04), YAGNI dead code pass (DEBT-05), and sync requirements.txt (DEBT-06)
+- [ ] 05-01: Fix tenant_id type + migration (DEBT-01), add widget indexes (DEBT-02), remove deprecated accessors (DEBT-03), delete dead code (DEBT-05), sync requirements.txt (DEBT-06)
+- [ ] 05-02: Wire ConsultationCTA to inline contact form with backend endpoint and email notification (DEBT-04)
 
 ### Phase 6: Valkey Infrastructure
 **Goal**: LLM response caching works correctly across all Gunicorn workers — the per-process cache bug is gone, cache is tenant-scoped, and Valkey outages do not crash the service
@@ -124,7 +124,7 @@ Plans:
 | 3. LLM Integration | v1.0 | 4/4 | Complete | 2026-02-27 |
 | 4. White-Label Widget | v1.0 | 4/4 | Complete | 2026-02-27 |
 | 4.1 Integration Gap Closure | v1.0 | 1/1 | Complete | 2026-02-27 |
-| 5. Tech Debt & Foundation Cleanup | v1.1 | 0/2 | Not started | - |
+| 5. Tech Debt & Foundation Cleanup | v1.1 | 0/2 | Planned | - |
 | 6. Valkey Infrastructure | v1.1 | 0/1 | Not started | - |
 | 7. Feedback Email & Magic Links | v1.1 | 0/4 | Not started | - |
 | 8. Calibration Dashboard | v1.1 | 0/4 | Not started | - |

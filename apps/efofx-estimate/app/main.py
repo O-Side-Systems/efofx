@@ -19,7 +19,7 @@ from app.api.routes import api_router
 from app.api.auth import router as auth_router
 from app.api.widget import widget_router
 from app.middleware.cors import TenantAwareCORSMiddleware
-from app.db.mongodb import connect_to_mongo, close_mongo_connection, health_check as db_health_check, create_indexes
+from app.db.mongodb import connect_to_mongo, close_mongo_connection, health_check as db_health_check, create_indexes, migrate_estimation_session_tenant_id
 from app.services.prompt_service import PromptService
 
 # Configure logging
@@ -36,6 +36,8 @@ async def lifespan(app: FastAPI):
     logger.info("MongoDB connection established")
     await create_indexes()
     logger.info("Database indexes created")
+    await migrate_estimation_session_tenant_id()  # DEBT-01
+    logger.info("DEBT-01 migration complete")
 
     # Load versioned prompts -- critical dependency, fail startup if missing
     prompts_dir = os.path.join(

@@ -268,11 +268,64 @@ async def create_indexes():
         await db["refresh_tokens"].create_index("token_hash", unique=True)
         logger.info("Index confirmed: refresh_tokens.token_hash_1")
 
+        # ------------------------------------------------------------------
+        # Widget analytics — tenant_id + date unique (daily bucketing upsert)
+        # ------------------------------------------------------------------
+        await db["widget_analytics"].create_index(
+            [("tenant_id", 1), ("date", 1)],
+            unique=True,
+        )
+        logger.info("Index confirmed: widget_analytics.tenant_id_1_date_1")
+
+        # ------------------------------------------------------------------
+        # Widget leads — tenant_id + session lookup
+        # ------------------------------------------------------------------
+        await db["widget_leads"].create_index(
+            [("tenant_id", 1), ("session_id", 1)]
+        )
+        logger.info("Index confirmed: widget_leads.tenant_id_1_session_id_1")
+
+        # ------------------------------------------------------------------
+        # Widget leads — tenant_id + time sort (most recent leads per tenant)
+        # ------------------------------------------------------------------
+        await db["widget_leads"].create_index(
+            [("tenant_id", 1), ("captured_at", -1)]
+        )
+        logger.info("Index confirmed: widget_leads.tenant_id_1_captured_at_-1")
+
         logger.info("Database indexes created successfully")
 
     except Exception as e:
         logger.error(f"Failed to create database indexes: {e}")
         raise
+
+
+async def migrate_estimation_session_tenant_id():
+    """
+    DEBT-01: Safety migration — confirm no EstimationSession documents have
+    BSON ObjectId-type tenant_id values. TenantAwareCollection.insert_one()
+    always overwrites tenant_id to the correct string before saving, so in
+    practice no ObjectId-typed values should exist. This confirms that and
+    marks any orphaned documents if found.
+
+    Idempotent: safe to run on every deploy.
+    """
+    db = get_database()
+    result = await db["estimates"].count_documents(
+        {"tenant_id": {"$type": "objectId"}}
+    )
+    if result > 0:
+        logger.warning(
+            "DEBT-01 migration: found %d estimates with ObjectId tenant_id — "
+            "marking as orphaned (cannot attribute to a real tenant).",
+            result,
+        )
+        await db["estimates"].update_many(
+            {"tenant_id": {"$type": "objectId"}},
+            {"$set": {"tenant_id": "__orphaned__", "migration_note": "DEBT-01: was random PyObjectId"}},
+        )
+    else:
+        logger.info("DEBT-01 migration: no estimates with ObjectId tenant_id found — nothing to migrate")
 
 
 async def health_check():

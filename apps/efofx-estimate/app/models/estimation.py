@@ -160,7 +160,7 @@ class EstimationSession(BaseModel):
     """Model for estimation session."""
 
     id: Optional[PyObjectId] = Field(default_factory=PyObjectId, alias="_id")
-    tenant_id: PyObjectId = Field(..., description="Associated tenant ID")
+    tenant_id: str = Field(..., description="Associated tenant ID (UUID string)")
     session_id: str = Field(..., description="Unique session identifier")
     status: EstimationStatus = Field(default=EstimationStatus.INITIATED, description="Session status")
     description: str = Field(..., description="Project description")
@@ -182,7 +182,7 @@ class EstimationSession(BaseModel):
         json_encoders = {ObjectId: str}
         schema_extra = {
             "example": {
-                "tenant_id": "507f1f77bcf86cd799439011",
+                "tenant_id": "550e8400-e29b-41d4-a716-446655440000",
                 "session_id": "sess_123456789",
                 "status": "completed",
                 "description": "I want to install a 15x30 foot pool with spa in my backyard.",

@@ -16,7 +16,6 @@ from app.core.constants import EstimationStatus, API_MESSAGES, ESTIMATION_CONFIG
 from app.models.tenant import Tenant
 from app.models.estimation import EstimationResponse, EstimationSession, EstimationOutput
 from app.models.chat import ChatSession, ScopingContext
-from app.models._objectid import PyObjectId
 from app.db.mongodb import get_tenant_collection
 from app.services.llm_service import LLMService
 from app.services.reference_service import ReferenceService
@@ -177,7 +176,7 @@ class EstimationService:
         # Create and save estimation session
         session_id = f"sess_{uuid.uuid4().hex[:12]}"
         est_session = EstimationSession(
-            tenant_id=PyObjectId(),
+            tenant_id=tenant.tenant_id,
             session_id=session_id,
             status=EstimationStatus.COMPLETED,
             description=description,

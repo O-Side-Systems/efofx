@@ -18,9 +18,9 @@ Requirements for Feedback & Quality milestone. Each maps to roadmap phases.
 
 ### Infrastructure
 
-- [ ] **INFR-01**: Replace per-process LLM dict cache with distributed Valkey cache
-- [ ] **INFR-02**: Valkey cache keys prefixed with tenant_id to prevent cross-tenant collisions
-- [ ] **INFR-03**: Graceful Valkey fallback — cache outage falls back to live LLM call, not 500
+- [x] **INFR-01**: Replace per-process LLM dict cache with distributed Valkey cache
+- [x] **INFR-02**: Valkey cache keys prefixed with tenant_id to prevent cross-tenant collisions
+- [x] **INFR-03**: Graceful Valkey fallback — cache outage falls back to live LLM call, not 500
 
 ### Feedback
 
@@ -95,9 +95,9 @@ Which phases cover which requirements. Updated during roadmap creation.
 | DEBT-04 | Phase 5 | Complete |
 | DEBT-05 | Phase 5 | Complete |
 | DEBT-06 | Phase 5 | Complete |
-| INFR-01 | Phase 6 | Pending |
-| INFR-02 | Phase 6 | Pending |
-| INFR-03 | Phase 6 | Pending |
+| INFR-01 | Phase 6 | Complete |
+| INFR-02 | Phase 6 | Complete |
+| INFR-03 | Phase 6 | Complete |
 | FEED-01 | Phase 7 | Pending |
 | FEED-02 | Phase 7 | Pending |
 | FEED-03 | Phase 7 | Pending |

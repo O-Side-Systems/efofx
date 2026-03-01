@@ -2,11 +2,11 @@
 Unit tests for LLMService BYOK hardening, error classification, and caching.
 
 Covers:
-- BYOK-only constructor (no settings fallback)
+- BYOK-only constructor (no settings fallback); now requires tenant_id too
 - classify_openai_error mapping all OpenAI exception types
-- _make_cache_key determinism and variation
-- generate_estimation cache hit/miss/bypass behavior
-- get_llm_service FastAPI dependency: BYOK decryption and 402 gate
+- ValkeyCache.make_input_hash determinism and variation (replaces _make_cache_key)
+- generate_estimation cache hit/miss/bypass behavior via mocked ValkeyCache
+- get_llm_service FastAPI dependency: BYOK decryption, tenant_id passthrough, 402 gate
 """
 
 import pytest
@@ -53,12 +53,12 @@ def _make_estimation_output() -> EstimationOutput:
 
 
 @pytest.fixture(autouse=True)
-def clear_response_cache():
-    """Clear the module-level _response_cache before each test."""
-    import app.services.llm_service as llm_module
-    llm_module._response_cache.clear()
-    yield
-    llm_module._response_cache.clear()
+def mock_valkey_cache():
+    """Patch ValkeyCache singleton with a no-op mock for all LLMService tests."""
+    with patch("app.services.llm_service.valkey_cache") as mock_cache:
+        mock_cache.get = AsyncMock(return_value=None)  # always miss
+        mock_cache.set = AsyncMock()  # silent no-op
+        yield mock_cache
 
 
 @pytest.fixture
@@ -85,14 +85,21 @@ class TestLLMServiceConstructor:
         with pytest.raises(TypeError):
             LLMService()  # type: ignore[call-arg]
 
+    def test_llm_service_requires_tenant_id(self, mock_openai):
+        """LLMService(api_key=X) with no tenant_id raises TypeError."""
+        from app.services.llm_service import LLMService
+
+        with pytest.raises(TypeError):
+            LLMService(api_key="sk-test-key")  # type: ignore[call-arg]
+
     def test_llm_service_creates_client_with_provided_key(self, mock_openai):
-        """LLMService(api_key=X) constructs AsyncOpenAI with api_key=X."""
+        """LLMService(api_key=X, tenant_id=Y) constructs AsyncOpenAI with api_key=X."""
         from app.services.llm_service import LLMService
 
         MockClient, _ = mock_openai
         byok_key = "sk-test-byok-key-12345"
 
-        LLMService(api_key=byok_key)
+        LLMService(api_key=byok_key, tenant_id="test-tenant")
 
         MockClient.assert_called_once_with(api_key=byok_key)
 
@@ -164,40 +171,40 @@ class TestClassifyOpenAIError:
 
 
 # ---------------------------------------------------------------------------
-# Cache key tests
+# Cache key tests (now via ValkeyCache.make_input_hash)
 # ---------------------------------------------------------------------------
 
 
 class TestMakeCacheKey:
-    """_make_cache_key produces deterministic and varied keys."""
+    """ValkeyCache.make_input_hash produces deterministic and varied keys."""
 
     def test_make_cache_key_deterministic(self):
         """Same messages + model always produce the same key."""
-        from app.services.llm_service import _make_cache_key
+        from app.services.valkey_cache import ValkeyCache
 
         messages = [{"role": "user", "content": "hello"}]
-        key1 = _make_cache_key(messages, "gpt-4o-mini")
-        key2 = _make_cache_key(messages, "gpt-4o-mini")
+        key1 = ValkeyCache.make_input_hash(messages, "gpt-4o-mini")
+        key2 = ValkeyCache.make_input_hash(messages, "gpt-4o-mini")
         assert key1 == key2
         assert len(key1) == 64  # SHA-256 hex digest
 
     def test_make_cache_key_varies_with_model(self):
         """Different model produces a different key."""
-        from app.services.llm_service import _make_cache_key
+        from app.services.valkey_cache import ValkeyCache
 
         messages = [{"role": "user", "content": "hello"}]
-        key1 = _make_cache_key(messages, "gpt-4o-mini")
-        key2 = _make_cache_key(messages, "gpt-4o")
+        key1 = ValkeyCache.make_input_hash(messages, "gpt-4o-mini")
+        key2 = ValkeyCache.make_input_hash(messages, "gpt-4o")
         assert key1 != key2
 
     def test_make_cache_key_varies_with_messages(self):
         """Different messages produce a different key."""
-        from app.services.llm_service import _make_cache_key
+        from app.services.valkey_cache import ValkeyCache
 
         messages1 = [{"role": "user", "content": "hello"}]
         messages2 = [{"role": "user", "content": "goodbye"}]
-        key1 = _make_cache_key(messages1, "gpt-4o-mini")
-        key2 = _make_cache_key(messages2, "gpt-4o-mini")
+        key1 = ValkeyCache.make_input_hash(messages1, "gpt-4o-mini")
+        key2 = ValkeyCache.make_input_hash(messages2, "gpt-4o-mini")
         assert key1 != key2
 
 
@@ -209,7 +216,7 @@ class TestMakeCacheKey:
 class TestGenerateEstimationCaching:
     """generate_estimation caches results and respects use_cache=False."""
 
-    async def test_generate_estimation_caches_result(self, mock_openai):
+    async def test_generate_estimation_caches_result(self, mock_openai, mock_valkey_cache):
         """Second call with same args uses cache — OpenAI called only once."""
         from app.services.llm_service import LLMService
 
@@ -225,7 +232,15 @@ class TestGenerateEstimationCaching:
             return_value=mock_parse_response
         )
 
-        service = LLMService(api_key="sk-byok-key")
+        service = LLMService(api_key="sk-byok-key", tenant_id="test-tenant")
+
+        # Configure mock: first call is a miss, second call returns cached JSON
+        mock_valkey_cache.get = AsyncMock(
+            side_effect=[
+                None,  # first call: miss — go to live LLM
+                expected_output.model_dump_json(),  # second call: hit — return cached
+            ]
+        )
 
         result1 = await service.generate_estimation(
             description="Pool install",
@@ -244,10 +259,9 @@ class TestGenerateEstimationCaching:
         mock_instance.beta.chat.completions.parse.assert_called_once()
         assert result1.total_cost_p50 == result2.total_cost_p50
 
-    async def test_generate_estimation_cache_bypass(self, mock_openai):
-        """With use_cache=False, OpenAI is called even if cache has an entry."""
-        from app.services.llm_service import LLMService, _response_cache, _make_cache_key
-        from app.core.config import settings
+    async def test_generate_estimation_cache_bypass(self, mock_openai, mock_valkey_cache):
+        """With use_cache=False, cache.get is NOT called and OpenAI is called every time."""
+        from app.services.llm_service import LLMService
 
         _, mock_instance = mock_openai
         expected_output = _make_estimation_output()
@@ -261,17 +275,9 @@ class TestGenerateEstimationCaching:
             return_value=mock_parse_response
         )
 
-        service = LLMService(api_key="sk-byok-key")
+        service = LLMService(api_key="sk-byok-key", tenant_id="test-tenant")
 
-        # First call with cache enabled — populates cache
-        await service.generate_estimation(
-            description="Pool install",
-            reference_class="residential_pool",
-            region="SoCal - Coastal",
-            use_cache=True,
-        )
-
-        # Second call with cache DISABLED — should call OpenAI again
+        # Call with cache DISABLED
         await service.generate_estimation(
             description="Pool install",
             reference_class="residential_pool",
@@ -279,8 +285,12 @@ class TestGenerateEstimationCaching:
             use_cache=False,
         )
 
-        # OpenAI should be called twice (bypass ignores cache)
-        assert mock_instance.beta.chat.completions.parse.call_count == 2
+        # cache.get must NOT be called when use_cache=False
+        mock_valkey_cache.get.assert_not_called()
+        # cache.set must NOT be called either
+        mock_valkey_cache.set.assert_not_called()
+        # OpenAI must be called exactly once
+        mock_instance.beta.chat.completions.parse.assert_called_once()
 
 
 # ---------------------------------------------------------------------------
@@ -307,7 +317,7 @@ class TestGetLLMService:
             mock_decrypt.assert_called_once_with("test-tenant-uuid-1234")
 
     async def test_get_llm_service_returns_llm_with_key(self):
-        """get_llm_service returns an LLMService with the decrypted key."""
+        """get_llm_service returns an LLMService with the decrypted key and tenant_id."""
         from app.services.llm_service import get_llm_service, LLMService
 
         mock_tenant = MagicMock()
@@ -321,6 +331,7 @@ class TestGetLLMService:
 
             assert isinstance(result, LLMService)
             assert result.api_key == "sk-decrypted-test-key"
+            assert result.tenant_id == "test-tenant-uuid-5678"
 
     async def test_get_llm_service_raises_402_no_key(self):
         """When decrypt raises 402, get_llm_service propagates it."""

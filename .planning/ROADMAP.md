@@ -24,7 +24,7 @@ See: milestones/v1.0-ROADMAP.md for full details
 
 **Milestone Goal:** Close the feedback loop so estimates self-improve and clean up the codebase for a second vertical.
 
-- [ ] **Phase 5: Tech Debt & Foundation Cleanup** - Fix all v1.0 audit items before adding features (gap closure in progress)
+- [x] **Phase 5: Tech Debt & Foundation Cleanup** - Fix all v1.0 audit items before adding features (complete — 3/3 plans done)
 - [ ] **Phase 6: Valkey Infrastructure** - Replace broken per-process LLM cache with distributed Valkey
 - [ ] **Phase 7: Feedback Email & Magic Links** - Customers submit actual project outcomes via email magic link
 - [ ] **Phase 8: Calibration Dashboard** - Contractors see historical estimate accuracy against real outcomes
@@ -47,7 +47,7 @@ See: milestones/v1.0-ROADMAP.md for full details
 Plans:
 - [x] 05-01: Fix tenant_id type + migration (DEBT-01), add widget indexes (DEBT-02), remove deprecated accessors (DEBT-03), delete dead code (DEBT-05), sync requirements.txt (DEBT-06)
 - [x] 05-02: Wire ConsultationCTA to inline contact form with backend endpoint and email notification (DEBT-04)
-- [ ] 05-03: Gap closure — wire locale and consultation_form_labels through branding API response (DEBT-04)
+- [x] 05-03: Gap closure — wire locale and consultation_form_labels through branding API response (DEBT-04)
 
 ### Phase 6: Valkey Infrastructure
 **Goal**: LLM response caching works correctly across all Gunicorn workers — the per-process cache bug is gone, cache is tenant-scoped, and Valkey outages do not crash the service

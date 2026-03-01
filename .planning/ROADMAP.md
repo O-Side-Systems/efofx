@@ -124,7 +124,7 @@ Plans:
 | 3. LLM Integration | v1.0 | 4/4 | Complete | 2026-02-27 |
 | 4. White-Label Widget | v1.0 | 4/4 | Complete | 2026-02-27 |
 | 4.1 Integration Gap Closure | v1.0 | 1/1 | Complete | 2026-02-27 |
-| 5. Tech Debt & Foundation Cleanup | v1.1 | 0/2 | Planned | - |
+| 5. Tech Debt & Foundation Cleanup | 1/2 | In Progress|  | - |
 | 6. Valkey Infrastructure | v1.1 | 0/1 | Not started | - |
 | 7. Feedback Email & Magic Links | v1.1 | 0/4 | Not started | - |
 | 8. Calibration Dashboard | v1.1 | 0/4 | Not started | - |

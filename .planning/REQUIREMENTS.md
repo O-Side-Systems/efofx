@@ -12,7 +12,7 @@ Requirements for Feedback & Quality milestone. Each maps to roadmap phases.
 - [ ] **DEBT-01**: Fix EstimationSession tenant_id type to match TenantAwareCollection expectations (INT-04)
 - [ ] **DEBT-02**: Add compound indexes for widget_analytics and widget_leads collections (INT-05)
 - [ ] **DEBT-03**: Remove 5 deprecated collection accessors from mongodb.py
-- [ ] **DEBT-04**: Wire ConsultationCTA button to contractor contact flow destination
+- [x] **DEBT-04**: Wire ConsultationCTA button to contractor contact flow destination
 - [ ] **DEBT-05**: YAGNI pass — remove unused code paths and dead imports
 - [ ] **DEBT-06**: Sync requirements.txt with pyproject.toml (fastapi-mail, valkey)
 
@@ -92,7 +92,7 @@ Which phases cover which requirements. Updated during roadmap creation.
 | DEBT-01 | Phase 5 | Pending |
 | DEBT-02 | Phase 5 | Pending |
 | DEBT-03 | Phase 5 | Pending |
-| DEBT-04 | Phase 5 | Pending |
+| DEBT-04 | Phase 5 | Complete |
 | DEBT-05 | Phase 5 | Pending |
 | DEBT-06 | Phase 5 | Pending |
 | INFR-01 | Phase 6 | Pending |

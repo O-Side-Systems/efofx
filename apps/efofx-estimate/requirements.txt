@@ -9,6 +9,7 @@ pymongo==4.6.1
 
 # Data validation and serialization
 pydantic==2.11.7
+pydantic[email]>=2.11.0
 pydantic-settings==2.2.1
 
 # LLM integration
@@ -43,4 +44,10 @@ python-dateutil==2.8.2
 structlog>=24.0.0  # Structured logging
 
 # Rate limiting
-slowapi>=0.1.0  # Rate limiting middleware
+slowapi==0.1.9  # Rate limiting middleware
+
+# Email
+fastapi-mail==1.6.2
+
+# Cache
+valkey>=6.1.0

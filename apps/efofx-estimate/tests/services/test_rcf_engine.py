@@ -34,7 +34,8 @@ from app.services.rcf_engine import (
     calculate_baseline_estimate,
     apply_adjustments,
 )
-from app.db.mongodb import get_reference_classes_collection
+from app.db.mongodb import get_collection
+from app.core.constants import DB_COLLECTIONS
 from app.models.reference_class import ReferenceClass, CostDistribution, TimelineDistribution
 
 
@@ -268,7 +269,7 @@ class TestRCFMatching:
         _mdb._client = client
         _mdb._database = db
 
-        collection = get_reference_classes_collection()
+        collection = get_collection(DB_COLLECTIONS["REFERENCE_CLASSES"])
         await collection.delete_many({})  # Clean slate
 
         # Create test reference classes

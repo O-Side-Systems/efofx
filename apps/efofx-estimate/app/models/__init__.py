@@ -6,7 +6,7 @@ the estimation service for validation and serialization.
 """
 
 from .tenant import Tenant
-from .estimation import EstimationSession, EstimationRequest, EstimationResponse
+from .estimation import EstimationSession, EstimationResponse
 from .reference import ReferenceClass, ReferenceProject
 from .chat import ChatMessage, ChatSession
 from .feedback import Feedback
@@ -14,7 +14,6 @@ from .feedback import Feedback
 __all__ = [
     "Tenant",
     "EstimationSession",
-    "EstimationRequest", 
     "EstimationResponse",
     "ReferenceClass",
     "ReferenceProject",

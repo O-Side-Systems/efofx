@@ -125,45 +125,6 @@ def get_tenants_collection():
     return get_collection(DB_COLLECTIONS["TENANTS"])
 
 
-def get_reference_classes_collection():
-    """
-    DEPRECATED: Use get_tenant_collection('reference_classes', tenant_id, allow_platform_data=True).
-    Will be removed after Phase 2.
-    """
-    return get_collection(DB_COLLECTIONS["REFERENCE_CLASSES"])
-
-
-def get_reference_projects_collection():
-    """
-    DEPRECATED: Use get_tenant_collection('reference_projects', tenant_id).
-    Will be removed after Phase 2.
-    """
-    return get_collection(DB_COLLECTIONS["REFERENCE_PROJECTS"])
-
-
-def get_estimates_collection():
-    """
-    DEPRECATED: Use get_tenant_collection('estimates', tenant_id).
-    Will be removed after Phase 2.
-    """
-    return get_collection(DB_COLLECTIONS["ESTIMATES"])
-
-
-def get_feedback_collection():
-    """
-    DEPRECATED: Use get_tenant_collection('feedback', tenant_id).
-    Will be removed after Phase 2.
-    """
-    return get_collection(DB_COLLECTIONS["FEEDBACK"])
-
-
-def get_chat_sessions_collection():
-    """
-    DEPRECATED: Use get_tenant_collection('chat_sessions', tenant_id).
-    Will be removed after Phase 2.
-    """
-    return get_collection(DB_COLLECTIONS["CHAT_SESSIONS"])
-
 
 # Database utilities
 async def create_indexes():

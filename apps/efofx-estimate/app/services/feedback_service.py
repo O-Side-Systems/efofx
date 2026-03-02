@@ -7,12 +7,15 @@ and improving estimation accuracy over time.
 
 import logging
 from datetime import datetime, timedelta
-from typing import List, Dict, Any
+from typing import List, Dict, Any, Optional, TYPE_CHECKING
 
 from app.models.tenant import Tenant
 from app.models.feedback import FeedbackCreate, FeedbackSummary, Feedback
 from app.db.mongodb import get_tenant_collection
 from app.core.constants import DB_COLLECTIONS
+
+if TYPE_CHECKING:
+    from app.models.feedback import FeedbackSubmission, EstimateSnapshot
 
 logger = logging.getLogger(__name__)
 
@@ -190,6 +193,44 @@ class FeedbackService:
             logger.error(f"Error getting feedback analytics: {e}")
             raise
     
+    async def store_feedback_with_snapshot(
+        self,
+        tenant_id: str,
+        estimation_session_id: str,
+        submission: "FeedbackSubmission",
+        estimate_snapshot: "EstimateSnapshot",
+        reference_class_id: Optional[str] = None,
+    ) -> str:
+        """Store customer feedback with an immutable estimate snapshot.
+
+        The estimate_snapshot is copied at submission time — later changes
+        to the estimate session do not affect the stored feedback.
+
+        Returns the inserted document ID as string.
+        """
+        from app.models.feedback import FeedbackDocument
+
+        doc = FeedbackDocument(
+            tenant_id=tenant_id,
+            estimation_session_id=estimation_session_id,
+            reference_class_id=reference_class_id,
+            actual_cost=submission.actual_cost,
+            actual_timeline=submission.actual_timeline,
+            rating=submission.rating,
+            discrepancy_reason_primary=submission.discrepancy_reason_primary.value,
+            discrepancy_reason_secondary=submission.discrepancy_reason_secondary.value if submission.discrepancy_reason_secondary else None,
+            comment=submission.comment,
+            estimate_snapshot=estimate_snapshot,
+        )
+
+        collection = self._collection(tenant_id)
+        result = await collection.insert_one(doc.model_dump())
+        logger.info(
+            "Feedback stored for session %s (tenant %s)",
+            estimation_session_id, tenant_id,
+        )
+        return str(result.inserted_id)
+
     def _calculate_accuracy_trend(self, feedback_list: List[Dict], accuracy_field: str) -> Dict[str, float]:
         """Calculate accuracy trend over time."""
         # Group by week and calculate average accuracy

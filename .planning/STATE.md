@@ -3,7 +3,7 @@ gsd_state_version: 1.0
 milestone: v1.1
 milestone_name: Feedback & Quality
 status: unknown
-last_updated: "2026-03-02T14:20:10Z"
+last_updated: "2026-03-02T14:28:13Z"
 progress:
   total_phases: 2
   completed_phases: 2
@@ -23,11 +23,11 @@ See: .planning/PROJECT.md (updated 2026-02-28)
 ## Current Position
 
 Phase: 7 of 9 (Feedback Email Magic Links)
-Plan: 2 of 5 complete (07-02 done — MagicLinkService with token lifecycle and feedback models)
+Plan: 4 of 5 complete (07-04 done — customer feedback form with Jinja2 templates, GET/POST endpoints, FeedbackDocument storage with EstimateSnapshot)
 Status: In Progress
-Last activity: 2026-03-02 — 07-02-PLAN.md executed: MagicLinkService (generate/create/resolve/open/consume), DiscrepancyReason enum, FeedbackMagicLink/Submission/Document/EstimateSnapshot models, MongoDB TTL+unique indexes for feedback_tokens (FEED-02, FEED-03, FEED-07 complete)
+Last activity: 2026-03-02 — 07-04-PLAN.md executed: three Jinja2 HTML templates (form/expired/submitted), GET/POST /feedback/form/{token} endpoints, store_feedback_with_snapshot(), feedback_form_router wired at root path, 7 tests (FEED-05, FEED-06, FEED-07 complete)
 
-Progress: [████░░░░░░] 37% (6/16 plans complete across all v1.1 phases)
+Progress: [█████░░░░░] 44% (8/18 plans complete across all v1.1 phases)
 
 ## Performance Metrics
 
@@ -47,6 +47,8 @@ Progress: [████░░░░░░] 37% (6/16 plans complete across all v
 | Phase 06-valkey-infrastructure P01 | 4min | 3 tasks | 7 files |
 | Phase 07-feedback-email-magic-links P01 | 2min | 2 tasks | 5 files |
 | Phase 07-feedback-email-magic-links P02 | 4min | 2 tasks | 5 files |
+| Phase 07-feedback-email-magic-links P03 | 8min | 2 tasks | 6 files |
+| Phase 07-feedback-email-magic-links P04 | 4min | 2 tasks | 7 files |
 
 ## Accumulated Context
 
@@ -73,6 +75,9 @@ Key decisions affecting v1.1 work:
 - [Phase 07-02]: SHA-256 hash stored in feedback_tokens, never raw token — database compromise cannot replay magic links
 - [Phase 07-02]: mark_opened idempotent via {opened_at: None} filter at DB level — no application-level read-before-write needed
 - [Phase 07-02]: consume returns bool (modified_count > 0) — avoids extra read to check used_at state
+- [Phase 07-04]: feedback_form_router registered at root path (no /api/v1) — user-facing magic link URLs in emails must be short and clean
+- [Phase 07-04]: Race condition guard in POST: consume() returns False when another request won the race — render thank-you without double-storing
+- [Phase 07-04]: EstimateSnapshot built at POST time from session doc — copy-on-write, later estimate edits do not affect stored feedback context
 
 ### Pending Todos
 
@@ -82,11 +87,11 @@ None.
 
 - Phase 5: All plans complete (05-01, 05-02, and 05-03 done). Phase 5 fully complete.
 - Phase 6: DigitalOcean Managed Valkey cluster still needs provisioning (06-01 user_setup). Use rediss:// scheme (confirmed: slowapi requires this, not valkeys://)
-- Phase 7: 07-01 (Resend SDK) and 07-02 (MagicLinkService + models) complete. SPF/DKIM/DMARC DNS setup + RESEND_API_KEY still needed in production. Plans 07-03 through 07-05 still pending.
+- Phase 7: 07-01 (Resend SDK), 07-02 (MagicLinkService + models), and 07-04 (feedback form) complete. SPF/DKIM/DMARC DNS setup + RESEND_API_KEY still needed in production. Plans 07-03 and 07-05 still pending.
 - Phase 8: Confirm 10-outcome minimum threshold with stakeholder before Phase 8 begins
 
 ## Session Continuity
 
 Last session: 2026-03-02
-Stopped at: Completed 07-02-PLAN.md (MagicLinkService with SHA-256 token lifecycle, feedback models, MongoDB TTL indexes — FEED-02, FEED-03, FEED-07 complete)
+Stopped at: Completed 07-04-PLAN.md (customer feedback form — Jinja2 templates, GET/POST token-gated endpoints, FeedbackDocument with EstimateSnapshot, 7 tests — FEED-05, FEED-06, FEED-07 complete)
 Resume file: None

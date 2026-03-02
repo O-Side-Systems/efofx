@@ -26,7 +26,7 @@ See: milestones/v1.0-ROADMAP.md for full details
 
 - [x] **Phase 5: Tech Debt & Foundation Cleanup** - Fix all v1.0 audit items before adding features (complete — 3/3 plans done)
 - [x] **Phase 6: Valkey Infrastructure** - Replace broken per-process LLM cache with distributed Valkey (completed 2026-03-01)
-- [ ] **Phase 7: Feedback Email & Magic Links** - Customers submit actual project outcomes via email magic link
+- [x] **Phase 7: Feedback Email & Magic Links** - Customers submit actual project outcomes via email magic link (completed 2026-03-02)
 - [ ] **Phase 8: Calibration Dashboard** - Contractors see historical estimate accuracy against real outcomes
 - [ ] **Phase 9: Shared Library Extraction** - Extract shared packages to enable second vertical
 
@@ -127,6 +127,6 @@ Plans:
 | 4.1 Integration Gap Closure | v1.0 | 1/1 | Complete | 2026-02-27 |
 | 5. Tech Debt & Foundation Cleanup | v1.1 | 3/3 | Complete | 2026-02-28 |
 | 6. Valkey Infrastructure | 1/1 | Complete   | 2026-03-01 | - |
-| 7. Feedback Email & Magic Links | 2/4 | In Progress|  | - |
+| 7. Feedback Email & Magic Links | 4/4 | Complete   | 2026-03-02 | - |
 | 8. Calibration Dashboard | v1.1 | 0/4 | Not started | - |
 | 9. Shared Library Extraction | v1.1 | 0/4 | Not started | - |

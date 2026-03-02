@@ -3,12 +3,12 @@ gsd_state_version: 1.0
 milestone: v1.1
 milestone_name: Feedback & Quality
 status: unknown
-last_updated: "2026-03-02T14:18:02Z"
+last_updated: "2026-03-02T14:20:10Z"
 progress:
   total_phases: 2
   completed_phases: 2
-  total_plans: 5
-  completed_plans: 5
+  total_plans: 6
+  completed_plans: 6
 ---
 
 # Project State
@@ -23,11 +23,11 @@ See: .planning/PROJECT.md (updated 2026-02-28)
 ## Current Position
 
 Phase: 7 of 9 (Feedback Email Magic Links)
-Plan: 1 of 5 complete (07-01 done — Resend SDK infrastructure and FeedbackEmailService)
+Plan: 2 of 5 complete (07-02 done — MagicLinkService with token lifecycle and feedback models)
 Status: In Progress
-Last activity: 2026-03-02 — 07-01-PLAN.md executed: Resend SDK installed, RESEND_API_KEY config added, FeedbackEmailService with async-safe send_email and graceful degradation (FEED-01 complete)
+Last activity: 2026-03-02 — 07-02-PLAN.md executed: MagicLinkService (generate/create/resolve/open/consume), DiscrepancyReason enum, FeedbackMagicLink/Submission/Document/EstimateSnapshot models, MongoDB TTL+unique indexes for feedback_tokens (FEED-02, FEED-03, FEED-07 complete)
 
-Progress: [███░░░░░░░] 31% (5/16 plans complete across all v1.1 phases)
+Progress: [████░░░░░░] 37% (6/16 plans complete across all v1.1 phases)
 
 ## Performance Metrics
 
@@ -46,6 +46,7 @@ Progress: [███░░░░░░░] 31% (5/16 plans complete across all v
 | Phase 05-tech-debt-foundation-cleanup P03 | 1 | 1 tasks | 1 files |
 | Phase 06-valkey-infrastructure P01 | 4min | 3 tasks | 7 files |
 | Phase 07-feedback-email-magic-links P01 | 2min | 2 tasks | 5 files |
+| Phase 07-feedback-email-magic-links P02 | 4min | 2 tasks | 5 files |
 
 ## Accumulated Context
 
@@ -69,6 +70,9 @@ Key decisions affecting v1.1 work:
 - [Phase 06-01]: VALKEY_URL must use rediss:// scheme (not valkeys://) for slowapi/limits library and valkey.asyncio compatibility in production
 - [Phase 07-01]: Resend SDK installed as resend>=2.0.0 (not pinned) — actively updated SDK; RESEND_API_KEY: Optional[str] = None consistent with existing SMTP/MAIL optional pattern
 - [Phase 07-01]: run_in_threadpool wraps resend.Emails.send — Resend SDK uses requests (synchronous), must not block async event loop; send_email returns Optional[str] (Resend ID or None)
+- [Phase 07-02]: SHA-256 hash stored in feedback_tokens, never raw token — database compromise cannot replay magic links
+- [Phase 07-02]: mark_opened idempotent via {opened_at: None} filter at DB level — no application-level read-before-write needed
+- [Phase 07-02]: consume returns bool (modified_count > 0) — avoids extra read to check used_at state
 
 ### Pending Todos
 
@@ -78,11 +82,11 @@ None.
 
 - Phase 5: All plans complete (05-01, 05-02, and 05-03 done). Phase 5 fully complete.
 - Phase 6: DigitalOcean Managed Valkey cluster still needs provisioning (06-01 user_setup). Use rediss:// scheme (confirmed: slowapi requires this, not valkeys://)
-- Phase 7: Resend selected as transactional email provider (07-01 complete). SPF/DKIM/DMARC DNS setup + RESEND_API_KEY still needed in production (user_setup from 07-01). Plans 07-02 through 07-05 still pending.
+- Phase 7: 07-01 (Resend SDK) and 07-02 (MagicLinkService + models) complete. SPF/DKIM/DMARC DNS setup + RESEND_API_KEY still needed in production. Plans 07-03 through 07-05 still pending.
 - Phase 8: Confirm 10-outcome minimum threshold with stakeholder before Phase 8 begins
 
 ## Session Continuity
 
 Last session: 2026-03-02
-Stopped at: Completed 07-01-PLAN.md (Resend SDK infrastructure — FeedbackEmailService with async-safe send_email and graceful dev-mode fallback — FEED-01 complete)
+Stopped at: Completed 07-02-PLAN.md (MagicLinkService with SHA-256 token lifecycle, feedback models, MongoDB TTL indexes — FEED-02, FEED-03, FEED-07 complete)
 Resume file: None

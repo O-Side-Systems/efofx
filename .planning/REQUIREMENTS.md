@@ -25,12 +25,12 @@ Requirements for Feedback & Quality milestone. Each maps to roadmap phases.
 ### Feedback
 
 - [x] **FEED-01**: Email infrastructure setup — transactional provider, SPF/DKIM/DMARC configuration
-- [ ] **FEED-02**: Magic link token generation (secrets.token_urlsafe) with SHA-256 hashed storage and 72h TTL
-- [ ] **FEED-03**: Two-step token validation — idempotent GET renders form, POST consumes token
+- [x] **FEED-02**: Magic link token generation (secrets.token_urlsafe) with SHA-256 hashed storage and 72h TTL
+- [x] **FEED-03**: Two-step token validation — idempotent GET renders form, POST consumes token
 - [ ] **FEED-04**: Contextualized feedback email with estimate range summary and CTA
 - [ ] **FEED-05**: Customer feedback form with structured fields (actual_cost, actual_timeline, rating, discrepancy reason enum)
 - [ ] **FEED-06**: Feedback document storage with immutable estimate snapshot and reference class linkage
-- [ ] **FEED-07**: Graceful token states — valid (form), expired (friendly message), used (thank you)
+- [x] **FEED-07**: Graceful token states — valid (form), expired (friendly message), used (thank you)
 
 ### Calibration
 
@@ -99,12 +99,12 @@ Which phases cover which requirements. Updated during roadmap creation.
 | INFR-02 | Phase 6 | Complete |
 | INFR-03 | Phase 6 | Complete |
 | FEED-01 | Phase 7 | Complete |
-| FEED-02 | Phase 7 | Pending |
-| FEED-03 | Phase 7 | Pending |
+| FEED-02 | Phase 7 | Complete |
+| FEED-03 | Phase 7 | Complete |
 | FEED-04 | Phase 7 | Pending |
 | FEED-05 | Phase 7 | Pending |
 | FEED-06 | Phase 7 | Pending |
-| FEED-07 | Phase 7 | Pending |
+| FEED-07 | Phase 7 | Complete |
 | CALB-01 | Phase 8 | Pending |
 | CALB-02 | Phase 8 | Pending |
 | CALB-03 | Phase 8 | Pending |

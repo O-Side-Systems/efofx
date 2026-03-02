@@ -127,6 +127,6 @@ Plans:
 | 4.1 Integration Gap Closure | v1.0 | 1/1 | Complete | 2026-02-27 |
 | 5. Tech Debt & Foundation Cleanup | v1.1 | 3/3 | Complete | 2026-02-28 |
 | 6. Valkey Infrastructure | 1/1 | Complete   | 2026-03-01 | - |
-| 7. Feedback Email & Magic Links | 1/4 | In Progress|  | - |
+| 7. Feedback Email & Magic Links | 2/4 | In Progress|  | - |
 | 8. Calibration Dashboard | v1.1 | 0/4 | Not started | - |
 | 9. Shared Library Extraction | v1.1 | 0/4 | Not started | - |

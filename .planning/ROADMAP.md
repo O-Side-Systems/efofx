@@ -72,13 +72,13 @@ Plans:
   3. A customer submits actual cost, actual timeline, rating, and a discrepancy reason from a structured enum — the form accepts and stores the submission
   4. A submitted magic link cannot be used a second time — the form shows a "thank you" message on re-visit; an expired link shows a friendly expiry message
   5. The feedback document is stored with an immutable snapshot of the original estimate and a reference class linkage — the stored data is not affected by later estimate changes
-**Plans**: TBD
+**Plans**: 4 plans (Wave 1 parallel + Wave 2 parallel)
 
 Plans:
-- [ ] 07-01: Email infrastructure setup — transactional provider account, SPF/DKIM/DMARC configuration, inbox delivery verification (FEED-01)
-- [ ] 07-02: Magic link token generation, hashed storage, TTL index, and two-step GET/POST validation endpoint (FEED-02, FEED-03, FEED-07)
-- [ ] 07-03: Feedback email composition with estimate context and FeedbackEmailService integration (FEED-04)
-- [ ] 07-04: Customer feedback form UI, structured field schema, feedback document storage with estimate snapshot (FEED-05, FEED-06)
+- [ ] 07-01: Resend SDK install, RESEND_API_KEY config, FeedbackEmailService with graceful degradation (FEED-01) [Wave 1]
+- [ ] 07-02: Feedback models (DiscrepancyReason, FeedbackMagicLink, FeedbackSubmission, EstimateSnapshot), MagicLinkService with TDD, MongoDB TTL indexes (FEED-02, FEED-03, FEED-07) [Wave 1]
+- [ ] 07-03: Jinja2 email template with tenant branding + estimate context, POST /feedback/request-email trigger endpoint (FEED-04) [Wave 2, depends: 07-01, 07-02]
+- [ ] 07-04: Feedback form HTML templates (form/expired/submitted), GET/POST /feedback/form/{token} endpoints, store_feedback_with_snapshot (FEED-05, FEED-06) [Wave 2, depends: 07-02]
 
 ### Phase 8: Calibration Dashboard
 **Goal**: Contractors can see how accurate their estimates have been against real outcomes — accuracy metrics are displayed only when statistically meaningful, and synthetic data is never mixed into calibration calculations
@@ -127,6 +127,6 @@ Plans:
 | 4.1 Integration Gap Closure | v1.0 | 1/1 | Complete | 2026-02-27 |
 | 5. Tech Debt & Foundation Cleanup | v1.1 | 3/3 | Complete | 2026-02-28 |
 | 6. Valkey Infrastructure | 1/1 | Complete   | 2026-03-01 | - |
-| 7. Feedback Email & Magic Links | v1.1 | 0/4 | Not started | - |
+| 7. Feedback Email & Magic Links | v1.1 | 0/4 | Planned | - |
 | 8. Calibration Dashboard | v1.1 | 0/4 | Not started | - |
 | 9. Shared Library Extraction | v1.1 | 0/4 | Not started | - |

@@ -86,6 +86,10 @@ class Settings(BaseSettings):
     MAIL_PORT: int = 587
     MAIL_SERVER: Optional[str] = None
 
+    # Resend (for feedback magic link emails — FEED-01)
+    # Optional: when None, feedback emails log the magic link URL to console for dev testing
+    RESEND_API_KEY: Optional[str] = None
+
     # Application base URL (for verification links in emails)
     APP_BASE_URL: str = "http://localhost:8000"
 

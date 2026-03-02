@@ -51,3 +51,6 @@ fastapi-mail==1.6.2
 
 # Cache
 valkey>=6.1.0
+
+# Transactional email (for feedback magic link emails — FEED-01)
+resend>=2.0.0

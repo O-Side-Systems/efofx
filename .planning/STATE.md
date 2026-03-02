@@ -75,6 +75,9 @@ Key decisions affecting v1.1 work:
 - [Phase 07-02]: SHA-256 hash stored in feedback_tokens, never raw token — database compromise cannot replay magic links
 - [Phase 07-02]: mark_opened idempotent via {opened_at: None} filter at DB level — no application-level read-before-write needed
 - [Phase 07-02]: consume returns bool (modified_count > 0) — avoids extra read to check used_at state
+- [Phase 07-03]: Jinja2 Environment loaded once at module level (_jinja_env) — avoids filesystem I/O on every request
+- [Phase 07-03]: BackgroundTasks wraps async _send() closure for fire-and-forget email dispatch — non-blocking by design
+- [Phase 07-03]: Estimate data extracted via .get() fallback chain (estimation_output, result, {}) — tolerates both schema versions
 - [Phase 07-04]: feedback_form_router registered at root path (no /api/v1) — user-facing magic link URLs in emails must be short and clean
 - [Phase 07-04]: Race condition guard in POST: consume() returns False when another request won the race — render thank-you without double-storing
 - [Phase 07-04]: EstimateSnapshot built at POST time from session doc — copy-on-write, later estimate edits do not affect stored feedback context
@@ -87,7 +90,7 @@ None.
 
 - Phase 5: All plans complete (05-01, 05-02, and 05-03 done). Phase 5 fully complete.
 - Phase 6: DigitalOcean Managed Valkey cluster still needs provisioning (06-01 user_setup). Use rediss:// scheme (confirmed: slowapi requires this, not valkeys://)
-- Phase 7: 07-01 (Resend SDK), 07-02 (MagicLinkService + models), and 07-04 (feedback form) complete. SPF/DKIM/DMARC DNS setup + RESEND_API_KEY still needed in production. Plans 07-03 and 07-05 still pending.
+- Phase 7: 07-01 (Resend SDK), 07-02 (MagicLinkService + models), 07-03 (email trigger endpoint + template), and 07-04 (feedback form) complete. SPF/DKIM/DMARC DNS setup + RESEND_API_KEY still needed in production. Plan 07-05 still pending.
 - Phase 8: Confirm 10-outcome minimum threshold with stakeholder before Phase 8 begins
 
 ## Session Continuity

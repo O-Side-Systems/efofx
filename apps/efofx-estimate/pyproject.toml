@@ -37,6 +37,7 @@ dependencies = [
     "valkey>=6.1.0",
     "slowapi==0.1.9",
     "resend>=2.0.0",
+    "Jinja2>=3.0",
 ]
 
 [project.optional-dependencies]

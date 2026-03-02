@@ -54,3 +54,6 @@ valkey>=6.1.0
 
 # Transactional email (for feedback magic link emails — FEED-01)
 resend>=2.0.0
+
+# HTML email templating (for feedback email template — FEED-04)
+Jinja2>=3.0

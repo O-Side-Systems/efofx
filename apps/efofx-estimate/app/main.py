@@ -18,6 +18,8 @@ from app.core.rate_limit import limiter, rate_limit_exceeded_handler
 from app.api.routes import api_router
 from app.api.auth import router as auth_router
 from app.api.widget import widget_router
+from app.api.feedback_email import feedback_email_router
+from app.api.feedback_form import feedback_form_router
 from app.middleware.cors import TenantAwareCORSMiddleware
 from app.db.mongodb import connect_to_mongo, close_mongo_connection, health_check as db_health_check, create_indexes, migrate_estimation_session_tenant_id
 from app.services.prompt_service import PromptService
@@ -137,6 +139,8 @@ async def add_rate_limit_headers(request: Request, call_next):
 app.include_router(api_router, prefix="/api/v1")
 app.include_router(auth_router, prefix="/api/v1")
 app.include_router(widget_router, prefix="/api/v1")
+app.include_router(feedback_email_router, prefix="/api/v1")
+app.include_router(feedback_form_router)  # No prefix — /feedback/form/{token} is user-facing
 
 @app.get("/health")
 async def health_check():

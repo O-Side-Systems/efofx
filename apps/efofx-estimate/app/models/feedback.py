@@ -5,9 +5,10 @@ This module defines the data models for user feedback and system tuning
 used to improve estimation accuracy over time.
 """
 
+from enum import Enum
 from pydantic import BaseModel, Field
 from typing import Optional, List, Dict, Any
-from datetime import datetime
+from datetime import datetime, timezone
 from bson import ObjectId
 
 from app.models._objectid import PyObjectId
@@ -181,4 +182,82 @@ class TuningData(BaseModel):
                 "created_at": "2024-01-01T00:00:00Z",
                 "applied_at": "2024-01-01T01:00:00Z"
             }
-        } 
+        }
+
+
+# ---------------------------------------------------------------------------
+# Phase 7: Feedback Email & Magic Links — new models
+# ---------------------------------------------------------------------------
+
+class DiscrepancyReason(str, Enum):
+    """Scope-focused enum for why an estimate differed from actual."""
+    SCOPE_CHANGED = "scope_changed"
+    UNFORESEEN_ISSUES = "unforeseen_issues"
+    TIMELINE_PRESSURE = "timeline_pressure"
+    VENDOR_MATERIAL_COSTS = "vendor_material_costs"
+    CLIENT_CHANGES = "client_changes"
+    ESTIMATE_WAS_ACCURATE = "estimate_was_accurate"
+
+
+class EstimateSnapshot(BaseModel):
+    """Immutable copy of estimate data embedded in feedback document at submission time.
+
+    Copied from EstimationOutput fields — not a reference, so later estimate
+    changes do not affect the stored feedback context.
+    """
+    total_cost_p50: float
+    total_cost_p80: float
+    timeline_weeks_p50: int
+    timeline_weeks_p80: int
+    cost_breakdown: List[Dict[str, Any]]  # Serialized CostCategoryEstimate dicts
+    assumptions: List[str]
+    confidence_score: float
+
+
+class FeedbackMagicLink(BaseModel):
+    """MongoDB document shape for feedback_tokens collection.
+
+    Raw token is NEVER stored — only the SHA-256 hash.
+    TTL index on expires_at auto-deletes after 72 hours.
+    """
+    token_hash: str = Field(..., description="SHA-256 hex digest of raw token")
+    tenant_id: str = Field(..., description="Tenant UUID for branding lookup")
+    estimation_session_id: str = Field(..., description="Session to fetch estimate context")
+    customer_email: str = Field(..., description="Recipient email for form header display")
+    project_name: str = Field(default="Your Project", description="Project name for form display")
+    expires_at: datetime = Field(..., description="TTL expiry — auto-deleted by MongoDB TTL index")
+    opened_at: Optional[datetime] = Field(default=None, description="Set on first GET (idempotent)")
+    used_at: Optional[datetime] = Field(default=None, description="Set on POST (consumes token)")
+    created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
+
+
+class FeedbackSubmission(BaseModel):
+    """Request body for customer feedback form POST.
+
+    Validated by Pydantic before storage.
+    """
+    actual_cost: float = Field(..., gt=0, description="Actual project cost in dollars")
+    actual_timeline: int = Field(..., gt=0, description="Actual timeline in weeks")
+    rating: int = Field(..., ge=1, le=5, description="Overall experience rating 1-5 stars")
+    discrepancy_reason_primary: DiscrepancyReason = Field(..., description="Primary reason for estimate vs actual difference")
+    discrepancy_reason_secondary: Optional[DiscrepancyReason] = Field(default=None, description="Optional secondary reason")
+    comment: Optional[str] = Field(default=None, max_length=2000, description="Free-text comment")
+
+
+class FeedbackDocument(BaseModel):
+    """Full feedback document stored in feedback collection.
+
+    Contains the customer submission + immutable estimate snapshot + metadata.
+    """
+    tenant_id: str
+    estimation_session_id: str
+    reference_class_id: Optional[str] = Field(default=None, description="Reference class linkage for Phase 8 calibration")
+    actual_cost: float
+    actual_timeline: int
+    rating: int = Field(..., ge=1, le=5)
+    discrepancy_reason_primary: str
+    discrepancy_reason_secondary: Optional[str] = None
+    comment: Optional[str] = None
+    estimate_snapshot: EstimateSnapshot
+    submitted_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
+    schema_version: int = Field(default=1)

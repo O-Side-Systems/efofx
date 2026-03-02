@@ -254,6 +254,20 @@ async def create_indexes():
         )
         logger.info("Index confirmed: widget_leads.tenant_id_1_captured_at_-1")
 
+        # ------------------------------------------------------------------
+        # Feedback tokens — TTL auto-expiry + unique hash lookup (Phase 7)
+        # ------------------------------------------------------------------
+        await db["feedback_tokens"].create_index(
+            "expires_at", expireAfterSeconds=0
+        )
+        logger.info("Index confirmed: feedback_tokens.expires_at_1")
+        await db["feedback_tokens"].create_index("token_hash", unique=True)
+        logger.info("Index confirmed: feedback_tokens.token_hash_1")
+        await db["feedback_tokens"].create_index(
+            [("tenant_id", 1), ("estimation_session_id", 1)]
+        )
+        logger.info("Index confirmed: feedback_tokens.tenant_id_1_estimation_session_id_1")
+
         logger.info("Database indexes created successfully")
 
     except Exception as e:

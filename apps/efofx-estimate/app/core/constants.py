@@ -131,6 +131,7 @@ DB_COLLECTIONS = {
     "REFRESH_TOKENS": "refresh_tokens",
     "WIDGET_LEADS": "widget_leads",
     "WIDGET_ANALYTICS": "widget_analytics",
+    "FEEDBACK_TOKENS": "feedback_tokens",
 }
 
 

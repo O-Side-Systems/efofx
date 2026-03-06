@@ -127,5 +127,5 @@ Plans:
 | 5. Tech Debt & Foundation Cleanup | v1.1 | 3/3 | Complete | 2026-02-28 |
 | 6. Valkey Infrastructure | 1/1 | Complete   | 2026-03-01 | - |
 | 7. Feedback Email & Magic Links | 4/4 | Complete   | 2026-03-02 | - |
-| 8. Calibration Dashboard | v1.1 | 0/3 | Not started | - |
+| 8. Calibration Dashboard | 2/3 | In Progress|  | - |
 | 9. Shared Library Extraction | v1.1 | 0/4 | Not started | - |

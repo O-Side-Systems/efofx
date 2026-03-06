@@ -38,7 +38,7 @@ Requirements for Feedback & Quality milestone. Each maps to roadmap phases.
 - [ ] **CALB-02**: Calibration metrics API — mean variance, accuracy buckets (10/20/30%), per-reference-class breakdown
 - [ ] **CALB-03**: Minimum 10 real outcome threshold enforced before displaying any metrics
 - [ ] **CALB-04**: Tenant-scoped $lookup aggregation with explicit tenant_id in inner pipeline
-- [ ] **CALB-05**: Calibration dashboard app (apps/efofx-dashboard/) with Recharts charts
+- [x] **CALB-05**: Calibration dashboard app (apps/efofx-dashboard/) with Recharts charts
 - [ ] **CALB-06**: Dashboard shows progress indicator below minimum threshold ("X more outcomes needed")
 
 ### Extraction
@@ -109,7 +109,7 @@ Which phases cover which requirements. Updated during roadmap creation.
 | CALB-02 | Phase 8 | Pending |
 | CALB-03 | Phase 8 | Pending |
 | CALB-04 | Phase 8 | Pending |
-| CALB-05 | Phase 8 | Pending |
+| CALB-05 | Phase 8 | Complete |
 | CALB-06 | Phase 8 | Pending |
 | EXTR-01 | Phase 9 | Pending |
 | EXTR-02 | Phase 9 | Pending |

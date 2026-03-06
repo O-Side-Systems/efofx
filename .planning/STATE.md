@@ -18,16 +18,16 @@ progress:
 See: .planning/PROJECT.md (updated 2026-02-28)
 
 **Core value:** Trust through transparency — probabilistic estimates with explainable breakdowns that build contractor credibility with customers
-**Current focus:** v1.1 Feedback & Quality — Phase 7 (Feedback Email Magic Links) in progress
+**Current focus:** v1.1 Feedback & Quality — Phase 8 (Calibration Dashboard) in progress
 
 ## Current Position
 
-Phase: 7 of 9 (Feedback Email Magic Links)
-Plan: 4 of 5 complete (07-04 done — customer feedback form with Jinja2 templates, GET/POST endpoints, FeedbackDocument storage with EstimateSnapshot)
+Phase: 8 of 9 (Calibration Dashboard)
+Plan: 2 of 3 complete (08-02 done — dashboard app scaffolded: Vite + React 19, auth guard, axios JWT interceptor, React Query hooks for calibration metrics + trend)
 Status: In Progress
-Last activity: 2026-03-02 — 07-04-PLAN.md executed: three Jinja2 HTML templates (form/expired/submitted), GET/POST /feedback/form/{token} endpoints, store_feedback_with_snapshot(), feedback_form_router wired at root path, 7 tests (FEED-05, FEED-06, FEED-07 complete)
+Last activity: 2026-03-05 — 08-02-PLAN.md executed: apps/efofx-dashboard/ SPA on port 5174, types/calibration.ts matching CalibrationService shapes, apiClient with Bearer token interceptor, useCalibration + useCalibrationTrend hooks, requireAuth router loader, Login page, Dashboard placeholder (CALB-05 partial)
 
-Progress: [█████░░░░░] 44% (8/18 plans complete across all v1.1 phases)
+Progress: [██████░░░░] 50% (9/18 plans complete across all v1.1 phases)
 
 ## Performance Metrics
 
@@ -49,6 +49,7 @@ Progress: [█████░░░░░] 44% (8/18 plans complete across all v
 | Phase 07-feedback-email-magic-links P02 | 4min | 2 tasks | 5 files |
 | Phase 07-feedback-email-magic-links P03 | 8min | 2 tasks | 6 files |
 | Phase 07-feedback-email-magic-links P04 | 4min | 2 tasks | 7 files |
+| Phase 08-calibration-dashboard P02 | 4min | 2 tasks | 18 files |
 
 ## Accumulated Context
 
@@ -81,6 +82,10 @@ Key decisions affecting v1.1 work:
 - [Phase 07-04]: feedback_form_router registered at root path (no /api/v1) — user-facing magic link URLs in emails must be short and clean
 - [Phase 07-04]: Race condition guard in POST: consume() returns False when another request won the race — render thank-you without double-storing
 - [Phase 07-04]: EstimateSnapshot built at POST time from session doc — copy-on-write, later estimate edits do not affect stored feedback context
+- [Phase 08-02]: Port 5174 for efofx-dashboard (5173 is efofx-widget); Vite proxy /api -> :8000 avoids CORS in dev
+- [Phase 08-02]: React Query v5 staleTime 5min for calibration data (changes infrequently)
+- [Phase 08-02]: CSS custom properties (no Tailwind) — Stripe/Linear muted aesthetic per user preference
+- [Phase 08-02]: by_reference_class typed as optional in CalibrationMetrics — below-threshold response omits it
 
 ### Pending Todos
 
@@ -95,6 +100,6 @@ None.
 
 ## Session Continuity
 
-Last session: 2026-03-02
-Stopped at: Completed 07-04-PLAN.md (customer feedback form — Jinja2 templates, GET/POST token-gated endpoints, FeedbackDocument with EstimateSnapshot, 7 tests — FEED-05, FEED-06, FEED-07 complete)
+Last session: 2026-03-05
+Stopped at: Completed 08-02-PLAN.md (dashboard app scaffold — Vite + React 19 SPA, auth guard router, JWT axios interceptor, useCalibration + useCalibrationTrend hooks, Login page, Dashboard placeholder — CALB-05 partial)
 Resume file: None

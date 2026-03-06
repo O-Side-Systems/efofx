@@ -3,12 +3,12 @@ gsd_state_version: 1.0
 milestone: v1.1
 milestone_name: Feedback & Quality
 status: unknown
-last_updated: "2026-03-06T06:04:00Z"
+last_updated: "2026-03-06T06:11:25.314Z"
 progress:
-  total_phases: 3
-  completed_phases: 3
-  total_plans: 8
-  completed_plans: 8
+  total_phases: 4
+  completed_phases: 4
+  total_plans: 11
+  completed_plans: 11
 ---
 
 # Project State
@@ -23,9 +23,9 @@ See: .planning/PROJECT.md (updated 2026-02-28)
 ## Current Position
 
 Phase: 8 of 9 (Calibration Dashboard)
-Plan: 3 of 3 complete (08-01 done — CalibrationService + calibration API backend; 08-02 done — dashboard SPA scaffold; 08-03 pending)
-Status: In Progress
-Last activity: 2026-03-06 — 08-01-PLAN.md executed: migrate_synthetic_reference_classes() (CALB-01), CalibrationService.get_metrics() + get_trend() with CALB-04 $lookup isolation, GET /api/v1/calibration/metrics + /trend endpoints, 23 tests green
+Plan: 3 of 3 (08-01 done; 08-02 done; 08-03 done — awaiting Task 3 human-verify checkpoint)
+Status: Awaiting human-verify checkpoint (Task 3 visual verification)
+Last activity: 2026-03-06 — 08-03-PLAN.md executed: 7 UI components built (ThresholdProgress, CalibrationMetrics, AccuracyBucketBar, AccuracyTrendLine, ReferenceClassTable, LoadingSkeleton, DateRangeFilter), Dashboard.tsx wired with conditional rendering, build passes — paused at human-verify checkpoint
 
 Progress: [██████░░░░] 50% (9/18 plans complete across all v1.1 phases)
 
@@ -51,6 +51,7 @@ Progress: [██████░░░░] 50% (9/18 plans complete across all v
 | Phase 07-feedback-email-magic-links P04 | 4min | 2 tasks | 7 files |
 | Phase 08-calibration-dashboard P02 | 4min | 2 tasks | 18 files |
 | Phase 08-calibration-dashboard P01 | 5min | 2 tasks | 6 files |
+| Phase 08-calibration-dashboard P03 | 3min | 2 tasks | 9 files |
 
 ## Accumulated Context
 
@@ -90,6 +91,9 @@ Key decisions affecting v1.1 work:
 - [Phase 08-01]: get_trend threshold counts ALL outcomes (no date filter) — ensures minimum threshold applies to overall data quality, not just a potentially sparse time window
 - [Phase 08-01]: API test auth pattern: app.dependency_overrides[get_current_tenant] required — patching module-level import does not intercept FastAPI Depends() resolution
 - [Phase 08-01]: Accuracy buckets are exclusive slices: [0,10], (10,20], (20,30], >30 — each variance in exactly one bucket, proportions sum to 1.0
+- [Phase 08-calibration-dashboard]: Used Recharts 2.15.x patterns (installed) not 3.x — CartesianGrid does not need xAxisId/yAxisId in 2.x
+- [Phase 08-calibration-dashboard]: AccuracyTrendLine self-fetches via useCalibrationTrend(12) — self-contained component reduces prop-drilling
+- [Phase 08-calibration-dashboard]: ReferenceClassTable reuses AccuracyBucketBar at height=28 for inline mini accuracy bars
 
 ### Pending Todos
 
@@ -105,5 +109,5 @@ None.
 ## Session Continuity
 
 Last session: 2026-03-06
-Stopped at: Completed 08-01-PLAN.md (CalibrationService + calibration API — migrate_synthetic_reference_classes, get_metrics, get_trend, CALB-01 through CALB-04 complete, 23 tests passing)
+Stopped at: 08-03-PLAN.md Task 3 checkpoint:human-verify — Tasks 1+2 committed (c23909b, fce73fa), SUMMARY.md created, awaiting visual verification of dashboard in browser
 Resume file: None

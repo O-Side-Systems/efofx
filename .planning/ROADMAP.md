@@ -90,13 +90,12 @@ Plans:
   3. A contractor with 10 or more real outcomes sees mean variance, accuracy buckets (within 10/20/30% of actual), and per-reference-class breakdown in the dashboard
   4. The calibration dashboard is accessible to authenticated contractors at its own URL — it loads without errors and displays tenant-scoped data only
   5. The calibration aggregation pipeline explicitly filters tenant_id in every $lookup inner pipeline — a database query log shows no cross-tenant joins
-**Plans**: TBD
+**Plans**: 3 plans (Wave 1 parallel + Wave 2 depends on both)
 
 Plans:
-- [ ] 08-01: Tag existing synthetic reference class documents with data_source field migration (CALB-01)
-- [ ] 08-02: CalibrationService — tenant-scoped MongoDB aggregation, accuracy metrics calculation, minimum threshold enforcement (CALB-02, CALB-03, CALB-04)
-- [ ] 08-03: Scaffold apps/efofx-dashboard/ Vite + React 19 app with JWT auth and React Query (CALB-05)
-- [ ] 08-04: Calibration dashboard UI — accuracy charts with Recharts, threshold progress indicator, per-reference-class breakdown (CALB-05, CALB-06)
+- [ ] 08-01: Synthetic data migration + CalibrationService TDD — tag data_source, tenant-scoped aggregation, accuracy metrics, threshold enforcement, API endpoint (CALB-01, CALB-02, CALB-03, CALB-04) [Wave 1]
+- [ ] 08-02: Scaffold apps/efofx-dashboard/ Vite + React 19 app with JWT auth, React Query, typed API client (CALB-05) [Wave 1]
+- [ ] 08-03: Dashboard UI — accuracy charts with Recharts, threshold progress indicator, reference class table, date range filter (CALB-05, CALB-06) [Wave 2, depends: 08-01, 08-02]
 
 ### Phase 9: Shared Library Extraction
 **Goal**: Shared backend utilities and shared frontend components live in workspace packages that any future vertical can consume — the IT/dev vertical can be initialized in v1.2 without copying code
@@ -128,5 +127,5 @@ Plans:
 | 5. Tech Debt & Foundation Cleanup | v1.1 | 3/3 | Complete | 2026-02-28 |
 | 6. Valkey Infrastructure | 1/1 | Complete   | 2026-03-01 | - |
 | 7. Feedback Email & Magic Links | 4/4 | Complete   | 2026-03-02 | - |
-| 8. Calibration Dashboard | v1.1 | 0/4 | Not started | - |
+| 8. Calibration Dashboard | v1.1 | 0/3 | Not started | - |
 | 9. Shared Library Extraction | v1.1 | 0/4 | Not started | - |

@@ -34,10 +34,10 @@ Requirements for Feedback & Quality milestone. Each maps to roadmap phases.
 
 ### Calibration
 
-- [ ] **CALB-01**: Tag existing synthetic reference classes with data_source: "synthetic"
-- [ ] **CALB-02**: Calibration metrics API — mean variance, accuracy buckets (10/20/30%), per-reference-class breakdown
-- [ ] **CALB-03**: Minimum 10 real outcome threshold enforced before displaying any metrics
-- [ ] **CALB-04**: Tenant-scoped $lookup aggregation with explicit tenant_id in inner pipeline
+- [x] **CALB-01**: Tag existing synthetic reference classes with data_source: "synthetic"
+- [x] **CALB-02**: Calibration metrics API — mean variance, accuracy buckets (10/20/30%), per-reference-class breakdown
+- [x] **CALB-03**: Minimum 10 real outcome threshold enforced before displaying any metrics
+- [x] **CALB-04**: Tenant-scoped $lookup aggregation with explicit tenant_id in inner pipeline
 - [x] **CALB-05**: Calibration dashboard app (apps/efofx-dashboard/) with Recharts charts
 - [ ] **CALB-06**: Dashboard shows progress indicator below minimum threshold ("X more outcomes needed")
 
@@ -105,10 +105,10 @@ Which phases cover which requirements. Updated during roadmap creation.
 | FEED-05 | Phase 7 | Complete |
 | FEED-06 | Phase 7 | Complete |
 | FEED-07 | Phase 7 | Complete |
-| CALB-01 | Phase 8 | Pending |
-| CALB-02 | Phase 8 | Pending |
-| CALB-03 | Phase 8 | Pending |
-| CALB-04 | Phase 8 | Pending |
+| CALB-01 | Phase 8 | Complete |
+| CALB-02 | Phase 8 | Complete |
+| CALB-03 | Phase 8 | Complete |
+| CALB-04 | Phase 8 | Complete |
 | CALB-05 | Phase 8 | Complete |
 | CALB-06 | Phase 8 | Pending |
 | EXTR-01 | Phase 9 | Pending |

@@ -20,8 +20,9 @@ from app.api.auth import router as auth_router
 from app.api.widget import widget_router
 from app.api.feedback_email import feedback_email_router
 from app.api.feedback_form import feedback_form_router
+from app.api.calibration import calibration_router
 from app.middleware.cors import TenantAwareCORSMiddleware
-from app.db.mongodb import connect_to_mongo, close_mongo_connection, health_check as db_health_check, create_indexes, migrate_estimation_session_tenant_id
+from app.db.mongodb import connect_to_mongo, close_mongo_connection, health_check as db_health_check, create_indexes, migrate_estimation_session_tenant_id, migrate_synthetic_reference_classes
 from app.services.prompt_service import PromptService
 from app.services.valkey_cache import _cache as valkey_cache
 
@@ -41,6 +42,8 @@ async def lifespan(app: FastAPI):
     logger.info("Database indexes created")
     await migrate_estimation_session_tenant_id()  # DEBT-01
     logger.info("DEBT-01 migration complete")
+    await migrate_synthetic_reference_classes()  # CALB-01
+    logger.info("CALB-01 migration complete")
 
     # Load versioned prompts -- critical dependency, fail startup if missing
     prompts_dir = os.path.join(
@@ -141,6 +144,7 @@ app.include_router(auth_router, prefix="/api/v1")
 app.include_router(widget_router, prefix="/api/v1")
 app.include_router(feedback_email_router, prefix="/api/v1")
 app.include_router(feedback_form_router)  # No prefix — /feedback/form/{token} is user-facing
+app.include_router(calibration_router, prefix="/api/v1")
 
 @app.get("/health")
 async def health_check():

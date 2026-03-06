@@ -275,6 +275,35 @@ async def create_indexes():
         raise
 
 
+async def migrate_synthetic_reference_classes():
+    """
+    CALB-01: Tag synthetic reference class documents with data_source="synthetic".
+
+    Synthetic documents have is_synthetic=True and tenant_id=None (they are
+    platform-wide data, not scoped to any tenant). This migration adds the
+    data_source field so the calibration pipeline can explicitly exclude them
+    from accuracy calculations.
+
+    Filter: {"is_synthetic": True, "data_source": {"$exists": False}}
+    Update: {"$set": {"data_source": "synthetic"}}
+
+    Idempotent: the $exists: False guard ensures re-runs are no-ops (already-
+    tagged documents won't match the filter again).
+
+    Uses get_database() directly (NOT get_tenant_collection) because synthetic
+    documents have tenant_id=None and are not scoped to any tenant.
+    """
+    db = get_database()
+    result = await db[DB_COLLECTIONS["REFERENCE_CLASSES"]].update_many(
+        {"is_synthetic": True, "data_source": {"$exists": False}},
+        {"$set": {"data_source": "synthetic"}},
+    )
+    logger.info(
+        "CALB-01 migration: tagged %d synthetic reference class documents with data_source='synthetic'",
+        result.modified_count,
+    )
+
+
 async def migrate_estimation_session_tenant_id():
     """
     DEBT-01: Safety migration — confirm no EstimationSession documents have

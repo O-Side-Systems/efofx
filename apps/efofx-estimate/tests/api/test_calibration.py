@@ -6,14 +6,17 @@ Covers:
 - GET /api/v1/calibration/trend: auth, success, months validation
 
 Mock strategy:
+- Use FastAPI dependency_overrides to mock get_current_tenant (avoids JWT validation)
 - Patch CalibrationService methods to avoid MongoDB connections
-- Patch get_current_tenant to simulate authentication
 - Use httpx.AsyncClient with ASGITransport for full ASGI stack testing
 """
 
 import pytest
 from unittest.mock import AsyncMock, MagicMock, patch
 from httpx import AsyncClient, ASGITransport
+
+from app.models.tenant import Tenant
+from app.core.security import get_current_tenant
 
 
 # ---------------------------------------------------------------------------
@@ -23,11 +26,23 @@ from httpx import AsyncClient, ASGITransport
 TENANT_ID = "tenant-uuid-calibration-001"
 
 
-def _mock_tenant():
-    """Return a mock Tenant object."""
-    tenant = MagicMock()
-    tenant.tenant_id = TENANT_ID
-    return tenant
+def _make_tenant() -> Tenant:
+    """Return a minimal Tenant object for dependency override."""
+    return Tenant(
+        tenant_id=TENANT_ID,
+        company_name="Test Calibration Co",
+        email="test@calibration.example.com",
+        hashed_password="$2b$12$hashed",
+        hashed_api_key="$2b$12$hashed_api",
+        api_key_last6="abc123",
+        tier="trial",
+        email_verified=True,
+    )
+
+
+async def _mock_get_tenant():
+    """Async dependency override — returns a valid tenant without DB access."""
+    return _make_tenant()
 
 
 @pytest.fixture(autouse=True)
@@ -70,24 +85,22 @@ async def test_get_calibration_metrics_below_threshold():
         "threshold": 10,
     }
 
-    with (
-        patch(
-            "app.api.calibration.get_current_tenant",
-            return_value=_mock_tenant(),
-        ),
-        patch(
+    app.dependency_overrides[get_current_tenant] = _mock_get_tenant
+    try:
+        with patch(
             "app.api.calibration.CalibrationService.get_metrics",
             new_callable=AsyncMock,
             return_value=below_threshold_response,
-        ),
-    ):
-        async with AsyncClient(
-            transport=ASGITransport(app=app), base_url="http://test"
-        ) as client:
-            resp = await client.get(
-                "/api/v1/calibration/metrics",
-                headers={"Authorization": "Bearer fake-token"},
-            )
+        ):
+            async with AsyncClient(
+                transport=ASGITransport(app=app), base_url="http://test"
+            ) as client:
+                resp = await client.get(
+                    "/api/v1/calibration/metrics",
+                    headers={"Authorization": "Bearer fake-token"},
+                )
+    finally:
+        app.dependency_overrides.pop(get_current_tenant, None)
 
     assert resp.status_code == 200
     data = resp.json()
@@ -100,10 +113,8 @@ async def test_get_calibration_metrics_invalid_date_range():
     """GET /api/v1/calibration/metrics?date_range=invalid returns 422."""
     from app.main import app
 
-    with patch(
-        "app.api.calibration.get_current_tenant",
-        return_value=_mock_tenant(),
-    ):
+    app.dependency_overrides[get_current_tenant] = _mock_get_tenant
+    try:
         async with AsyncClient(
             transport=ASGITransport(app=app), base_url="http://test"
         ) as client:
@@ -111,6 +122,8 @@ async def test_get_calibration_metrics_invalid_date_range():
                 "/api/v1/calibration/metrics?date_range=invalid",
                 headers={"Authorization": "Bearer fake-token"},
             )
+    finally:
+        app.dependency_overrides.pop(get_current_tenant, None)
 
     assert resp.status_code == 422
 
@@ -150,24 +163,22 @@ async def test_get_calibration_trend_success():
         "months": 12,
     }
 
-    with (
-        patch(
-            "app.api.calibration.get_current_tenant",
-            return_value=_mock_tenant(),
-        ),
-        patch(
+    app.dependency_overrides[get_current_tenant] = _mock_get_tenant
+    try:
+        with patch(
             "app.api.calibration.CalibrationService.get_trend",
             new_callable=AsyncMock,
             return_value=trend_response,
-        ),
-    ):
-        async with AsyncClient(
-            transport=ASGITransport(app=app), base_url="http://test"
-        ) as client:
-            resp = await client.get(
-                "/api/v1/calibration/trend?months=12",
-                headers={"Authorization": "Bearer fake-token"},
-            )
+        ):
+            async with AsyncClient(
+                transport=ASGITransport(app=app), base_url="http://test"
+            ) as client:
+                resp = await client.get(
+                    "/api/v1/calibration/trend?months=12",
+                    headers={"Authorization": "Bearer fake-token"},
+                )
+    finally:
+        app.dependency_overrides.pop(get_current_tenant, None)
 
     assert resp.status_code == 200
     data = resp.json()

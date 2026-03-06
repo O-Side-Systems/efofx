@@ -1,0 +1,38 @@
+/* CSS custom properties — Stripe/Linear aesthetic */
+:root {
+  --color-bg: #fafafa;
+  --color-surface: #ffffff;
+  --color-text: #1a1a2e;
+  --color-text-muted: #6b7280;
+  --color-border: #e5e7eb;
+  --color-accent: #3b82f6;
+  --color-green: #22c55e;
+  --color-yellow: #eab308;
+  --color-orange: #f97316;
+  --color-red: #ef4444;
+}
+
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+body {
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif;
+  background: var(--color-bg);
+  color: var(--color-text);
+  line-height: 1.5;
+  -webkit-font-smoothing: antialiased;
+}
+
+button {
+  cursor: pointer;
+  font-family: inherit;
+}
+
+input {
+  font-family: inherit;
+}

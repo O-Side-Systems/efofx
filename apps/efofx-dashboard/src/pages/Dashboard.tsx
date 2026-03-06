@@ -1,63 +1,67 @@
+import { useState } from 'react'
 import { useCalibration } from '../hooks/useCalibration'
+import LoadingSkeleton from '../components/LoadingSkeleton'
+import ThresholdProgress from '../components/ThresholdProgress'
+import CalibrationMetrics from '../components/CalibrationMetrics'
+import AccuracyBucketBar from '../components/AccuracyBucketBar'
+import AccuracyTrendLine from '../components/AccuracyTrendLine'
+import ReferenceClassTable from '../components/ReferenceClassTable'
+import DateRangeFilter from '../components/DateRangeFilter'
 
 export default function Dashboard() {
-  const { data, isPending, isError, error } = useCalibration()
-
-  if (isPending) {
-    return (
-      <div style={styles.container}>
-        <p style={styles.status}>Loading calibration data…</p>
-      </div>
-    )
-  }
-
-  if (isError) {
-    return (
-      <div style={styles.container}>
-        <p style={styles.errorText}>
-          Failed to load calibration data:{' '}
-          {error instanceof Error ? error.message : 'Unknown error'}
-        </p>
-      </div>
-    )
-  }
+  const [dateRange, setDateRange] = useState('all')
+  const { data, isPending, isError, error, refetch } = useCalibration(dateRange)
 
   return (
-    <div style={styles.container}>
-      <h1 style={styles.heading}>Calibration Dashboard</h1>
-      <pre style={styles.pre}>{JSON.stringify(data, null, 2)}</pre>
+    <div className="dashboard">
+      <header className="dashboard-header">
+        <h1 className="dashboard-title">Calibration Dashboard</h1>
+        <DateRangeFilter value={dateRange} onChange={setDateRange} />
+      </header>
+
+      {isPending && <LoadingSkeleton />}
+
+      {isError && (
+        <div className="card error-card">
+          <p className="error-message">
+            {error instanceof Error ? error.message : 'Failed to load calibration data'}
+          </p>
+          <button className="retry-button" onClick={() => refetch()} type="button">
+            Retry
+          </button>
+        </div>
+      )}
+
+      {data && data.below_threshold && (
+        <ThresholdProgress
+          outcomeCount={data.outcome_count}
+          threshold={data.threshold}
+        />
+      )}
+
+      {data && !data.below_threshold && (
+        <>
+          <CalibrationMetrics metrics={data} />
+
+          <section className="section card">
+            <h2 className="section-heading">Accuracy Distribution</h2>
+            <div style={{ marginTop: '1rem' }}>
+              <AccuracyBucketBar buckets={data.accuracy_buckets!} />
+            </div>
+          </section>
+
+          <section className="section card">
+            <AccuracyTrendLine />
+          </section>
+
+          <section className="section card">
+            <h2 className="section-heading">Reference Class Breakdown</h2>
+            <div style={{ marginTop: '1rem' }}>
+              <ReferenceClassTable referenceClasses={data.by_reference_class ?? []} />
+            </div>
+          </section>
+        </>
+      )}
     </div>
   )
 }
-
-const styles = {
-  container: {
-    maxWidth: '960px',
-    margin: '0 auto',
-    padding: '2rem 1.5rem',
-  },
-  heading: {
-    fontSize: '1.5rem',
-    fontWeight: 600,
-    color: 'var(--color-text)',
-    marginBottom: '1.5rem',
-  },
-  status: {
-    color: 'var(--color-text-muted)',
-    fontSize: '0.9375rem',
-  },
-  errorText: {
-    color: 'var(--color-red)',
-    fontSize: '0.9375rem',
-  },
-  pre: {
-    background: 'var(--color-surface)',
-    border: '1px solid var(--color-border)',
-    borderRadius: '8px',
-    padding: '1.25rem',
-    fontSize: '0.8125rem',
-    color: 'var(--color-text)',
-    overflowX: 'auto' as const,
-    lineHeight: 1.6,
-  },
-} as const

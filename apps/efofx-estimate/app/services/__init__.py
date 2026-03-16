@@ -14,9 +14,9 @@ from .tenant_service import TenantService
 
 __all__ = [
     "EstimationService",
-    "ChatService", 
+    "ChatService",
     "FeedbackService",
     "LLMService",
     "ReferenceService",
     "TenantService",
-] 
+]

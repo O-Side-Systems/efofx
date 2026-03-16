@@ -12,10 +12,14 @@ Tests cover:
 """
 
 import pytest
+import pytest_asyncio
 import asyncio
 import time
 from typing import List, Dict, Any
 from datetime import datetime
+
+from motor.motor_asyncio import AsyncIOMotorClient
+import app.db.mongodb as _mdb
 
 from app.services.rcf_engine import (
     extract_keywords,
@@ -30,7 +34,8 @@ from app.services.rcf_engine import (
     calculate_baseline_estimate,
     apply_adjustments,
 )
-from app.db.mongodb import get_reference_classes_collection
+from app.db.mongodb import get_collection
+from app.core.constants import DB_COLLECTIONS
 from app.models.reference_class import ReferenceClass, CostDistribution, TimelineDistribution
 
 
@@ -251,12 +256,20 @@ class TestCacheOperations:
 class TestRCFMatching:
     """Test the main RCF matching algorithm."""
 
-    @pytest.fixture(autouse=True)
-    async def setup_test_data(self, test_db):
-        """Set up test reference classes in database."""
+    @pytest_asyncio.fixture(autouse=True)
+    async def setup_test_data(self):
+        """Set up test reference classes in database using per-test Motor client."""
+        from app.core.config import settings as _settings
+
         clear_match_cache()
 
-        collection = get_reference_classes_collection()
+        # Per-test client to avoid event-loop conflicts with session-scoped fixtures
+        client = AsyncIOMotorClient(_settings.MONGO_URI)
+        db = client[_settings.MONGO_DB_NAME]
+        _mdb._client = client
+        _mdb._database = db
+
+        collection = get_collection(DB_COLLECTIONS["REFERENCE_CLASSES"])
         await collection.delete_many({})  # Clean slate
 
         # Create test reference classes
@@ -363,6 +376,10 @@ class TestRCFMatching:
         # Cleanup
         await collection.delete_many({})
         clear_match_cache()
+
+        client.close()
+        _mdb._client = None
+        _mdb._database = None
 
     @pytest.mark.asyncio
     async def test_successful_match(self):

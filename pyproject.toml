@@ -1,0 +1,5 @@
+[tool.uv.workspace]
+members = [
+    "apps/efofx-estimate",
+    "packages/efofx-shared",
+]

@@ -3,54 +3,31 @@ Constants and enums for efOfX Estimation Service.
 
 This module defines all application-wide constants, enums, and configuration
 values used throughout the estimation service.
+
+Pure enums (EstimationStatus, ReferenceClassCategory, CostBreakdownCategory,
+Region) are re-exported from efofx_shared.core.constants so all existing
+`from app.core.constants import Region` imports continue to work unchanged.
 """
 
-from enum import Enum
-from typing import Dict, List
+from efofx_shared.core.constants import (
+    CostBreakdownCategory,
+    EstimationStatus,
+    ReferenceClassCategory,
+    Region,
+)
 
-
-class EstimationStatus(str, Enum):
-    """Status of estimation sessions."""
-    INITIATED = "initiated"
-    IN_PROGRESS = "in_progress"
-    COMPLETED = "completed"
-    CANCELLED = "cancelled"
-    EXPIRED = "expired"
-
-
-class ReferenceClassCategory(str, Enum):
-    """Categories for reference class classification."""
-    RESIDENTIAL = "residential"
-    COMMERCIAL = "commercial"
-    INDUSTRIAL = "industrial"
-    INFRASTRUCTURE = "infrastructure"
-    LANDSCAPING = "landscaping"
-    RENOVATION = "renovation"
-    NEW_CONSTRUCTION = "new_construction"
-
-
-class CostBreakdownCategory(str, Enum):
-    """Categories for cost breakdown in estimates."""
-    MATERIALS = "materials"
-    LABOR = "labor"
-    EQUIPMENT = "equipment"
-    PERMITS = "permits"
-    DESIGN = "design"
-    CONTINGENCY = "contingency"
-    PROFIT_MARGIN = "profit_margin"
-
-
-class Region(str, Enum):
-    """Geographic regions for estimation."""
-    SOCAL_COASTAL = "SoCal - Coastal"
-    SOCAL_INLAND = "SoCal - Inland"
-    NORCAL_BAY_AREA = "NorCal - Bay Area"
-    NORCAL_CENTRAL = "NorCal - Central"
-    ARIZONA_PHOENIX = "Arizona - Phoenix"
-    ARIZONA_TUCSON = "Arizona - Tucson"
-    NEVADA_LAS_VEGAS = "Nevada - Las Vegas"
-    NEVADA_RENO = "Nevada - Reno"
-
+__all__ = [
+    "EstimationStatus",
+    "ReferenceClassCategory",
+    "CostBreakdownCategory",
+    "Region",
+    "API_MESSAGES",
+    "ESTIMATION_CONFIG",
+    "LLM_PROMPTS",
+    "DB_COLLECTIONS",
+    "HTTP_STATUS",
+    "FILE_UPLOAD_CONFIG",
+]
 
 # API Response Messages
 API_MESSAGES = {
@@ -64,6 +41,11 @@ API_MESSAGES = {
     "RATE_LIMITED": "Rate limit exceeded",
     "LLM_ERROR": "Language model processing error",
     "DB_ERROR": "Database operation failed",
+    # BYOK / LLM error messages
+    "BYOK_INVALID_KEY": "Invalid OpenAI API key. Update your key in Settings.",
+    "BYOK_QUOTA_EXHAUSTED": "OpenAI quota exhausted. Recharge your OpenAI account.",
+    "LLM_TRANSIENT_ERROR": "We're having trouble generating a response. Please try again in a moment.",  # noqa: E501
+    "LLM_UNKNOWN_ERROR": "An unexpected error occurred during AI processing.",
 }
 
 
@@ -81,29 +63,28 @@ ESTIMATION_CONFIG = {
 # LLM Prompt Templates
 LLM_PROMPTS = {
     "PROJECT_CLASSIFICATION": """
-    Analyze the following project description and classify it into the most appropriate reference class.
-    
+    Analyze the following project description and classify it into the most appropriate reference class.  # noqa: E501
+
     Project Description: {description}
     Region: {region}
-    
+
     Available Reference Classes: {reference_classes}
-    
+
     Please provide:
     1. Primary reference class
     2. Confidence score (0-1)
     3. Reasoning for classification
     """,
-    
     "ESTIMATION_GENERATION": """
-    Based on the following project details and reference data, generate a comprehensive estimate.
-    
+    Based on the following project details and reference data, generate a comprehensive estimate.  # noqa: E501
+
     Project Details:
     - Description: {description}
     - Region: {region}
     - Reference Class: {reference_class}
-    
+
     Reference Projects: {reference_projects}
-    
+
     Please provide:
     1. Total estimated cost
     2. Estimated timeline (weeks)
@@ -122,6 +103,11 @@ DB_COLLECTIONS = {
     "ESTIMATES": "estimates",
     "FEEDBACK": "feedback",
     "CHAT_SESSIONS": "chat_sessions",
+    "VERIFICATION_TOKENS": "verification_tokens",
+    "REFRESH_TOKENS": "refresh_tokens",
+    "WIDGET_LEADS": "widget_leads",
+    "WIDGET_ANALYTICS": "widget_analytics",
+    "FEEDBACK_TOKENS": "feedback_tokens",
 }
 
 
@@ -144,4 +130,4 @@ FILE_UPLOAD_CONFIG = {
     "ALLOWED_EXTENSIONS": [".jpg", ".jpeg", ".png", ".webp"],
     "UPLOAD_DIR": "uploads",
     "TEMP_DIR": "temp",
-} 
+}

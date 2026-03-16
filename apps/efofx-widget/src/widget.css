@@ -1,0 +1,875 @@
+/* efOfX Widget Styles — injected into Shadow DOM via ?inline import */
+/* All styles are scoped to shadow DOM and cannot leak to host page */
+
+:host {
+  --brand-primary: #2563eb;
+  --brand-secondary: #f3f4f6;
+  --brand-accent: #1d4ed8;
+  --widget-font: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  all: initial;
+  font-family: var(--widget-font);
+  box-sizing: border-box;
+  /* Re-enable pointer events inside shadow DOM even when host container has pointer-events: none */
+  pointer-events: auto;
+}
+
+*,
+*::before,
+*::after {
+  box-sizing: inherit;
+}
+
+/* ============================================================
+   Floating Trigger Button
+   ============================================================ */
+
+.efofx-floating-btn {
+  position: fixed;
+  bottom: 24px;
+  right: 24px;
+  width: 56px;
+  height: 56px;
+  border-radius: 50%;
+  background-color: var(--brand-primary);
+  border: none;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 2147483647;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.25), 0 2px 4px rgba(0, 0, 0, 0.15);
+  transition: transform 0.2s ease, box-shadow 0.2s ease, opacity 0.2s ease;
+  color: #ffffff;
+  padding: 0;
+  outline: none;
+}
+
+.efofx-floating-btn:hover {
+  transform: scale(1.08);
+  box-shadow: 0 6px 16px rgba(0, 0, 0, 0.3), 0 3px 6px rgba(0, 0, 0, 0.2);
+}
+
+.efofx-floating-btn:active {
+  transform: scale(0.95);
+}
+
+.efofx-floating-btn:focus-visible {
+  outline: 3px solid var(--brand-accent);
+  outline-offset: 3px;
+}
+
+.efofx-floating-btn svg {
+  width: 26px;
+  height: 26px;
+  fill: none;
+  stroke: #ffffff;
+  stroke-width: 2;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+/* Animated entrance */
+@keyframes efofx-btn-enter {
+  from {
+    transform: scale(0);
+    opacity: 0;
+  }
+  to {
+    transform: scale(1);
+    opacity: 1;
+  }
+}
+
+.efofx-floating-btn {
+  animation: efofx-btn-enter 0.25s cubic-bezier(0.34, 1.56, 0.64, 1) forwards;
+}
+
+/* ============================================================
+   Chat Panel — Desktop slide-up
+   ============================================================ */
+
+.efofx-panel {
+  position: fixed;
+  bottom: 90px;
+  right: 20px;
+  width: 380px;
+  max-height: 500px;
+  background-color: var(--brand-secondary);
+  border-radius: 12px;
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.18), 0 2px 8px rgba(0, 0, 0, 0.1);
+  z-index: 2147483647;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  font-family: var(--widget-font);
+  transition: transform 0.25s ease, opacity 0.2s ease;
+  transform-origin: bottom right;
+}
+
+/* ============================================================
+   Chat Panel — Mobile full-screen takeover
+   ============================================================ */
+
+.efofx-panel-fullscreen {
+  position: fixed;
+  inset: 0;
+  height: 100dvh;
+  width: 100%;
+  background-color: var(--brand-secondary);
+  z-index: 2147483647;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  font-family: var(--widget-font);
+  padding-top: env(safe-area-inset-top);
+  padding-bottom: env(safe-area-inset-bottom);
+  padding-left: env(safe-area-inset-left);
+  padding-right: env(safe-area-inset-right);
+  transition: transform 0.25s ease, opacity 0.2s ease;
+}
+
+/* Switch panel to full-screen on narrow viewports */
+@media (max-width: 480px) {
+  .efofx-panel {
+    position: fixed;
+    inset: 0;
+    height: 100dvh;
+    width: 100%;
+    max-height: none;
+    border-radius: 0;
+    bottom: auto;
+    right: auto;
+    padding-top: env(safe-area-inset-top);
+    padding-bottom: env(safe-area-inset-bottom);
+    padding-left: env(safe-area-inset-left);
+    padding-right: env(safe-area-inset-right);
+  }
+}
+
+/* Hidden state */
+.efofx-panel-hidden {
+  display: none;
+}
+
+/* ============================================================
+   Panel Header
+   ============================================================ */
+
+.efofx-header {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  gap: 10px;
+  padding: 14px 16px;
+  background-color: var(--brand-primary);
+  color: #ffffff;
+  flex-shrink: 0;
+}
+
+.efofx-header-logo {
+  width: 32px;
+  height: 32px;
+  border-radius: 6px;
+  object-fit: cover;
+  flex-shrink: 0;
+}
+
+.efofx-header-logo-placeholder {
+  width: 32px;
+  height: 32px;
+  border-radius: 6px;
+  background-color: var(--brand-accent);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  font-size: 14px;
+  font-weight: 700;
+  color: #ffffff;
+  font-family: var(--widget-font);
+}
+
+.efofx-header-company {
+  flex: 1;
+  font-size: 15px;
+  font-weight: 600;
+  font-family: var(--widget-font);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: #ffffff;
+  margin: 0;
+}
+
+.efofx-close-btn {
+  background: none;
+  border: none;
+  cursor: pointer;
+  color: #ffffff;
+  padding: 4px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 4px;
+  opacity: 0.8;
+  transition: opacity 0.15s ease, background-color 0.15s ease;
+  flex-shrink: 0;
+}
+
+.efofx-close-btn:hover {
+  opacity: 1;
+  background-color: rgba(255, 255, 255, 0.15);
+}
+
+.efofx-close-btn:focus-visible {
+  outline: 2px solid rgba(255, 255, 255, 0.8);
+  outline-offset: 2px;
+}
+
+.efofx-close-btn svg {
+  width: 20px;
+  height: 20px;
+  stroke: currentColor;
+  stroke-width: 2;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+/* ============================================================
+   Message Area (filled by Plan 04-03)
+   ============================================================ */
+
+.efofx-messages {
+  flex: 1;
+  overflow-y: auto;
+  padding: 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  scroll-behavior: smooth;
+}
+
+/* ============================================================
+   Input Area (filled by Plan 04-03)
+   ============================================================ */
+
+.efofx-input-area {
+  flex-shrink: 0;
+  padding: 12px 16px;
+  border-top: 1px solid rgba(0, 0, 0, 0.08);
+  background-color: #ffffff;
+}
+
+/* ============================================================
+   Inline embed container
+   ============================================================ */
+
+.efofx-inline-container {
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+/* ============================================================
+   Message Input
+   ============================================================ */
+
+.efofx-input-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.efofx-chat-input {
+  flex: 1;
+  border: 1px solid rgba(0, 0, 0, 0.15);
+  border-radius: 20px;
+  padding: 8px 14px;
+  font-size: 14px;
+  font-family: var(--widget-font);
+  outline: none;
+  background: #ffffff;
+  color: #1a1a1a;
+  transition: border-color 0.15s ease;
+  min-width: 0;
+}
+
+.efofx-chat-input:focus {
+  border-color: var(--brand-primary);
+}
+
+.efofx-chat-input:disabled {
+  background: #f5f5f5;
+  color: #999;
+  cursor: not-allowed;
+}
+
+.efofx-send-btn {
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  background: var(--brand-primary);
+  border: none;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  transition: background 0.15s ease, transform 0.1s ease;
+  padding: 0;
+}
+
+.efofx-send-btn:hover:not(:disabled) {
+  background: var(--brand-accent);
+}
+
+.efofx-send-btn:active:not(:disabled) {
+  transform: scale(0.9);
+}
+
+.efofx-send-btn:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+.efofx-send-btn svg {
+  width: 16px;
+  height: 16px;
+  fill: none;
+  stroke: #ffffff;
+  stroke-width: 2;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+/* ============================================================
+   Chat Bubbles
+   ============================================================ */
+
+.efofx-bubble-wrapper {
+  display: flex;
+  max-width: 80%;
+}
+
+.efofx-bubble-wrapper--user {
+  align-self: flex-end;
+  justify-content: flex-end;
+  margin-left: auto;
+}
+
+.efofx-bubble-wrapper--assistant {
+  align-self: flex-start;
+  justify-content: flex-start;
+}
+
+.efofx-bubble {
+  padding: 10px 14px;
+  border-radius: 18px;
+  font-size: 14px;
+  line-height: 1.4;
+  word-wrap: break-word;
+  font-family: var(--widget-font);
+}
+
+.efofx-bubble-user {
+  background: var(--brand-primary);
+  color: #ffffff;
+  border-bottom-right-radius: 4px;
+}
+
+.efofx-bubble-assistant {
+  background: var(--brand-secondary);
+  color: #1a1a1a;
+  border-bottom-left-radius: 4px;
+  border: 1px solid rgba(0, 0, 0, 0.08);
+}
+
+/* ============================================================
+   Typing Indicator
+   ============================================================ */
+
+.efofx-typing-indicator {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding: 10px 14px;
+  background: var(--brand-secondary);
+  border-radius: 18px;
+  border-bottom-left-radius: 4px;
+  border: 1px solid rgba(0, 0, 0, 0.08);
+}
+
+.efofx-typing-dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: rgba(0, 0, 0, 0.4);
+  display: inline-block;
+  animation: efofx-bounce 1.2s ease-in-out infinite;
+}
+
+.efofx-typing-dot:nth-child(2) {
+  animation-delay: 0.15s;
+}
+
+.efofx-typing-dot:nth-child(3) {
+  animation-delay: 0.3s;
+}
+
+@keyframes efofx-bounce {
+  0%, 80%, 100% {
+    transform: scale(0);
+    opacity: 0.5;
+  }
+  40% {
+    transform: scale(1);
+    opacity: 1;
+  }
+}
+
+/* ============================================================
+   Error States (WSEC-02)
+   ============================================================ */
+
+.efofx-error {
+  background: #fef2f2;
+  color: #991b1b;
+  padding: 8px 12px;
+  border-radius: 8px;
+  font-size: 13px;
+  margin: 8px 0;
+  border: 1px solid #fecaca;
+  font-family: var(--widget-font);
+}
+
+.efofx-retry-btn {
+  display: inline-block;
+  background: var(--brand-primary);
+  color: #ffffff;
+  border: none;
+  padding: 6px 16px;
+  border-radius: 6px;
+  cursor: pointer;
+  font-size: 13px;
+  margin-top: 4px;
+  font-family: var(--widget-font);
+  transition: background 0.15s ease;
+}
+
+.efofx-retry-btn:hover {
+  background: var(--brand-accent);
+}
+
+/* ============================================================
+   Error Bar (top-level stream errors)
+   ============================================================ */
+
+.efofx-error-bar {
+  flex-shrink: 0;
+  background: #fef2f2;
+  color: #991b1b;
+  padding: 8px 16px;
+  font-size: 12px;
+  font-family: var(--widget-font);
+  border-top: 1px solid #fecaca;
+  text-align: center;
+}
+
+/* ============================================================
+   Lead Capture Form
+   ============================================================ */
+
+.efofx-lead-form {
+  background: #ffffff;
+  border: 1px solid rgba(0, 0, 0, 0.1);
+  border-radius: 12px;
+  padding: 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  width: 100%;
+  font-family: var(--widget-font);
+}
+
+.efofx-lead-form-title {
+  font-size: 13px;
+  color: #444;
+  margin: 0;
+  line-height: 1.4;
+  font-family: var(--widget-font);
+}
+
+.efofx-lead-input {
+  width: 100%;
+  border: 1px solid rgba(0, 0, 0, 0.2);
+  border-radius: 8px;
+  padding: 9px 12px;
+  font-size: 14px;
+  font-family: var(--widget-font);
+  outline: none;
+  color: #1a1a1a;
+  background: #ffffff;
+  transition: border-color 0.15s ease;
+  box-sizing: border-box;
+}
+
+.efofx-lead-input:focus {
+  border-color: var(--brand-primary);
+}
+
+.efofx-lead-input:disabled {
+  background: #f5f5f5;
+  color: #999;
+}
+
+.efofx-lead-error {
+  font-size: 12px;
+  color: #991b1b;
+  margin: 0;
+  font-family: var(--widget-font);
+}
+
+.efofx-lead-submit {
+  background: var(--brand-primary);
+  color: #ffffff;
+  border: none;
+  border-radius: 8px;
+  padding: 10px 16px;
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+  font-family: var(--widget-font);
+  transition: background 0.15s ease, transform 0.1s ease;
+  width: 100%;
+}
+
+.efofx-lead-submit:hover:not(:disabled) {
+  background: var(--brand-accent);
+}
+
+.efofx-lead-submit:active:not(:disabled) {
+  transform: scale(0.98);
+}
+
+.efofx-lead-submit:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+/* ============================================================
+   Estimate Card
+   ============================================================ */
+
+.efofx-estimate-card {
+  background: #ffffff;
+  border: 1px solid rgba(0, 0, 0, 0.1);
+  border-radius: 12px;
+  padding: 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  width: 100%;
+  font-family: var(--widget-font);
+}
+
+.efofx-estimate-summary {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.efofx-estimate-label {
+  font-size: 12px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: #666;
+  margin: 0;
+  font-family: var(--widget-font);
+}
+
+.efofx-estimate-totals {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.efofx-estimate-total-item {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.efofx-estimate-total-value {
+  font-size: 22px;
+  font-weight: 700;
+  color: #1a1a1a;
+  line-height: 1;
+  font-family: var(--widget-font);
+}
+
+.efofx-estimate-total-label {
+  font-size: 11px;
+  color: #888;
+  font-family: var(--widget-font);
+}
+
+.efofx-estimate-total-separator {
+  font-size: 18px;
+  color: #ccc;
+  padding: 0 4px;
+}
+
+/* Range bar */
+.efofx-range-bar-container {
+  padding: 4px 0 8px;
+}
+
+.efofx-range-bar {
+  position: relative;
+  height: 6px;
+  background: #e5e7eb;
+  border-radius: 3px;
+  margin: 24px 0;
+}
+
+.efofx-range-bar-fill {
+  position: absolute;
+  left: 0;
+  top: 0;
+  width: 85%;
+  height: 100%;
+  background: linear-gradient(90deg, var(--brand-primary), var(--brand-accent));
+  border-radius: 3px;
+}
+
+.efofx-range-marker {
+  position: absolute;
+  top: 50%;
+  transform: translateX(-50%) translateY(-50%);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+
+.efofx-range-marker-dot {
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  background: var(--brand-accent);
+  border: 2px solid #ffffff;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.2);
+}
+
+.efofx-range-label {
+  position: absolute;
+  font-size: 11px;
+  white-space: nowrap;
+  font-family: var(--widget-font);
+  font-weight: 500;
+  color: #444;
+}
+
+.efofx-range-label--p50 {
+  top: 16px;
+}
+
+.efofx-range-label--p80 {
+  bottom: 16px;
+  top: auto;
+}
+
+/* Timeline */
+.efofx-estimate-timeline {
+  font-size: 12px;
+  color: #666;
+  margin: 0;
+  font-family: var(--widget-font);
+}
+
+/* Accordion */
+.efofx-accordion {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.efofx-accordion-title {
+  font-size: 12px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: #666;
+  margin: 0 0 4px;
+  font-family: var(--widget-font);
+}
+
+.efofx-accordion-row {
+  border: 1px solid rgba(0, 0, 0, 0.08);
+  border-radius: 6px;
+  overflow: hidden;
+}
+
+.efofx-accordion-header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  padding: 8px 10px;
+  background: #f9fafb;
+  border: none;
+  cursor: pointer;
+  text-align: left;
+  font-family: var(--widget-font);
+  font-size: 13px;
+  transition: background 0.1s ease;
+}
+
+.efofx-accordion-header:hover {
+  background: #f3f4f6;
+}
+
+.efofx-accordion-category {
+  flex: 1;
+  color: #1a1a1a;
+  font-weight: 500;
+}
+
+.efofx-accordion-amount {
+  color: #333;
+  font-weight: 600;
+}
+
+.efofx-accordion-chevron {
+  color: #999;
+  font-size: 14px;
+  transition: transform 0.2s ease;
+  display: inline-block;
+}
+
+.efofx-accordion-chevron--open {
+  transform: rotate(180deg);
+}
+
+.efofx-accordion-expanded {
+  padding: 8px 10px;
+  background: #ffffff;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.efofx-accordion-detail {
+  display: flex;
+  justify-content: space-between;
+  font-size: 12px;
+  color: #555;
+  font-family: var(--widget-font);
+}
+
+/* ============================================================
+   Narrative Stream
+   ============================================================ */
+
+.efofx-narrative {
+  white-space: pre-wrap;
+  word-wrap: break-word;
+  max-width: 100%;
+}
+
+/* ============================================================
+   Consultation CTA
+   ============================================================ */
+
+.efofx-cta-container {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 12px 14px;
+  background: #fffbf0;
+  border-radius: 10px;
+  border: 1px solid rgba(0, 0, 0, 0.08);
+  width: 100%;
+}
+
+.efofx-disclaimer {
+  font-size: 11px;
+  color: #666;
+  line-height: 1.4;
+  margin: 0;
+  font-family: var(--widget-font);
+  font-style: italic;
+}
+
+.efofx-cta-button {
+  background: var(--brand-accent);
+  color: #ffffff;
+  border: none;
+  border-radius: 8px;
+  padding: 10px 16px;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  font-family: var(--widget-font);
+  transition: background 0.15s ease, transform 0.1s ease;
+  text-align: center;
+  width: 100%;
+}
+
+.efofx-cta-button:hover {
+  opacity: 0.9;
+}
+
+.efofx-cta-button:active {
+  transform: scale(0.98);
+}
+
+/* ============================================================
+   Consultation form (DEBT-04)
+   ============================================================ */
+
+.efofx-consultation-form-title {
+  font-size: 13px;
+  color: #444;
+  margin: 0;
+  line-height: 1.4;
+  font-family: var(--widget-font);
+  font-weight: 600;
+  margin-bottom: 2px;
+}
+
+.efofx-consultation-textarea {
+  min-height: 80px;
+  resize: vertical;
+  font-family: var(--widget-font);
+}
+
+.efofx-cta-success {
+  color: var(--brand-accent, #10B981);
+  font-weight: 500;
+  text-align: center;
+  padding: 12px;
+  margin: 0;
+  font-family: var(--widget-font);
+}
+
+/* ============================================================
+   Transitions & animations
+   ============================================================ */
+
+@keyframes efofx-panel-enter {
+  from {
+    transform: translateY(8px) scale(0.98);
+    opacity: 0;
+  }
+  to {
+    transform: translateY(0) scale(1);
+    opacity: 1;
+  }
+}
+
+.efofx-panel,
+.efofx-panel-fullscreen {
+  animation: efofx-panel-enter 0.2s ease forwards;
+}

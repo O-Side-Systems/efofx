@@ -9,9 +9,8 @@ import logging
 import time
 from typing import Optional, List, Dict, Any, Tuple
 from datetime import datetime, timedelta
-from functools import lru_cache
-
-from app.db.mongodb import get_reference_classes_collection
+from app.db.mongodb import get_tenant_collection
+from app.core.constants import DB_COLLECTIONS
 from app.models.reference_class import ReferenceClass
 
 logger = logging.getLogger(__name__)
@@ -21,7 +20,9 @@ _match_cache: Dict[str, Tuple[Any, datetime]] = {}
 _CACHE_TTL_SECONDS = 300  # 5 minutes
 
 
-def _get_cache_key(description: str, category: str, region: str, tenant_id: Optional[str]) -> str:
+def _get_cache_key(
+    description: str, category: str, region: str, tenant_id: Optional[str]
+) -> str:
     """Generate cache key for match query."""
     return f"{description}:{category}:{region}:{tenant_id or 'platform'}"
 
@@ -48,7 +49,7 @@ def extract_keywords(description: str) -> List[str]:
     """
     Extract keywords from project description.
 
-    Converts to lowercase and tokenizes by splitting on whitespace and common separators.
+    Converts to lowercase and tokenizes by splitting on whitespace and common separators.  # noqa: E501
     Filters out very short words (< 2 chars) and common stop words.
 
     Args:
@@ -59,22 +60,57 @@ def extract_keywords(description: str) -> List[str]:
     """
     # Common stop words to filter out
     stop_words = {
-        'a', 'an', 'and', 'are', 'as', 'at', 'be', 'by', 'for', 'from',
-        'has', 'he', 'in', 'is', 'it', 'its', 'of', 'on', 'that', 'the',
-        'to', 'was', 'will', 'with', 'we', 'i', 'you', 'my', 'our', 'want'
+        "a",
+        "an",
+        "and",
+        "are",
+        "as",
+        "at",
+        "be",
+        "by",
+        "for",
+        "from",
+        "has",
+        "he",
+        "in",
+        "is",
+        "it",
+        "its",
+        "of",
+        "on",
+        "that",
+        "the",
+        "to",
+        "was",
+        "will",
+        "with",
+        "we",
+        "i",
+        "you",
+        "my",
+        "our",
+        "want",
     }
 
     # Lowercase and split on whitespace and common punctuation
-    words = description.lower().replace(',', ' ').replace('.', ' ').replace(';', ' ').split()
+    words = (
+        description.lower()
+        .replace(",", " ")
+        .replace(".", " ")
+        .replace(";", " ")
+        .split()
+    )
 
     # Filter: remove stop words and very short words
-    keywords = [w.strip('()[]{}!?:;"\'') for w in words]
+    keywords = [w.strip("()[]{}!?:;\"'") for w in words]
     keywords = [k for k in keywords if len(k) >= 2 and k not in stop_words]
 
     return keywords
 
 
-def calculate_keyword_overlap(desc_keywords: List[str], rc_keywords: List[str]) -> float:
+def calculate_keyword_overlap(
+    desc_keywords: List[str], rc_keywords: List[str]
+) -> float:
     """
     Calculate keyword overlap score between description and reference class.
 
@@ -99,9 +135,7 @@ def calculate_keyword_overlap(desc_keywords: List[str], rc_keywords: List[str]) 
 
 
 def calculate_confidence_score(
-    keyword_overlap: float,
-    category_match: bool,
-    region_match: bool
+    keyword_overlap: float, category_match: bool, region_match: bool
 ) -> float:
     """
     Calculate overall confidence score using weighted formula.
@@ -118,9 +152,9 @@ def calculate_confidence_score(
         Confidence score (0.0 to 1.0)
     """
     score = (
-        keyword_overlap * 0.6 +
-        (1.0 if category_match else 0.0) * 0.3 +
-        (1.0 if region_match else 0.0) * 0.1
+        keyword_overlap * 0.6
+        + (1.0 if category_match else 0.0) * 0.3
+        + (1.0 if region_match else 0.0) * 0.1
     )
 
     return min(1.0, max(0.0, score))  # Clamp to [0.0, 1.0]
@@ -141,10 +175,7 @@ def check_region_match(region: str, rc_regions: List[str]) -> bool:
 
 
 async def find_matching_reference_class(
-    description: str,
-    category: str,
-    region: str,
-    tenant_id: Optional[str] = None
+    description: str, category: str, region: str, tenant_id: Optional[str] = None
 ) -> Optional[Dict[str, Any]]:
     """
     Find best matching reference class for a project description.
@@ -187,24 +218,38 @@ async def find_matching_reference_class(
             logger.warning(f"No keywords extracted from description: {description}")
             raise ValueError("Please provide more details in your project description")
 
-        # Query reference classes
-        collection = get_reference_classes_collection()
+        # Query reference classes using TenantAwareCollection for hard isolation.
+        # When tenant_id is provided, allow_platform_data=True includes platform
+        # data (tenant_id=None) alongside the tenant's own classes via $or filter.
+        # When no tenant_id, query platform-only data directly via raw collection.
+        if tenant_id:
+            collection = get_tenant_collection(
+                DB_COLLECTIONS["REFERENCE_CLASSES"],
+                tenant_id,
+                allow_platform_data=True,
+            )
+            query = {"category": category}
+        else:
+            # No tenant context — query platform data (tenant_id=None) only
+            from app.db.mongodb import get_collection
 
-        # Build query: filter by category first for efficiency
-        query = {"category": category}
+            collection = get_collection(DB_COLLECTIONS["REFERENCE_CLASSES"])
+            query = {"category": category, "tenant_id": None}
 
         cursor = collection.find(query)
         reference_classes = await cursor.to_list(length=None)
 
         if not reference_classes:
             logger.warning(f"No reference classes found for category: {category}")
-            raise ValueError(f"No reference classes available for category '{category}'")
+            raise ValueError(
+                f"No reference classes available for category '{category}'"
+            )
 
         # Score each reference class
         scored_matches: List[Tuple[Dict[str, Any], float, bool]] = []
 
         for rc_doc in reference_classes:
-            # Check category match (should always be true given query, but being explicit)
+            # Check category match (should always be true given query, but being explicit)  # noqa: E501
             category_match = rc_doc.get("category", "").lower() == category.lower()
 
             # Check region match
@@ -216,10 +261,14 @@ async def find_matching_reference_class(
             keyword_overlap = calculate_keyword_overlap(desc_keywords, rc_keywords)
 
             # Calculate confidence score
-            confidence = calculate_confidence_score(keyword_overlap, category_match, region_match)
+            confidence = calculate_confidence_score(
+                keyword_overlap, category_match, region_match
+            )
 
             # Track if this is tenant-specific
-            is_tenant_specific = rc_doc.get("tenant_id") == tenant_id if tenant_id else False
+            is_tenant_specific = (
+                rc_doc.get("tenant_id") == tenant_id if tenant_id else False
+            )
 
             scored_matches.append((rc_doc, confidence, is_tenant_specific))
 
@@ -243,7 +292,7 @@ async def find_matching_reference_class(
         # Check confidence threshold
         if top_confidence < 0.7:
             logger.warning(
-                f"Low confidence match: {top_confidence:.3f} < 0.7 for description: {description[:50]}..."
+                f"Low confidence match: {top_confidence:.3f} < 0.7 for description: {description[:50]}..."  # noqa: E501
             )
             raise ValueError(
                 f"Could not find a confident match (confidence: {top_confidence:.2f}). "
@@ -262,10 +311,12 @@ async def find_matching_reference_class(
             "confidence": round(top_confidence, 3),
             "match_metadata": {
                 "description_keywords": desc_keywords,
-                "matched_keywords": list(set(desc_keywords) & set(top_match.get("keywords", []))),
+                "matched_keywords": list(
+                    set(desc_keywords) & set(top_match.get("keywords", []))
+                ),
                 "is_tenant_specific": is_tenant,
-                "processing_time_ms": round(elapsed_ms, 2)
-            }
+                "processing_time_ms": round(elapsed_ms, 2),
+            },
         }
 
         # Cache the result
@@ -313,18 +364,18 @@ def calculate_baseline_estimate(reference_class: Dict[str, Any]) -> Dict[str, An
     start_time = time.perf_counter()
 
     # Extract cost distribution
-    cost_dist = reference_class['cost_distribution']
-    p50_cost = cost_dist['p50']
-    p80_cost = cost_dist['p80']
+    cost_dist = reference_class["cost_distribution"]
+    p50_cost = cost_dist["p50"]
+    p80_cost = cost_dist["p80"]
     variance = p80_cost - p50_cost
 
     # Extract timeline distribution
-    timeline_dist = reference_class['timeline_distribution']
-    p50_timeline = timeline_dist['p50_days']
-    p80_timeline = timeline_dist['p80_days']
+    timeline_dist = reference_class["timeline_distribution"]
+    p50_timeline = timeline_dist["p50_days"]
+    p80_timeline = timeline_dist["p80_days"]
 
     # Calculate cost breakdown at P50 level
-    breakdown_template = reference_class['cost_breakdown_template']
+    breakdown_template = reference_class["cost_breakdown_template"]
     cost_breakdown = {}
 
     # Calculate each category's cost
@@ -335,14 +386,18 @@ def calculate_baseline_estimate(reference_class: Dict[str, Any]) -> Dict[str, An
     breakdown_total = sum(cost_breakdown.values())
     if breakdown_total != p50_cost:
         # Adjust the largest category to make up the difference
-        largest_category = max(breakdown_template.keys(), key=lambda k: breakdown_template[k])
+        largest_category = max(
+            breakdown_template.keys(), key=lambda k: breakdown_template[k]
+        )
         adjustment = round(p50_cost - breakdown_total, 2)
         cost_breakdown[largest_category] += adjustment
 
     # Verify breakdown sums correctly
     final_total = sum(cost_breakdown.values())
     if abs(final_total - p50_cost) > 0.01:  # Allow 1 cent tolerance
-        logger.warning(f"Cost breakdown total ({final_total}) doesn't match p50_cost ({p50_cost})")
+        logger.warning(
+            f"Cost breakdown total ({final_total}) doesn't match p50_cost ({p50_cost})"
+        )
 
     elapsed_ms = (time.perf_counter() - start_time) * 1000
 
@@ -359,23 +414,23 @@ def calculate_baseline_estimate(reference_class: Dict[str, Any]) -> Dict[str, An
         "p50_timeline_days": p50_timeline,
         "p80_timeline_days": p80_timeline,
         "cost_breakdown": cost_breakdown,
-        "reference_class_name": reference_class.get('name', 'Unknown'),
-        "calculation_time_ms": round(elapsed_ms, 2)
+        "reference_class_name": reference_class.get("name", "Unknown"),
+        "calculation_time_ms": round(elapsed_ms, 2),
     }
 
 
 # Complexity multiplier mapping
 COMPLEXITY_MULTIPLIERS = {
-    'simple': 0.8,
-    'standard': 1.0,
-    'complex': 1.5,
+    "simple": 0.8,
+    "standard": 1.0,
+    "complex": 1.5,
 }
 
 
 def apply_adjustments(
     baseline_estimate: Dict[str, Any],
     complexity: Optional[str] = None,
-    risk_level: Optional[str] = None
+    risk_level: Optional[str] = None,
 ) -> Dict[str, Any]:
     """
     Apply regional, complexity, and risk adjustments to baseline estimate.
@@ -385,7 +440,7 @@ def apply_adjustments(
 
     Args:
         baseline_estimate: Result from calculate_baseline_estimate()
-        complexity: Complexity level ('simple', 'standard', 'complex'), default 'standard'
+        complexity: Complexity level ('simple', 'standard', 'complex'), default 'standard'  # noqa: E501
         risk_level: Risk level ('low', 'medium', 'high'), default 'low'
 
     Returns:
@@ -406,22 +461,22 @@ def apply_adjustments(
     start_time = time.perf_counter()
 
     # Get baseline values
-    baseline_p50 = baseline_estimate['p50_cost']
-    baseline_p80 = baseline_estimate['p80_cost']
-    baseline_p50_timeline = baseline_estimate['p50_timeline_days']
-    baseline_p80_timeline = baseline_estimate['p80_timeline_days']
-    baseline_breakdown = baseline_estimate['cost_breakdown']
+    baseline_p50 = baseline_estimate["p50_cost"]
+    baseline_p80 = baseline_estimate["p80_cost"]
+    baseline_p50_timeline = baseline_estimate["p50_timeline_days"]
+    baseline_p80_timeline = baseline_estimate["p80_timeline_days"]
+    baseline_breakdown = baseline_estimate["cost_breakdown"]
 
     # Determine complexity factor
-    complexity = (complexity or 'standard').lower()
+    complexity = (complexity or "standard").lower()
     complexity_factor = COMPLEXITY_MULTIPLIERS.get(complexity, 1.0)
 
     # Determine risk factor
-    risk_level = (risk_level or 'low').lower()
+    risk_level = (risk_level or "low").lower()
     risk_factors = {
-        'low': 1.0,
-        'medium': 1.15,
-        'high': 1.3,
+        "low": 1.0,
+        "medium": 1.15,
+        "high": 1.3,
     }
     risk_factor = risk_factors.get(risk_level, 1.0)
 
@@ -439,13 +494,17 @@ def apply_adjustments(
     # Adjust cost breakdown proportionally
     adjusted_breakdown = {}
     for category, baseline_cost in baseline_breakdown.items():
-        adjusted_breakdown[category] = round(baseline_cost * complexity_factor * risk_factor, 2)
+        adjusted_breakdown[category] = round(
+            baseline_cost * complexity_factor * risk_factor, 2
+        )
 
     # Verify adjusted breakdown sums to adjusted P50
     breakdown_total = sum(adjusted_breakdown.values())
     if abs(breakdown_total - adjusted_p50) > 0.01:
         # Adjust largest category to handle rounding
-        largest_category = max(baseline_breakdown.keys(), key=lambda k: baseline_breakdown[k])
+        largest_category = max(
+            baseline_breakdown.keys(), key=lambda k: baseline_breakdown[k]
+        )
         adjustment = round(adjusted_p50 - breakdown_total, 2)
         adjusted_breakdown[largest_category] += adjustment
 
@@ -474,26 +533,27 @@ def apply_adjustments(
         # Baseline values
         "baseline_p50": baseline_p50,
         "baseline_p80": baseline_p80,
-        "baseline_variance": baseline_estimate.get('variance', baseline_p80 - baseline_p50),
+        "baseline_variance": baseline_estimate.get(
+            "variance", baseline_p80 - baseline_p50
+        ),
         "baseline_p50_timeline": baseline_p50_timeline,
         "baseline_p80_timeline": baseline_p80_timeline,
-
         # Adjustment factors
         "complexity": complexity,
         "complexity_factor": complexity_factor,
         "risk_level": risk_level,
         "risk_factor": risk_factor,
-
         # Adjusted values
         "adjusted_p50": adjusted_p50,
         "adjusted_p80": adjusted_p80,
         "adjusted_variance": adjusted_variance,
         "adjusted_p50_timeline": adjusted_p50_timeline,
         "adjusted_p80_timeline": adjusted_p80_timeline,
-
         # Breakdown and metadata
         "cost_breakdown": adjusted_breakdown,
         "adjustment_summary": adjustment_summary,
-        "reference_class_name": baseline_estimate.get('reference_class_name', 'Unknown'),
-        "calculation_time_ms": round(elapsed_ms, 2)
+        "reference_class_name": baseline_estimate.get(
+            "reference_class_name", "Unknown"
+        ),
+        "calculation_time_ms": round(elapsed_ms, 2),
     }

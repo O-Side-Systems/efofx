@@ -1,0 +1,2 @@
+# uv configuration for the efofx workspace
+# Workspace members are declared in pyproject.toml [tool.uv.workspace]

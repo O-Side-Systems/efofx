@@ -5,17 +5,33 @@ This module initializes the FastAPI application with all necessary middleware,
 routers, and configuration for the estimation service.
 """
 
-from fastapi import FastAPI, Request, HTTPException
-from fastapi.middleware.cors import CORSMiddleware
+from fastapi import FastAPI, Request
 from fastapi.middleware.trustedhost import TrustedHostMiddleware
+from slowapi.errors import RateLimitExceeded
 from contextlib import asynccontextmanager
 import time
 import logging
 import os
 
 from app.core.config import settings
+from app.core.rate_limit import limiter, rate_limit_exceeded_handler
 from app.api.routes import api_router
-from app.db.mongodb import connect_to_mongo, close_mongo_connection, health_check as db_health_check
+from app.api.auth import router as auth_router
+from app.api.widget import widget_router
+from app.api.feedback_email import feedback_email_router
+from app.api.feedback_form import feedback_form_router
+from app.api.calibration import calibration_router
+from app.middleware.cors import TenantAwareCORSMiddleware
+from app.db.mongodb import (
+    connect_to_mongo,
+    close_mongo_connection,
+    health_check as db_health_check,
+    create_indexes,
+    migrate_estimation_session_tenant_id,
+    migrate_synthetic_reference_classes,
+)
+from app.services.prompt_service import PromptService
+from app.services.valkey_cache import _cache as valkey_cache
 
 # Configure logging
 logging.basicConfig(level=logging.INFO)
@@ -27,16 +43,34 @@ async def lifespan(app: FastAPI):
     """Application lifespan events."""
     # Startup
     logger.info("Starting efOfX Estimation Service...")
+    await connect_to_mongo()
+    logger.info("MongoDB connection established")
+    await create_indexes()
+    logger.info("Database indexes created")
+    await migrate_estimation_session_tenant_id()  # DEBT-01
+    logger.info("DEBT-01 migration complete")
+    await migrate_synthetic_reference_classes()  # CALB-01
+    logger.info("CALB-01 migration complete")
+
+    # Load versioned prompts -- critical dependency, fail startup if missing
+    prompts_dir = os.path.join(
+        os.path.dirname(os.path.dirname(os.path.abspath(__file__))),
+        "config",
+        "prompts",
+    )
     try:
-        await connect_to_mongo()
-        logger.info("MongoDB connection established")
+        PromptService.load_all(prompts_dir)
+        logger.info("Prompt registry loaded")
     except Exception as e:
-        logger.error(f"Failed to connect to MongoDB: {e}")
+        logger.error(f"Failed to load prompt registry: {e}")
+        raise  # Prompts are critical -- fail startup if they can't load
 
     yield
 
     # Shutdown
     logger.info("Shutting down efOfX Estimation Service...")
+    await valkey_cache.close()
+    logger.info("Valkey connection closed")
     await close_mongo_connection()
     logger.info("MongoDB connection closed")
 
@@ -44,26 +78,29 @@ async def lifespan(app: FastAPI):
 # Create FastAPI application
 app = FastAPI(
     title="efOfX Estimation Service",
-    description="Natural language-driven project estimation using Reference Class Forecasting (RCF)",
+    description="Natural language-driven project estimation using Reference Class Forecasting (RCF)",  # noqa: E501
     version="1.0.0",
     docs_url="/docs" if settings.DEBUG else None,
     redoc_url="/redoc" if settings.DEBUG else None,
     lifespan=lifespan,
 )
 
-# Add middleware
+# Register rate limiter
+app.state.limiter = limiter
+app.add_exception_handler(RateLimitExceeded, rate_limit_exceeded_handler)
+
+# Add middleware — TenantAwareCORSMiddleware extends CORSMiddleware with
+# per-tenant dynamic origin checking via a lazily-populated module-level cache.
 app.add_middleware(
-    CORSMiddleware,
+    TenantAwareCORSMiddleware,
     allow_origins=settings.ALLOWED_ORIGINS,
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
 )
 
-app.add_middleware(
-    TrustedHostMiddleware,
-    allowed_hosts=settings.ALLOWED_HOSTS
-)
+app.add_middleware(TrustedHostMiddleware, allowed_hosts=settings.ALLOWED_HOSTS)
+
 
 # Request timing middleware
 @app.middleware("http")
@@ -75,8 +112,48 @@ async def add_process_time_header(request: Request, call_next):
     response.headers["X-Process-Time"] = str(process_time)
     return response
 
+
+@app.middleware("http")
+async def add_rate_limit_headers(request: Request, call_next):
+    """Inject X-RateLimit-Limit, X-RateLimit-Remaining, X-RateLimit-Reset headers.
+
+    slowapi sets request.state.view_rate_limit after checking limits via the
+    @limiter.limit decorator. This middleware reads that state and adds the
+    standardized rate limit headers to every response.
+
+    FastAPI endpoints return Pydantic models (not Response objects), so the
+    slowapi decorator cannot inject headers directly — this middleware handles it.
+    """
+    response = await call_next(request)
+
+    # view_rate_limit is set by slowapi's __evaluate_limits:
+    #   (RateLimitItem, [key, scope]) tuple, or None if no limit was checked
+    view_rate_limit = getattr(request.state, "view_rate_limit", None)
+    if view_rate_limit is not None and limiter.enabled:
+        try:
+            rate_limit_item, args = view_rate_limit
+            window_stats = limiter.limiter.get_window_stats(rate_limit_item, *args)
+            reset_in = 1 + window_stats[0]
+            response.headers["X-RateLimit-Limit"] = str(rate_limit_item.amount)
+            response.headers["X-RateLimit-Remaining"] = str(window_stats[1])
+            response.headers["X-RateLimit-Reset"] = str(reset_in)
+        except Exception:
+            # Swallow header injection errors — don't break the response
+            pass
+
+    return response
+
+
 # Include API routes
 app.include_router(api_router, prefix="/api/v1")
+app.include_router(auth_router, prefix="/api/v1")
+app.include_router(widget_router, prefix="/api/v1")
+app.include_router(feedback_email_router, prefix="/api/v1")
+app.include_router(
+    feedback_form_router
+)  # No prefix — /feedback/form/{token} is user-facing
+app.include_router(calibration_router, prefix="/api/v1")
+
 
 @app.get("/health")
 async def health_check():
@@ -92,8 +169,9 @@ async def health_check():
         "status": "healthy" if db_status == "connected" else "degraded",
         "service": "efOfX Estimation Service",
         "database": db_status,
-        "version": "1.0.0"
+        "version": "1.0.0",
     }
+
 
 @app.get("/")
 async def root():
@@ -101,14 +179,11 @@ async def root():
     return {
         "service": "efOfX Estimation Service",
         "version": "1.0.0",
-        "description": "Natural language-driven project estimation using RCF"
+        "description": "Natural language-driven project estimation using RCF",
     }
+
 
 if __name__ == "__main__":
     import uvicorn
-    uvicorn.run(
-        "app.main:app",
-        host="0.0.0.0",
-        port=8000,
-        reload=settings.DEBUG
-    )
+
+    uvicorn.run("app.main:app", host="0.0.0.0", port=8000, reload=settings.DEBUG)

@@ -1,0 +1,8 @@
+{
+  "version": "1.0.0",
+  "name": "estimation",
+  "created_at": "2026-02-27",
+  "description": "Structured estimation prompt — instructs the LLM to produce a detailed cost estimate with P50/P80 ranges, cost breakdown by category, adjustment factors, and confidence score.",
+  "system_prompt": "You are a project cost estimation expert. Given a project description, reference class, and region, produce a detailed cost estimate with P50/P80 ranges. Break costs down by category. Include adjustment factors as named multipliers. List all assumptions explicitly. Assign a confidence score (0-100) based on how much information you have to work with. Omit inapplicable cost categories rather than zero-filling them.",
+  "user_prompt_template": "Project Description: {description}\nReference Class: {reference_class}\nRegion: {region}\n{reference_data_section}"
+}

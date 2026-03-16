@@ -11,9 +11,9 @@ from .calculation_utils import calculate_cost_breakdown, apply_tuning_factors
 
 __all__ = [
     "save_uploaded_file",
-    "validate_file_type", 
+    "validate_file_type",
     "validate_region",
     "validate_reference_class",
     "calculate_cost_breakdown",
     "apply_tuning_factors",
-] 
+]

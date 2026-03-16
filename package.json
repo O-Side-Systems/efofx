@@ -1,0 +1,9 @@
+{
+  "name": "efofx-workspace",
+  "private": true,
+  "workspaces": [
+    "apps/efofx-widget",
+    "apps/efofx-dashboard",
+    "packages/efofx-ui"
+  ]
+}

@@ -1,0 +1,206 @@
+.estimateCard {
+  background: #ffffff;
+  border: 1px solid rgba(0, 0, 0, 0.1);
+  border-radius: 12px;
+  padding: 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  width: 100%;
+  font-family: var(--widget-font, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif);
+}
+
+.estimateSummary {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.estimateLabel {
+  font-size: 12px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: #666;
+  margin: 0;
+  font-family: var(--widget-font, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif);
+}
+
+.estimateTotals {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.estimateTotalItem {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.estimateTotalValue {
+  font-size: 22px;
+  font-weight: 700;
+  color: #1a1a1a;
+  line-height: 1;
+  font-family: var(--widget-font, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif);
+}
+
+.estimateTotalLabel {
+  font-size: 11px;
+  color: #888;
+  font-family: var(--widget-font, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif);
+}
+
+.estimateTotalSeparator {
+  font-size: 18px;
+  color: #ccc;
+  padding: 0 4px;
+}
+
+/* Range bar */
+.rangeBarContainer {
+  padding: 4px 0 8px;
+}
+
+.rangeBar {
+  position: relative;
+  height: 6px;
+  background: #e5e7eb;
+  border-radius: 3px;
+  margin: 24px 0;
+}
+
+.rangeBarFill {
+  position: absolute;
+  left: 0;
+  top: 0;
+  width: 85%;
+  height: 100%;
+  background: linear-gradient(90deg, var(--brand-primary, #2563eb), var(--brand-accent, #1d4ed8));
+  border-radius: 3px;
+}
+
+.rangeMarker {
+  position: absolute;
+  top: 50%;
+  transform: translateX(-50%) translateY(-50%);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+
+.rangeMarkerDot {
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  background: var(--brand-accent, #1d4ed8);
+  border: 2px solid #ffffff;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.2);
+}
+
+.rangeLabel {
+  position: absolute;
+  font-size: 11px;
+  white-space: nowrap;
+  font-family: var(--widget-font, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif);
+  font-weight: 500;
+  color: #444;
+}
+
+.rangeLabelP50 {
+  top: 16px;
+}
+
+.rangeLabelP80 {
+  bottom: 16px;
+  top: auto;
+}
+
+/* Timeline */
+.estimateTimeline {
+  font-size: 12px;
+  color: #666;
+  margin: 0;
+  font-family: var(--widget-font, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif);
+}
+
+/* Accordion */
+.accordion {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.accordionTitle {
+  font-size: 12px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: #666;
+  margin: 0 0 4px;
+  font-family: var(--widget-font, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif);
+}
+
+.accordionRow {
+  border: 1px solid rgba(0, 0, 0, 0.08);
+  border-radius: 6px;
+  overflow: hidden;
+}
+
+.accordionHeader {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  padding: 8px 10px;
+  background: #f9fafb;
+  border: none;
+  cursor: pointer;
+  text-align: left;
+  font-family: var(--widget-font, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif);
+  font-size: 13px;
+  transition: background 0.1s ease;
+}
+
+.accordionHeader:hover {
+  background: #f3f4f6;
+}
+
+.accordionCategory {
+  flex: 1;
+  color: #1a1a1a;
+  font-weight: 500;
+}
+
+.accordionAmount {
+  color: #333;
+  font-weight: 600;
+}
+
+.accordionChevron {
+  color: #999;
+  font-size: 14px;
+  transition: transform 0.2s ease;
+  display: inline-block;
+}
+
+.accordionChevronOpen {
+  transform: rotate(180deg);
+}
+
+.accordionExpanded {
+  padding: 8px 10px;
+  background: #ffffff;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.accordionDetail {
+  display: flex;
+  justify-content: space-between;
+  font-size: 12px;
+  color: #555;
+  font-family: var(--widget-font, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif);
+}

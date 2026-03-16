@@ -1,0 +1,486 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Project Feedback - {{ company_name }}</title>
+  <style>
+    :root {
+      --primary: {{ primary_color }};
+      --accent: {{ accent_color }};
+      --secondary: {{ secondary_color }};
+    }
+
+    *, *::before, *::after {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+      background: #f9fafb;
+      color: #111827;
+      line-height: 1.6;
+      padding: 1rem;
+    }
+
+    .page-wrapper {
+      max-width: 680px;
+      margin: 2rem auto;
+    }
+
+    /* Header */
+    .header {
+      display: flex;
+      align-items: center;
+      gap: 0.75rem;
+      margin-bottom: 2rem;
+      padding-bottom: 1rem;
+      border-bottom: 2px solid var(--primary);
+    }
+
+    .header img.logo {
+      height: 48px;
+      width: auto;
+      object-fit: contain;
+    }
+
+    .header .company-name {
+      font-size: 1.25rem;
+      font-weight: 700;
+      color: var(--primary);
+    }
+
+    /* Estimate summary card */
+    .estimate-card {
+      background: #fff;
+      border: 1px solid #e5e7eb;
+      border-radius: 8px;
+      padding: 1.5rem;
+      margin-bottom: 1.5rem;
+    }
+
+    .estimate-card h2 {
+      font-size: 1rem;
+      font-weight: 600;
+      color: #374151;
+      margin-bottom: 1rem;
+    }
+
+    .estimate-stats {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 0.75rem;
+      margin-bottom: 1rem;
+    }
+
+    .stat-box {
+      background: var(--secondary);
+      border-radius: 6px;
+      padding: 0.75rem 1rem;
+    }
+
+    .stat-box .stat-label {
+      font-size: 0.75rem;
+      color: #6b7280;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+    }
+
+    .stat-box .stat-value {
+      font-size: 1.125rem;
+      font-weight: 700;
+      color: var(--primary);
+      margin-top: 0.125rem;
+    }
+
+    .cost-breakdown {
+      margin-top: 1rem;
+    }
+
+    .cost-breakdown h3 {
+      font-size: 0.875rem;
+      font-weight: 600;
+      color: #374151;
+      margin-bottom: 0.5rem;
+    }
+
+    .breakdown-table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 0.875rem;
+    }
+
+    .breakdown-table th {
+      text-align: left;
+      padding: 0.375rem 0.5rem;
+      color: #6b7280;
+      border-bottom: 1px solid #e5e7eb;
+      font-weight: 600;
+    }
+
+    .breakdown-table td {
+      padding: 0.375rem 0.5rem;
+      border-bottom: 1px solid #f3f4f6;
+    }
+
+    .assumptions {
+      margin-top: 1rem;
+    }
+
+    .assumptions h3 {
+      font-size: 0.875rem;
+      font-weight: 600;
+      color: #374151;
+      margin-bottom: 0.5rem;
+    }
+
+    .assumptions ul {
+      list-style: none;
+      padding: 0;
+    }
+
+    .assumptions ul li {
+      font-size: 0.8125rem;
+      color: #6b7280;
+      padding: 0.2rem 0;
+      padding-left: 1rem;
+      position: relative;
+    }
+
+    .assumptions ul li::before {
+      content: "\2022";
+      color: var(--primary);
+      position: absolute;
+      left: 0;
+    }
+
+    /* Feedback form card */
+    .form-card {
+      background: #fff;
+      border: 1px solid #e5e7eb;
+      border-radius: 8px;
+      padding: 1.5rem;
+      margin-bottom: 1.5rem;
+    }
+
+    .form-card h2 {
+      font-size: 1rem;
+      font-weight: 600;
+      color: #374151;
+      margin-bottom: 1.25rem;
+    }
+
+    .form-group {
+      margin-bottom: 1.25rem;
+    }
+
+    label {
+      display: block;
+      font-size: 0.875rem;
+      font-weight: 500;
+      color: #374151;
+      margin-bottom: 0.375rem;
+    }
+
+    label .required {
+      color: #ef4444;
+      margin-left: 0.125rem;
+    }
+
+    input[type="number"],
+    select,
+    textarea {
+      width: 100%;
+      padding: 0.5rem 0.75rem;
+      border: 1px solid #d1d5db;
+      border-radius: 6px;
+      font-size: 0.875rem;
+      color: #111827;
+      background: #fff;
+      transition: border-color 0.15s;
+      -webkit-appearance: none;
+    }
+
+    input[type="number"]:focus,
+    select:focus,
+    textarea:focus {
+      outline: none;
+      border-color: var(--primary);
+      box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.1);
+    }
+
+    textarea {
+      resize: vertical;
+      min-height: 100px;
+    }
+
+    /* Star rating */
+    .star-rating {
+      display: flex;
+      gap: 0.5rem;
+      align-items: center;
+    }
+
+    .star-rating input[type="radio"] {
+      display: none;
+    }
+
+    .star-rating label.star {
+      font-size: 2rem;
+      cursor: pointer;
+      color: #d1d5db;
+      transition: color 0.1s;
+      padding: 0;
+      margin: 0;
+      line-height: 1;
+    }
+
+    .star-rating:hover label.star {
+      color: #fbbf24;
+    }
+
+    .star-rating label.star:hover ~ label.star {
+      color: #d1d5db;
+    }
+
+    .star-rating input[type="radio"]:checked ~ label.star {
+      color: #d1d5db;
+    }
+
+    .star-rating input[type="radio"]:checked + label.star,
+    .star-rating input[type="radio"]:checked + label.star ~ label.star {
+      color: #fbbf24;
+    }
+
+    /* Reverse order trick for CSS-only star rating */
+    .star-rating {
+      flex-direction: row-reverse;
+      justify-content: flex-end;
+    }
+
+    .star-rating label.star:hover,
+    .star-rating label.star:hover ~ label.star {
+      color: #fbbf24;
+    }
+
+    .star-rating input[type="radio"]:checked ~ label.star {
+      color: #fbbf24;
+    }
+
+    /* Submit button */
+    .btn-submit {
+      width: 100%;
+      padding: 0.75rem 1.5rem;
+      background: var(--accent);
+      color: #fff;
+      border: none;
+      border-radius: 6px;
+      font-size: 1rem;
+      font-weight: 600;
+      cursor: pointer;
+      transition: opacity 0.15s;
+      margin-top: 0.5rem;
+    }
+
+    .btn-submit:hover:not(:disabled) {
+      opacity: 0.9;
+    }
+
+    .btn-submit:disabled {
+      opacity: 0.6;
+      cursor: not-allowed;
+    }
+
+    /* Footer */
+    .footer {
+      text-align: center;
+      font-size: 0.75rem;
+      color: #9ca3af;
+      padding: 1rem 0;
+    }
+
+    /* Mobile tweaks */
+    @media (max-width: 480px) {
+      .page-wrapper {
+        margin: 1rem auto;
+      }
+
+      .estimate-stats {
+        grid-template-columns: 1fr;
+      }
+
+      .header .company-name {
+        font-size: 1.1rem;
+      }
+    }
+  </style>
+</head>
+<body>
+  <div class="page-wrapper">
+
+    <!-- Header -->
+    <header class="header">
+      {% if logo_url %}
+        <img class="logo" src="{{ logo_url }}" alt="{{ company_name }} logo">
+      {% endif %}
+      <span class="company-name">{{ company_name }}</span>
+    </header>
+
+    <!-- Estimate Summary -->
+    <div class="estimate-card">
+      <h2>Here's what we estimated for {{ project_name }}:</h2>
+
+      <div class="estimate-stats">
+        <div class="stat-box">
+          <div class="stat-label">Expected Cost (P50)</div>
+          <div class="stat-value">${{ "{:,.0f}".format(total_cost_p50) }}</div>
+        </div>
+        <div class="stat-box">
+          <div class="stat-label">High-Side Cost (P80)</div>
+          <div class="stat-value">${{ "{:,.0f}".format(total_cost_p80) }}</div>
+        </div>
+        <div class="stat-box">
+          <div class="stat-label">Expected Timeline (P50)</div>
+          <div class="stat-value">{{ timeline_weeks_p50 }} weeks</div>
+        </div>
+        <div class="stat-box">
+          <div class="stat-label">High-Side Timeline (P80)</div>
+          <div class="stat-value">{{ timeline_weeks_p80 }} weeks</div>
+        </div>
+      </div>
+
+      {% if cost_breakdown %}
+      <div class="cost-breakdown">
+        <h3>Cost Breakdown</h3>
+        <table class="breakdown-table">
+          <thead>
+            <tr>
+              <th>Category</th>
+              <th>Expected</th>
+              <th>High-Side</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for item in cost_breakdown %}
+            <tr>
+              <td>{{ item.category if item.category is defined else item.get('category', '') }}</td>
+              <td>${{ "{:,.0f}".format(item.p50_cost if item.p50_cost is defined else item.get('p50_cost', 0)) }}</td>
+              <td>${{ "{:,.0f}".format(item.p80_cost if item.p80_cost is defined else item.get('p80_cost', 0)) }}</td>
+            </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+      {% endif %}
+
+      {% if assumptions %}
+      <div class="assumptions">
+        <h3>Estimate Assumptions</h3>
+        <ul>
+          {% for assumption in assumptions %}
+          <li>{{ assumption }}</li>
+          {% endfor %}
+        </ul>
+      </div>
+      {% endif %}
+    </div>
+
+    <!-- Feedback Form -->
+    <div class="form-card">
+      <h2>How did the project actually go?</h2>
+
+      <form action="/feedback/form/{{ token }}" method="POST">
+
+        <div class="form-group">
+          <label for="actual_cost">Actual Total Cost<span class="required">*</span></label>
+          <input
+            type="number"
+            id="actual_cost"
+            name="actual_cost"
+            required
+            min="1"
+            step="0.01"
+            placeholder="e.g. 58000"
+          >
+        </div>
+
+        <div class="form-group">
+          <label for="actual_timeline">Actual Timeline (weeks)<span class="required">*</span></label>
+          <input
+            type="number"
+            id="actual_timeline"
+            name="actual_timeline"
+            required
+            min="1"
+            placeholder="e.g. 10"
+          >
+        </div>
+
+        <div class="form-group">
+          <label>Overall Rating<span class="required">*</span></label>
+          <div class="star-rating">
+            <input type="radio" id="star5" name="rating" value="5" required>
+            <label class="star" for="star5" title="5 stars">&#9733;</label>
+            <input type="radio" id="star4" name="rating" value="4">
+            <label class="star" for="star4" title="4 stars">&#9733;</label>
+            <input type="radio" id="star3" name="rating" value="3">
+            <label class="star" for="star3" title="3 stars">&#9733;</label>
+            <input type="radio" id="star2" name="rating" value="2">
+            <label class="star" for="star2" title="2 stars">&#9733;</label>
+            <input type="radio" id="star1" name="rating" value="1">
+            <label class="star" for="star1" title="1 star">&#9733;</label>
+          </div>
+        </div>
+
+        <div class="form-group">
+          <label for="discrepancy_reason_primary">
+            Primary Reason for Estimate vs. Actual Difference<span class="required">*</span>
+          </label>
+          <select id="discrepancy_reason_primary" name="discrepancy_reason_primary" required>
+            <option value="" disabled selected>Select a reason...</option>
+            {% for value, label in discrepancy_reasons %}
+            <option value="{{ value }}">{{ label }}</option>
+            {% endfor %}
+          </select>
+        </div>
+
+        <div class="form-group">
+          <label for="discrepancy_reason_secondary">Secondary Reason (optional)</label>
+          <select id="discrepancy_reason_secondary" name="discrepancy_reason_secondary">
+            <option value="">None</option>
+            {% for value, label in discrepancy_reasons %}
+            <option value="{{ value }}">{{ label }}</option>
+            {% endfor %}
+          </select>
+        </div>
+
+        <div class="form-group">
+          <label for="comment">Additional Feedback (optional)</label>
+          <textarea
+            id="comment"
+            name="comment"
+            maxlength="2000"
+            placeholder="Any additional feedback about the estimate or project..."
+          ></textarea>
+        </div>
+
+        <button type="submit" class="btn-submit">Submit Feedback</button>
+      </form>
+    </div>
+
+    <footer class="footer">
+      Powered by efOfX
+    </footer>
+  </div>
+
+  <script>
+    document.querySelector('form').addEventListener('submit', function(e) {
+      const btn = this.querySelector('button[type="submit"]');
+      btn.disabled = true;
+      btn.textContent = 'Submitting...';
+    });
+  </script>
+</body>
+</html>

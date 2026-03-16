@@ -8,7 +8,6 @@ and upload management.
 import os
 import uuid
 import logging
-from typing import Optional
 from fastapi import UploadFile
 
 from app.core.config import settings
@@ -32,20 +31,20 @@ async def save_uploaded_file(file: UploadFile, session_id: str) -> str:
         # Create upload directory if it doesn't exist
         upload_dir = os.path.join(settings.UPLOAD_DIR, session_id)
         os.makedirs(upload_dir, exist_ok=True)
-        
+
         # Generate unique filename
         file_extension = os.path.splitext(file.filename)[1]
         unique_filename = f"{uuid.uuid4().hex}{file_extension}"
         file_path = os.path.join(upload_dir, unique_filename)
-        
+
         # Save file
         with open(file_path, "wb") as buffer:
             content = await file.read()
             buffer.write(content)
-        
+
         # Return file URL (in production, this would be a cloud storage URL)
         return f"/uploads/{session_id}/{unique_filename}"
-        
+
     except Exception as e:
         logger.error(f"Error saving uploaded file: {e}")
         raise
@@ -64,4 +63,4 @@ def is_valid_image_extension(extension: str) -> bool:
 
 def generate_file_url(session_id: str, filename: str) -> str:
     """Generate file URL for uploaded file."""
-    return f"https://storage.efofx.ai/uploads/{session_id}/{filename}" 
+    return f"https://storage.efofx.ai/uploads/{session_id}/{filename}"

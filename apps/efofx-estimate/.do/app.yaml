@@ -7,7 +7,7 @@ region: nyc
 services:
   - name: efofx-api
     # Source configuration
-    source_dir: /apps/efofx-estimate
+    source_dir: /
     github:
       repo: brettlee/efofx-workspace  # TODO: Update with actual GitHub repo
       branch: main
@@ -15,8 +15,8 @@ services:
 
     # Build & Runtime
     environment_slug: python
-    build_command: pip install -r requirements.txt
-    run_command: gunicorn -w 2 -k uvicorn.workers.UvicornWorker --bind 0.0.0.0:8080 app.main:app
+    build_command: pip install -r apps/efofx-estimate/requirements.txt && pip install packages/efofx-shared/
+    run_command: cd apps/efofx-estimate && gunicorn -w 2 -k uvicorn.workers.UvicornWorker --bind 0.0.0.0:8080 app.main:app
 
     # Instance configuration
     instance_count: 1
@@ -102,7 +102,7 @@ services:
         scope: RUN_TIME
         type: SECRET
       - key: OPENAI_MODEL
-        value: "gpt-4"
+        value: "gpt-4o-mini"
       - key: OPENAI_MAX_TOKENS
         value: "4000"
       - key: OPENAI_TEMPERATURE
@@ -110,6 +110,9 @@ services:
 
       # BYOK Encryption
       - key: ENCRYPTION_KEY
+        scope: RUN_TIME
+        type: SECRET
+      - key: MASTER_ENCRYPTION_KEY
         scope: RUN_TIME
         type: SECRET
 
@@ -128,6 +131,21 @@ services:
         value: "true"
       - key: RATE_LIMIT_PER_MINUTE
         value: "60"
+
+      # Valkey Cache
+      - key: VALKEY_URL
+        scope: RUN_TIME
+        type: SECRET
+
+      # Email (Resend)
+      - key: RESEND_API_KEY
+        scope: RUN_TIME
+        type: SECRET
+
+      # Application URLs
+      - key: APP_BASE_URL
+        value: "https://app.efofx.ai"
+        scope: RUN_TIME
 
       # Estimation Settings
       - key: MAX_ESTIMATION_SESSIONS

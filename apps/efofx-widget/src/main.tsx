@@ -102,9 +102,12 @@ export function init(config: Partial<WidgetConfig> = {}): { destroy: () => void 
   }
 }
 
-// Auto-initialize in dev mode
+// Auto-initialize in dev mode with demo tenant
 if (import.meta.env.DEV) {
-  init();
+  init({
+    apiKey: import.meta.env.VITE_DEMO_API_KEY || '',
+    mode: 'floating',
+  });
 }
 
 // IIFE export

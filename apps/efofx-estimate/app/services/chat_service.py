@@ -374,6 +374,18 @@ class ChatService:
                         ctx.project_size = f"{match.group(1)} sq ft"
                     break
 
+            # Fallback: extract length/width from natural language
+            # e.g. "50 feet long", "about 20 feet wide", "8 ft deep"
+            if ctx.project_size is None:
+                dimensions = re.findall(
+                    r"(?:about\s+)?(\d+)\s*(?:feet|ft|foot)\s*(?:long|wide|deep|in\s+(?:length|width|depth))?",  # noqa: E501
+                    msg_lower,
+                )
+                if len(dimensions) >= 2:
+                    ctx.project_size = f"{dimensions[0]}x{dimensions[1]} feet"
+                elif len(dimensions) == 1:
+                    ctx.project_size = f"{dimensions[0]} feet"
+
         # Location — check for known regions or general location patterns
         if ctx.location is None:
             location_keywords = {
@@ -403,6 +415,13 @@ class ChatService:
                 "las vegas": "Nevada - Las Vegas",
                 "henderson": "Nevada - Las Vegas",
                 "reno": "Nevada - Reno",
+                "oceanside": "SoCal - Coastal",
+                "carlsbad": "SoCal - Coastal",
+                "encinitas": "SoCal - Coastal",
+                "vista": "SoCal - Coastal",
+                "escondido": "SoCal - Inland",
+                "temecula": "SoCal - Inland",
+                "murrieta": "SoCal - Inland",
                 "arizona": "Arizona - Phoenix",
                 "nevada": "Nevada - Las Vegas",
                 "california": "NorCal - Bay Area",
@@ -423,14 +442,28 @@ class ChatService:
                     if len(raw_location) > 2 and raw_location not in {"the", "a", "an"}:
                         ctx.location = raw_location.title()
 
+            # Last resort: check for "City, State" pattern without preposition
+            if ctx.location is None:
+                city_state_match = re.search(
+                    r"([A-Za-z\s]+),\s*([A-Za-z\s]+)",
+                    user_message,  # use original case
+                )
+                if city_state_match:
+                    city = city_state_match.group(1).strip()
+                    if len(city) > 2 and city.lower() not in {"the", "a", "an", "yes", "no"}:
+                        ctx.location = f"{city}, {city_state_match.group(2).strip()}"
+
         # Timeline — check for time references
         if ctx.timeline is None:
             timeline_patterns = [
                 r"(?:spring|summer|fall|autumn|winter)\s*(?:\d{4})?",
                 r"(?:january|february|march|april|may|june|july|august|september|october|november|december)(?:\s+\d{4})?",  # noqa: E501
                 r"\d+\s*(?:weeks?|months?|years?)",
+                r"(?:one|two|three|four|five|six|seven|eight|nine|ten|eleven|twelve)\s+(?:weeks?|months?|years?)",  # noqa: E501
+                r"(?:a\s+)?(?:couple|few|several)\s+(?:weeks?|months?|years?)",
                 r"asap|as soon as possible",
                 r"next\s+(?:month|year|spring|summer|fall|winter)",
+                r"(?:within|in)\s+(?:the\s+)?(?:next\s+)?(?:\d+|one|two|three|four|five|six|seven|eight|nine|ten|eleven|twelve|a\s+couple|a\s+few|several)\s+(?:weeks?|months?|years?)",  # noqa: E501
                 r"by\s+(?:the\s+)?(?:end\s+of\s+)?(?:spring|summer|fall|winter|\d{4}|next)",  # noqa: E501
             ]
             for pattern in timeline_patterns:

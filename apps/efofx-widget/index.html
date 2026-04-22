@@ -2,11 +2,539 @@
 <html lang="en">
   <head>
     <meta charset="UTF-8" />
-    <link rel="icon" type="image/svg+xml" href="/vite.svg" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>efofx-widget</title>
+    <title>Acme General Contracting | Quality You Can Trust</title>
+    <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🏠</text></svg>" />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Playfair+Display:wght@700&display=swap" rel="stylesheet" />
+    <style>
+      *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+      :root {
+        --acme-navy: #1a2744;
+        --acme-gold: #c8953e;
+        --acme-gold-light: #dbb06b;
+        --acme-slate: #334155;
+        --acme-light: #f8fafc;
+        --acme-white: #ffffff;
+        --acme-gray: #64748b;
+        --acme-border: #e2e8f0;
+        --font-body: 'Inter', system-ui, -apple-system, sans-serif;
+        --font-heading: 'Playfair Display', Georgia, serif;
+      }
+
+      body {
+        font-family: var(--font-body);
+        color: var(--acme-slate);
+        line-height: 1.6;
+        background: var(--acme-white);
+        -webkit-font-smoothing: antialiased;
+      }
+
+      /* ── NAV ── */
+      .nav {
+        background: var(--acme-navy);
+        padding: 0 2rem;
+        position: sticky;
+        top: 0;
+        z-index: 100;
+        box-shadow: 0 2px 8px rgba(0,0,0,0.15);
+      }
+      .nav-inner {
+        max-width: 1200px;
+        margin: 0 auto;
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        height: 72px;
+      }
+      .nav-logo {
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        text-decoration: none;
+      }
+      .nav-logo-icon {
+        width: 40px;
+        height: 40px;
+        background: var(--acme-gold);
+        border-radius: 6px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-weight: 700;
+        color: var(--acme-white);
+        font-size: 18px;
+        font-family: var(--font-body);
+      }
+      .nav-logo-text {
+        color: var(--acme-white);
+        font-family: var(--font-heading);
+        font-size: 1.25rem;
+        letter-spacing: 0.5px;
+      }
+      .nav-logo-text span { color: var(--acme-gold-light); }
+      .nav-links {
+        display: flex;
+        align-items: center;
+        gap: 2rem;
+        list-style: none;
+      }
+      .nav-links a {
+        color: rgba(255,255,255,0.8);
+        text-decoration: none;
+        font-size: 0.9rem;
+        font-weight: 500;
+        transition: color 0.2s;
+      }
+      .nav-links a:hover { color: var(--acme-gold-light); }
+      .nav-phone {
+        color: var(--acme-gold-light) !important;
+        font-weight: 600 !important;
+        font-size: 0.95rem !important;
+      }
+
+      /* ── HERO ── */
+      .hero {
+        background: linear-gradient(135deg, var(--acme-navy) 0%, #2a3f6a 100%);
+        padding: 6rem 2rem;
+        text-align: center;
+        position: relative;
+        overflow: hidden;
+      }
+      .hero::before {
+        content: '';
+        position: absolute;
+        inset: 0;
+        background: url("data:image/svg+xml,%3Csvg width='60' height='60' viewBox='0 0 60 60' xmlns='http://www.w3.org/2000/svg'%3E%3Cg fill='none' fill-rule='evenodd'%3E%3Cg fill='%23ffffff' fill-opacity='0.03'%3E%3Cpath d='M36 34v-4h-2v4h-4v2h4v4h2v-4h4v-2h-4zm0-30V0h-2v4h-4v2h4v4h2V6h4V4h-4zM6 34v-4H4v4H0v2h4v4h2v-4h4v-2H6zM6 4V0H4v4H0v2h4v4h2V6h4V4H6z'/%3E%3C/g%3E%3C/g%3E%3C/svg%3E") repeat;
+      }
+      .hero-content {
+        position: relative;
+        max-width: 800px;
+        margin: 0 auto;
+      }
+      .hero h1 {
+        font-family: var(--font-heading);
+        font-size: 3rem;
+        color: var(--acme-white);
+        margin-bottom: 1rem;
+        line-height: 1.2;
+      }
+      .hero h1 em {
+        font-style: normal;
+        color: var(--acme-gold-light);
+      }
+      .hero p {
+        color: rgba(255,255,255,0.75);
+        font-size: 1.15rem;
+        max-width: 600px;
+        margin: 0 auto 2rem;
+      }
+      .hero-cta {
+        display: inline-flex;
+        align-items: center;
+        gap: 8px;
+        background: var(--acme-gold);
+        color: var(--acme-white);
+        padding: 14px 32px;
+        border-radius: 6px;
+        text-decoration: none;
+        font-weight: 600;
+        font-size: 1rem;
+        transition: background 0.2s, transform 0.2s;
+      }
+      .hero-cta:hover { background: var(--acme-gold-light); transform: translateY(-1px); }
+
+      /* ── TRUST BAR ── */
+      .trust-bar {
+        background: var(--acme-light);
+        border-bottom: 1px solid var(--acme-border);
+        padding: 1.25rem 2rem;
+      }
+      .trust-bar-inner {
+        max-width: 1200px;
+        margin: 0 auto;
+        display: flex;
+        justify-content: center;
+        gap: 3rem;
+        flex-wrap: wrap;
+      }
+      .trust-item {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        font-size: 0.85rem;
+        color: var(--acme-gray);
+        font-weight: 500;
+      }
+      .trust-item strong { color: var(--acme-slate); }
+
+      /* ── SECTIONS ── */
+      .section {
+        padding: 5rem 2rem;
+        max-width: 1200px;
+        margin: 0 auto;
+      }
+      .section-header {
+        text-align: center;
+        margin-bottom: 3rem;
+      }
+      .section-header h2 {
+        font-family: var(--font-heading);
+        font-size: 2rem;
+        color: var(--acme-navy);
+        margin-bottom: 0.75rem;
+      }
+      .section-header p {
+        color: var(--acme-gray);
+        font-size: 1.05rem;
+        max-width: 600px;
+        margin: 0 auto;
+      }
+
+      /* ── SERVICES ── */
+      .services-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+        gap: 1.5rem;
+      }
+      .service-card {
+        background: var(--acme-white);
+        border: 1px solid var(--acme-border);
+        border-radius: 10px;
+        padding: 2rem;
+        transition: box-shadow 0.2s, transform 0.2s;
+      }
+      .service-card:hover {
+        box-shadow: 0 8px 24px rgba(0,0,0,0.08);
+        transform: translateY(-2px);
+      }
+      .service-icon {
+        width: 48px;
+        height: 48px;
+        background: linear-gradient(135deg, var(--acme-navy), #2a3f6a);
+        border-radius: 10px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 1.4rem;
+        margin-bottom: 1rem;
+      }
+      .service-card h3 {
+        font-size: 1.1rem;
+        color: var(--acme-navy);
+        margin-bottom: 0.5rem;
+        font-weight: 600;
+      }
+      .service-card p {
+        font-size: 0.9rem;
+        color: var(--acme-gray);
+        line-height: 1.6;
+      }
+
+      /* ── TESTIMONIALS ── */
+      .testimonials {
+        background: var(--acme-light);
+      }
+      .testimonials .section {
+        padding: 5rem 2rem;
+      }
+      .testimonials-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+        gap: 1.5rem;
+      }
+      .testimonial-card {
+        background: var(--acme-white);
+        border-radius: 10px;
+        padding: 1.75rem;
+        box-shadow: 0 1px 4px rgba(0,0,0,0.06);
+      }
+      .testimonial-stars {
+        color: var(--acme-gold);
+        font-size: 0.9rem;
+        margin-bottom: 0.75rem;
+        letter-spacing: 2px;
+      }
+      .testimonial-card blockquote {
+        font-size: 0.95rem;
+        color: var(--acme-slate);
+        line-height: 1.7;
+        margin-bottom: 1rem;
+        font-style: italic;
+      }
+      .testimonial-author {
+        font-size: 0.85rem;
+        font-weight: 600;
+        color: var(--acme-navy);
+      }
+      .testimonial-author span {
+        font-weight: 400;
+        color: var(--acme-gray);
+      }
+
+      /* ── CTA BANNER ── */
+      .cta-banner {
+        background: linear-gradient(135deg, var(--acme-navy), #2a3f6a);
+        padding: 4rem 2rem;
+        text-align: center;
+      }
+      .cta-banner h2 {
+        font-family: var(--font-heading);
+        color: var(--acme-white);
+        font-size: 2rem;
+        margin-bottom: 0.75rem;
+      }
+      .cta-banner p {
+        color: rgba(255,255,255,0.7);
+        margin-bottom: 1.5rem;
+        font-size: 1.05rem;
+      }
+      .cta-banner .hero-cta {
+        font-size: 1.05rem;
+      }
+
+      /* ── FOOTER ── */
+      .footer {
+        background: #0f1a2e;
+        color: rgba(255,255,255,0.5);
+        padding: 3rem 2rem;
+      }
+      .footer-inner {
+        max-width: 1200px;
+        margin: 0 auto;
+        display: grid;
+        grid-template-columns: 2fr 1fr 1fr 1fr;
+        gap: 2rem;
+      }
+      .footer-brand p {
+        font-size: 0.85rem;
+        line-height: 1.7;
+        margin-top: 0.75rem;
+      }
+      .footer h4 {
+        color: var(--acme-white);
+        font-size: 0.85rem;
+        text-transform: uppercase;
+        letter-spacing: 1px;
+        margin-bottom: 1rem;
+      }
+      .footer ul { list-style: none; }
+      .footer ul li { margin-bottom: 0.5rem; }
+      .footer ul a {
+        color: rgba(255,255,255,0.5);
+        text-decoration: none;
+        font-size: 0.85rem;
+        transition: color 0.2s;
+      }
+      .footer ul a:hover { color: var(--acme-gold-light); }
+      .footer-bottom {
+        max-width: 1200px;
+        margin: 2rem auto 0;
+        padding-top: 1.5rem;
+        border-top: 1px solid rgba(255,255,255,0.08);
+        display: flex;
+        justify-content: space-between;
+        font-size: 0.8rem;
+      }
+
+      /* ── DEV BANNER ── */
+      .dev-banner {
+        background: #fef3c7;
+        border-bottom: 1px solid #f59e0b;
+        padding: 8px 2rem;
+        text-align: center;
+        font-size: 0.8rem;
+        color: #92400e;
+        font-weight: 500;
+      }
+      .dev-banner code {
+        background: rgba(0,0,0,0.08);
+        padding: 2px 6px;
+        border-radius: 3px;
+        font-size: 0.75rem;
+      }
+
+      /* ── RESPONSIVE ── */
+      @media (max-width: 768px) {
+        .nav-links { display: none; }
+        .hero h1 { font-size: 2rem; }
+        .hero { padding: 4rem 1.5rem; }
+        .footer-inner { grid-template-columns: 1fr; }
+        .trust-bar-inner { gap: 1.5rem; }
+        .footer-bottom { flex-direction: column; gap: 0.5rem; }
+      }
+    </style>
   </head>
+
   <body>
+    <!-- Dev-mode banner -->
+    <div class="dev-banner">
+      Demo Site &mdash; This is a test harness for the efOfX chat widget. Configure API via <code>VITE_API_URL</code> in your <code>.env</code>
+    </div>
+
+    <!-- Navigation -->
+    <nav class="nav">
+      <div class="nav-inner">
+        <a href="#" class="nav-logo">
+          <div class="nav-logo-icon">A</div>
+          <div class="nav-logo-text">Acme <span>General Contracting</span></div>
+        </a>
+        <ul class="nav-links">
+          <li><a href="#services">Services</a></li>
+          <li><a href="#testimonials">Reviews</a></li>
+          <li><a href="#about">About</a></li>
+          <li><a href="#contact">Contact</a></li>
+          <li><a href="tel:+15555550123" class="nav-phone">(555) 555-0123</a></li>
+        </ul>
+      </div>
+    </nav>
+
+    <!-- Hero -->
+    <section class="hero">
+      <div class="hero-content">
+        <h1>Build Your Dream Home with <em>Confidence</em></h1>
+        <p>From kitchen remodels to full home builds, Acme General Contracting delivers quality craftsmanship backed by transparent pricing. Get a free instant estimate today.</p>
+        <a href="#contact" class="hero-cta">Get a Free Estimate &rarr;</a>
+      </div>
+    </section>
+
+    <!-- Trust Bar -->
+    <div class="trust-bar">
+      <div class="trust-bar-inner">
+        <div class="trust-item"><strong>25+</strong> Years Experience</div>
+        <div class="trust-item"><strong>1,200+</strong> Projects Completed</div>
+        <div class="trust-item"><strong>4.9</strong> &#9733; Google Rating</div>
+        <div class="trust-item"><strong>Licensed</strong> &amp; Insured</div>
+        <div class="trust-item"><strong>Free</strong> Estimates</div>
+      </div>
+    </div>
+
+    <!-- Services -->
+    <section class="section" id="services">
+      <div class="section-header">
+        <h2>Our Services</h2>
+        <p>Full-service residential and commercial contracting for projects of all sizes</p>
+      </div>
+      <div class="services-grid">
+        <div class="service-card">
+          <div class="service-icon">&#127968;</div>
+          <h3>Kitchen Remodeling</h3>
+          <p>Complete kitchen transformations including cabinetry, countertops, flooring, plumbing, and electrical. Custom designs to fit your lifestyle and budget.</p>
+        </div>
+        <div class="service-card">
+          <div class="service-icon">&#128705;</div>
+          <h3>Bathroom Renovation</h3>
+          <p>Modern bathroom upgrades from simple refreshes to luxury spa-like retreats. Tile work, fixtures, vanities, and accessibility modifications.</p>
+        </div>
+        <div class="service-card">
+          <div class="service-icon">&#127969;</div>
+          <h3>Home Additions</h3>
+          <p>Expand your living space with expertly built room additions, second stories, and garage conversions. Fully permitted and code-compliant.</p>
+        </div>
+        <div class="service-card">
+          <div class="service-icon">&#128736;</div>
+          <h3>General Repairs</h3>
+          <p>Drywall, painting, flooring, doors, windows, and structural repairs. No job too small. We handle the details so you don't have to.</p>
+        </div>
+        <div class="service-card">
+          <div class="service-icon">&#127795;</div>
+          <h3>Outdoor Living</h3>
+          <p>Decks, patios, pergolas, outdoor kitchens, and fencing. Create the perfect outdoor space for entertaining and relaxation.</p>
+        </div>
+        <div class="service-card">
+          <div class="service-icon">&#9889;</div>
+          <h3>Commercial Build-Outs</h3>
+          <p>Office renovations, retail spaces, and tenant improvements. On-time, on-budget commercial construction you can count on.</p>
+        </div>
+      </div>
+    </section>
+
+    <!-- Testimonials -->
+    <section class="testimonials" id="testimonials">
+      <div class="section">
+        <div class="section-header">
+          <h2>What Our Clients Say</h2>
+          <p>Real reviews from real homeowners in the greater metro area</p>
+        </div>
+        <div class="testimonials-grid">
+          <div class="testimonial-card">
+            <div class="testimonial-stars">&#9733;&#9733;&#9733;&#9733;&#9733;</div>
+            <blockquote>"Acme completely transformed our 1970s kitchen into a modern showpiece. The team was professional, clean, and finished two days ahead of schedule. We couldn't be happier with the result."</blockquote>
+            <div class="testimonial-author">Sarah M. <span>&mdash; Kitchen Remodel, Oakwood Heights</span></div>
+          </div>
+          <div class="testimonial-card">
+            <div class="testimonial-stars">&#9733;&#9733;&#9733;&#9733;&#9733;</div>
+            <blockquote>"We got quotes from five contractors for our master bath. Acme wasn't the cheapest, but their detailed estimate and transparent pricing made us confident they were the right choice. Worth every penny."</blockquote>
+            <div class="testimonial-author">James &amp; Linda T. <span>&mdash; Bathroom Renovation, Riverside</span></div>
+          </div>
+          <div class="testimonial-card">
+            <div class="testimonial-stars">&#9733;&#9733;&#9733;&#9733;&#9733;</div>
+            <blockquote>"From the first conversation to final walkthrough, Acme was top-notch. They built a beautiful 400 sq ft addition that blends perfectly with our existing home. Highly recommend."</blockquote>
+            <div class="testimonial-author">David R. <span>&mdash; Home Addition, Maplewood</span></div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- About (brief) -->
+    <section class="section" id="about">
+      <div class="section-header">
+        <h2>Why Choose Acme?</h2>
+        <p>Family-owned since 1999, Acme General Contracting has built its reputation on honest pricing, quality materials, and crews that treat your home like their own.</p>
+      </div>
+    </section>
+
+    <!-- CTA Banner -->
+    <section class="cta-banner" id="contact">
+      <h2>Ready to Start Your Project?</h2>
+      <p>Chat with us now for a free, no-obligation instant estimate.</p>
+      <a href="#" class="hero-cta" id="cta-estimate">Get Your Estimate &rarr;</a>
+    </section>
+
+    <!-- Footer -->
+    <footer class="footer">
+      <div class="footer-inner">
+        <div class="footer-brand">
+          <div style="font-family: var(--font-heading); color: #fff; font-size: 1.1rem;">Acme General Contracting</div>
+          <p>Proudly serving the greater metro area for over 25 years. Licensed, bonded, and insured. License #12345678.</p>
+        </div>
+        <div>
+          <h4>Services</h4>
+          <ul>
+            <li><a href="#">Kitchen Remodeling</a></li>
+            <li><a href="#">Bathroom Renovation</a></li>
+            <li><a href="#">Home Additions</a></li>
+            <li><a href="#">General Repairs</a></li>
+          </ul>
+        </div>
+        <div>
+          <h4>Company</h4>
+          <ul>
+            <li><a href="#">About Us</a></li>
+            <li><a href="#">Our Work</a></li>
+            <li><a href="#">Careers</a></li>
+            <li><a href="#">Blog</a></li>
+          </ul>
+        </div>
+        <div>
+          <h4>Contact</h4>
+          <ul>
+            <li><a href="#">(555) 555-0123</a></li>
+            <li><a href="#">info@acmegc.com</a></li>
+            <li><a href="#">123 Builder Lane</a></li>
+            <li><a href="#">Mon-Fri 7am-5pm</a></li>
+          </ul>
+        </div>
+      </div>
+      <div class="footer-bottom">
+        <span>&copy; 2024 Acme General Contracting. All rights reserved.</span>
+        <span>This is a demo site for efOfX widget testing.</span>
+      </div>
+    </footer>
+
+    <!-- efOfX Widget (loaded via Vite dev server) -->
     <div id="root"></div>
     <script type="module" src="/src/main.tsx"></script>
   </body>

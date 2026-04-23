@@ -31,7 +31,7 @@ pub use feedback::{
 };
 pub use geo::Region;
 pub use ids::{SessionId, TenantId};
-pub use reference::{ReferenceClass, ReferenceClassCategory};
+pub use reference::{CostDistribution, ReferenceClass, ReferenceProject, TimelineDistribution};
 pub use scoping::{
     extract_scoping, is_confirmation, is_explicit_estimate_trigger, CONFIRMATION_WORDS,
     ESTIMATE_TRIGGER_PHRASES,

@@ -6,10 +6,10 @@ use utoipa::OpenApi;
 
 use efofx_domain::{
     AdjustmentFactor, AnalyticsEventType, BrandingConfig, ChatMessage, ChatSession, ChatStatus,
-    ConsultationRequest, CostBreakdownCategory, CostCategoryEstimate, DiscrepancyReason,
-    EstimateSnapshot, EstimationOutput, EstimationStatus, FeedbackDocument, FeedbackSubmission,
-    FeedbackSummary, Lead, LeadStatus, MessageRole, ReferenceClass, ReferenceClassCategory, Region,
-    ScopingContext, Tenant, TenantTier,
+    ConsultationRequest, CostBreakdownCategory, CostCategoryEstimate, CostDistribution,
+    DiscrepancyReason, EstimateSnapshot, EstimationOutput, EstimationStatus, FeedbackDocument,
+    FeedbackSubmission, FeedbackSummary, Lead, LeadStatus, MessageRole, ReferenceClass,
+    ReferenceProject, Region, ScopingContext, Tenant, TenantTier, TimelineDistribution,
 };
 use efofx_openapi::{ApiError, ApiErrorDetail, ResponseMeta, SecurityAddon};
 use efofx_storage::HealthStatus;
@@ -98,7 +98,9 @@ use crate::api;
         // Geo / reference
         Region,
         ReferenceClass,
-        ReferenceClassCategory,
+        ReferenceProject,
+        CostDistribution,
+        TimelineDistribution,
         // Widget
         BrandingConfig,
         Lead,

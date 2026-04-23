@@ -10,6 +10,7 @@
 
 pub mod auth;
 pub mod chat;
+pub mod estimation;
 pub mod health;
 pub mod mongo;
 pub mod reference;
@@ -17,6 +18,7 @@ pub mod tenant_context;
 pub mod tenants;
 
 pub use chat::{ChatRepo, DEFAULT_SESSION_TTL_HOURS};
+pub use estimation::EstimationRepo;
 pub use health::HealthStatus;
 pub use mongo::MongoAdapter;
 pub use reference::{decode_reference_class, ReferenceRepo};

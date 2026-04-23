@@ -24,7 +24,7 @@ pub use analytics::AnalyticsEventType;
 pub use chat::{ChatMessage, ChatSession, ChatStatus, MessageRole, ScopingContext, TokenUsage};
 pub use estimation::{
     AdjustmentFactor, CostBreakdownCategory, CostCategoryEstimate, EstimationOutput,
-    EstimationStatus,
+    EstimationSession, EstimationSessionId, EstimationStatus,
 };
 pub use feedback::{
     DiscrepancyReason, EstimateSnapshot, FeedbackDocument, FeedbackSubmission, FeedbackSummary,

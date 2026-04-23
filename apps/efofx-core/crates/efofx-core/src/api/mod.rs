@@ -37,10 +37,11 @@ pub(crate) fn not_implemented(description: &'static str) -> impl IntoResponse {
     )
 }
 
-/// Assemble the `/v1/*` router.
-pub fn router() -> Router<Arc<AppState>> {
+/// Assemble the `/v1/*` router. Identity routes are fully wired in Phase
+/// 2A; the rest remain 501 stubs until their phase ships.
+pub fn router(state: Arc<AppState>) -> Router<Arc<AppState>> {
     Router::new()
-        .merge(identity::routes())
+        .merge(identity::routes(state))
         .merge(chat::routes())
         .merge(estimation::routes())
         .merge(widget::routes())

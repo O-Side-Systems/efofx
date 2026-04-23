@@ -7,6 +7,10 @@ license.workspace = true
 repository.workspace = true
 description = "efofx platform core HTTP server (Axum). Hosts the authoritative API for chat, estimation, widget, feedback, and partner routing."
 
+[lib]
+name = "efofx_core"
+path = "src/lib.rs"
+
 [[bin]]
 name = "efofx-core"
 path = "src/main.rs"
@@ -16,6 +20,8 @@ efofx-domain.workspace = true
 efofx-config.workspace = true
 efofx-storage.workspace = true
 efofx-openapi.workspace = true
+efofx-auth.workspace = true
+efofx-crypto.workspace = true
 
 tokio.workspace = true
 axum.workspace = true
@@ -32,6 +38,19 @@ thiserror.workspace = true
 anyhow.workspace = true
 uuid.workspace = true
 utoipa.workspace = true
+reqwest.workspace = true
+time.workspace = true
+
+[dev-dependencies]
+tower.workspace = true
+hyper.workspace = true
+http-body-util = "0.1"
+jsonwebtoken.workspace = true
+wiremock = "0.6"
+rsa = { version = "0.9", features = ["sha2"] }
+rand = "0.8"
+base64 = "0.22"
+serde_json.workspace = true
 
 [lints.rust]
 unsafe_code = "forbid"

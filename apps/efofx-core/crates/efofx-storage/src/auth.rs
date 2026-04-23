@@ -52,7 +52,11 @@ impl MasterKey {
         }
     }
 
-    pub(crate) fn as_bytes(&self) -> &[u8] {
+    /// Expose the raw key bytes. Intentionally `pub` — the only way to
+    /// obtain a [`MasterKey`] is through [`Self::from_bytes`] or
+    /// [`Self::from_config_str`], both of which run the length check.
+    /// Downstream crypto crates need the raw bytes to feed HKDF/HMAC.
+    pub fn as_bytes(&self) -> &[u8] {
         &self.0
     }
 }

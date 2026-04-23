@@ -66,6 +66,36 @@ pub async fn widget_api_key(
     Ok(next.run(req).await)
 }
 
+/// Accept either a Supabase JWT or a widget API key. Widget keys are
+/// checked first because their detection is cheap (prefix on the bearer
+/// value or presence of `X-Api-Key`); a JWT verification is fall-through
+/// when neither widget signal is present.
+pub async fn either_auth(
+    State(state): State<AuthState>,
+    mut req: Request,
+    next: Next,
+) -> Result<Response, AuthError> {
+    if let Ok(raw) = extract_api_key(&req) {
+        let ctx = state
+            .resolver
+            .resolve_by_api_key(&raw, &state.api_key)
+            .await?;
+        req.extensions_mut().insert(ctx);
+        return Ok(next.run(req).await);
+    }
+
+    let token = extract_bearer(&req)?;
+    let claims = verify_jwt(&state, &token).await?;
+    let input = ProvisionInput {
+        supabase_user_id: claims.sub,
+        email: claims.email,
+        company_name: claims.user_metadata.company_name,
+    };
+    let ctx = state.resolver.resolve_or_provision(input).await?;
+    req.extensions_mut().insert(ctx);
+    Ok(next.run(req).await)
+}
+
 // ---------------------------------------------------------------------------
 // Internal helpers
 // ---------------------------------------------------------------------------

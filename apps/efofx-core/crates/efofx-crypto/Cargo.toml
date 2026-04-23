@@ -1,0 +1,20 @@
+[package]
+name = "efofx-crypto"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+description = "BYOK crypto primitives — per-tenant HKDF-SHA256 key derivation + Fernet encryption. Wire-compatible with the Python efofx_shared.utils.crypto module."
+
+[dependencies]
+efofx-domain.workspace = true
+
+thiserror.workspace = true
+hkdf = "0.12"
+sha2 = "0.10"
+fernet = "0.2"
+base64 = "0.22"
+
+[lints.rust]
+unsafe_code = "forbid"

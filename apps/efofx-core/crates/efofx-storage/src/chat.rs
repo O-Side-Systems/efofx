@@ -457,6 +457,39 @@ impl ChatRepo {
             .ok_or(StorageError::NotFound)?;
         Ok(updated.token_usage.into_domain())
     }
+
+    /// Sum `token_usage.total_tokens` across every session this tenant has.
+    /// Returns 0 when the tenant has no sessions.
+    ///
+    /// This is an O(n_sessions) aggregation — acceptable at demo scale
+    /// (sessions per tenant measured in dozens, TTL-expired after 24h).
+    /// If a tenant's cardinality climbs, swap this for a dedicated
+    /// counter on the tenant doc maintained by
+    /// `increment_token_usage`.
+    pub async fn tenant_total_tokens(&self, ctx: &TenantContext) -> Result<u64, StorageError> {
+        use futures::stream::TryStreamExt;
+
+        let pipeline = vec![
+            doc! { "$match": { "tenant_id": ctx.tenant_id().to_string() } },
+            doc! {
+                "$group": {
+                    "_id": null,
+                    "total": { "$sum": "$token_usage.total_tokens" },
+                }
+            },
+        ];
+        let mut cursor = self.docs_collection().aggregate(pipeline).await?;
+        if let Some(doc) = cursor.try_next().await? {
+            // `$sum` returns i64 from mongo; clamp to u64.
+            if let Ok(n) = doc.get_i64("total") {
+                return Ok(n.max(0) as u64);
+            }
+            if let Ok(n) = doc.get_i32("total") {
+                return Ok(n.max(0) as u64);
+            }
+        }
+        Ok(0)
+    }
 }
 
 #[cfg(test)]

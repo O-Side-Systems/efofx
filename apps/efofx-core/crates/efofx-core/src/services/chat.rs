@@ -45,6 +45,8 @@ pub enum ChatServiceError {
     MessageLimitExceeded { limit: u32 },
     #[error("token budget ({limit}) exceeded on session")]
     TokenBudgetExceeded { limit: u64, used: u64 },
+    #[error("tenant-wide token budget ({limit}) exceeded across sessions")]
+    TenantTokenBudgetExceeded { limit: u64, used: u64 },
     #[error("tenant has no BYOK OpenAI key on file")]
     MissingByokKey,
     #[error(transparent)]
@@ -94,6 +96,11 @@ impl IntoResponse for ChatServiceError {
                 ErrorCode::ChatTokenBudgetExceeded.as_str(),
                 format!("Session token budget exceeded ({used}/{limit})."),
             ),
+            ChatServiceError::TenantTokenBudgetExceeded { limit, used } => (
+                StatusCode::TOO_MANY_REQUESTS,
+                ErrorCode::ChatTokenBudgetExceeded.as_str(),
+                format!("Tenant token budget exceeded ({used}/{limit})."),
+            ),
             ChatServiceError::MissingByokKey => (
                 StatusCode::PAYMENT_REQUIRED,
                 ErrorCode::ChatLlmInvalidKey.as_str(),
@@ -141,6 +148,42 @@ impl IntoResponse for ChatServiceError {
         };
         (status, Json(ApiError::single(code, message))).into_response()
     }
+}
+
+/// Pure-function session-budget check. A limit of `0` is treated as
+/// "unlimited". Extracted so it can be unit-tested independently of the
+/// async service surface.
+pub(crate) fn check_session_budgets(
+    message_count: usize,
+    token_total: u64,
+    budgets: &efofx_config::LlmBudgetConfig,
+) -> Result<(), ChatServiceError> {
+    if budgets.per_session_messages > 0 && message_count as u32 >= budgets.per_session_messages {
+        return Err(ChatServiceError::MessageLimitExceeded {
+            limit: budgets.per_session_messages,
+        });
+    }
+    if budgets.per_session_tokens > 0 && token_total >= budgets.per_session_tokens {
+        return Err(ChatServiceError::TokenBudgetExceeded {
+            limit: budgets.per_session_tokens,
+            used: token_total,
+        });
+    }
+    Ok(())
+}
+
+/// Pure-function tenant-budget check. A limit of `0` is unlimited.
+pub(crate) fn check_tenant_budget(
+    tenant_total: u64,
+    budgets: &efofx_config::LlmBudgetConfig,
+) -> Result<(), ChatServiceError> {
+    if budgets.per_tenant_tokens > 0 && tenant_total >= budgets.per_tenant_tokens {
+        return Err(ChatServiceError::TenantTokenBudgetExceeded {
+            limit: budgets.per_tenant_tokens,
+            used: tenant_total,
+        });
+    }
+    Ok(())
 }
 
 /// Orchestrates chat session state transitions.
@@ -232,22 +275,17 @@ impl ChatService {
             return Err(ChatServiceError::Expired);
         }
 
-        // --- enforce budgets before we do anything that costs money ---
-        let budgets = &self.llm_cfg.budgets;
-        if budgets.per_session_messages > 0
-            && session.messages.len() as u32 >= budgets.per_session_messages
-        {
-            return Err(ChatServiceError::MessageLimitExceeded {
-                limit: budgets.per_session_messages,
-            });
-        }
-        if budgets.per_session_tokens > 0
-            && session.token_usage.total_tokens >= budgets.per_session_tokens
-        {
-            return Err(ChatServiceError::TokenBudgetExceeded {
-                limit: budgets.per_session_tokens,
-                used: session.token_usage.total_tokens,
-            });
+        // --- enforce session-scoped budgets before we do anything that costs money ---
+        check_session_budgets(
+            session.messages.len(),
+            session.token_usage.total_tokens,
+            &self.llm_cfg.budgets,
+        )?;
+
+        // --- enforce per-tenant token budget via cross-session aggregation ---
+        if self.llm_cfg.budgets.per_tenant_tokens > 0 {
+            let tenant_total = self.chat_repo.tenant_total_tokens(ctx).await?;
+            check_tenant_budget(tenant_total, &self.llm_cfg.budgets)?;
         }
 
         // --- persist the user message ---
@@ -523,6 +561,13 @@ mod tests {
                 StatusCode::TOO_MANY_REQUESTS,
             ),
             (
+                ChatServiceError::TenantTokenBudgetExceeded {
+                    limit: 10_000,
+                    used: 12_000,
+                },
+                StatusCode::TOO_MANY_REQUESTS,
+            ),
+            (
                 ChatServiceError::MissingByokKey,
                 StatusCode::PAYMENT_REQUIRED,
             ),
@@ -530,6 +575,86 @@ mod tests {
         for (err, expected) in cases {
             let resp = err.into_response();
             assert_eq!(resp.status(), expected);
+        }
+    }
+
+    // --- check_session_budgets -----------------------------------------
+
+    fn budgets(per_msg: u32, per_session: u64, per_tenant: u64) -> efofx_config::LlmBudgetConfig {
+        efofx_config::LlmBudgetConfig {
+            per_session_messages: per_msg,
+            per_session_tokens: per_session,
+            per_tenant_tokens: per_tenant,
+        }
+    }
+
+    #[test]
+    fn session_budget_allows_under_limits() {
+        check_session_budgets(10, 100, &budgets(50, 100_000, 0)).expect("ok under limits");
+    }
+
+    #[test]
+    fn session_budget_rejects_at_message_cap() {
+        let err = check_session_budgets(50, 100, &budgets(50, 100_000, 0)).unwrap_err();
+        match err {
+            ChatServiceError::MessageLimitExceeded { limit } => assert_eq!(limit, 50),
+            other => panic!("wrong err: {other:?}"),
+        }
+    }
+
+    #[test]
+    fn session_budget_rejects_at_token_cap() {
+        let err = check_session_budgets(5, 100_000, &budgets(50, 100_000, 0)).unwrap_err();
+        match err {
+            ChatServiceError::TokenBudgetExceeded { limit, used } => {
+                assert_eq!(limit, 100_000);
+                assert_eq!(used, 100_000);
+            }
+            other => panic!("wrong err: {other:?}"),
+        }
+    }
+
+    #[test]
+    fn session_budget_zero_is_unlimited() {
+        // `0` on either knob disables enforcement.
+        check_session_budgets(10_000, 10_000_000, &budgets(0, 0, 0))
+            .expect("zeroed budgets should not reject");
+    }
+
+    #[test]
+    fn session_budget_rejects_just_over_message_cap() {
+        // Callers check the budget BEFORE appending the user message, so a
+        // session already at the cap is what should fail — not +1.
+        let err = check_session_budgets(51, 0, &budgets(50, 0, 0)).unwrap_err();
+        assert!(matches!(
+            err,
+            ChatServiceError::MessageLimitExceeded { limit: 50 }
+        ));
+    }
+
+    // --- check_tenant_budget -------------------------------------------
+
+    #[test]
+    fn tenant_budget_allows_under_limit() {
+        check_tenant_budget(500_000, &budgets(50, 100_000, 1_000_000))
+            .expect("ok under tenant limit");
+    }
+
+    #[test]
+    fn tenant_budget_zero_is_unlimited() {
+        check_tenant_budget(9_999_999, &budgets(50, 100_000, 0))
+            .expect("zero per_tenant is unlimited");
+    }
+
+    #[test]
+    fn tenant_budget_rejects_at_limit() {
+        let err = check_tenant_budget(1_000_000, &budgets(50, 100_000, 1_000_000)).unwrap_err();
+        match err {
+            ChatServiceError::TenantTokenBudgetExceeded { limit, used } => {
+                assert_eq!(limit, 1_000_000);
+                assert_eq!(used, 1_000_000);
+            }
+            other => panic!("wrong err: {other:?}"),
         }
     }
 }

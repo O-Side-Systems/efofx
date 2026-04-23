@@ -16,6 +16,7 @@ serde.workspace = true
 thiserror.workspace = true
 tracing.workspace = true
 mongodb.workspace = true
+futures.workspace = true
 time.workspace = true
 utoipa.workspace = true
 uuid.workspace = true

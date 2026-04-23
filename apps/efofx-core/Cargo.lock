@@ -769,6 +769,7 @@ version = "0.1.0"
 dependencies = [
  "efofx-config",
  "efofx-domain",
+ "futures",
  "hex",
  "hmac",
  "mongodb",

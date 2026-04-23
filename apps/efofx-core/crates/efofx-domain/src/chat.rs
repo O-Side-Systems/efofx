@@ -79,6 +79,27 @@ pub struct ChatMessage {
     pub timestamp: OffsetDateTime,
 }
 
+/// Cumulative LLM token usage for a session. Incremented after every LLM
+/// call so budget enforcement can reject the next message without a
+/// round-trip.
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Serialize, Deserialize, ToSchema)]
+pub struct TokenUsage {
+    #[serde(default)]
+    pub prompt_tokens: u64,
+    #[serde(default)]
+    pub completion_tokens: u64,
+    #[serde(default)]
+    pub total_tokens: u64,
+}
+
+impl TokenUsage {
+    pub fn add(&mut self, prompt: u64, completion: u64) {
+        self.prompt_tokens = self.prompt_tokens.saturating_add(prompt);
+        self.completion_tokens = self.completion_tokens.saturating_add(completion);
+        self.total_tokens = self.total_tokens.saturating_add(prompt + completion);
+    }
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize, ToSchema)]
 pub struct ChatSession {
     pub session_id: SessionId,
@@ -91,6 +112,8 @@ pub struct ChatSession {
     pub is_ready: bool,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub prompt_version: Option<String>,
+    #[serde(default)]
+    pub token_usage: TokenUsage,
     #[serde(with = "time::serde::rfc3339")]
     pub created_at: OffsetDateTime,
     #[serde(with = "time::serde::rfc3339")]

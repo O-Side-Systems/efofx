@@ -20,7 +20,7 @@ pub mod tenant;
 pub mod widget;
 
 pub use analytics::AnalyticsEventType;
-pub use chat::{ChatMessage, ChatSession, ChatStatus, MessageRole, ScopingContext};
+pub use chat::{ChatMessage, ChatSession, ChatStatus, MessageRole, ScopingContext, TokenUsage};
 pub use estimation::{
     AdjustmentFactor, CostBreakdownCategory, CostCategoryEstimate, EstimationOutput,
     EstimationStatus,

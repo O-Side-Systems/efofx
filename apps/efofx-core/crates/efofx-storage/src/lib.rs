@@ -9,11 +9,13 @@
 //! `tests/compile-fail/` for negative coverage.
 
 pub mod auth;
+pub mod chat;
 pub mod health;
 pub mod mongo;
 pub mod tenant_context;
 pub mod tenants;
 
+pub use chat::{ChatRepo, DEFAULT_SESSION_TTL_HOURS};
 pub use health::HealthStatus;
 pub use mongo::MongoAdapter;
 pub use tenant_context::TenantContext;

@@ -6,6 +6,7 @@ members = [
     "crates/efofx-config",
     "crates/efofx-storage",
     "crates/efofx-openapi",
+    "crates/efofx-auth",
 ]
 
 [workspace.package]
@@ -67,6 +68,7 @@ efofx-domain = { path = "crates/efofx-domain" }
 efofx-config = { path = "crates/efofx-config" }
 efofx-storage = { path = "crates/efofx-storage" }
 efofx-openapi = { path = "crates/efofx-openapi" }
+efofx-auth = { path = "crates/efofx-auth" }
 
 [profile.release]
 opt-level = 3

@@ -36,6 +36,12 @@ pub struct Tenant {
     #[serde(default)]
     pub api_key_last6: Option<String>,
 
+    /// Hex-encoded HMAC-SHA256 of the raw widget API key, domain-separated
+    /// with a fixed tag (see `efofx-storage::auth::api_key`). Never logged,
+    /// never returned over the API. Only used to verify inbound keys.
+    #[serde(default, skip_serializing)]
+    pub api_key_hmac: Option<String>,
+
     /// Fernet ciphertext of the tenant's BYOK OpenAI key. Decrypted only
     /// within a request scope; never logged.
     #[serde(default, skip_serializing_if = "Option::is_none")]

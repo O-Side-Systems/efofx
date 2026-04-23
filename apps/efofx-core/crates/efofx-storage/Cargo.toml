@@ -18,6 +18,15 @@ tracing.workspace = true
 mongodb.workspace = true
 time.workspace = true
 utoipa.workspace = true
+uuid.workspace = true
+
+# HMAC-SHA256 for widget API-key verification — constant-time comparison
+# avoids bcrypt's per-request cost while still resisting timing oracles.
+hmac = "0.12"
+sha2 = "0.10"
+subtle = "2"
+hex = "0.4"
+rand = "0.8"
 
 [dev-dependencies]
 trybuild.workspace = true

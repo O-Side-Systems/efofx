@@ -12,10 +12,12 @@ pub mod auth;
 pub mod health;
 pub mod mongo;
 pub mod tenant_context;
+pub mod tenants;
 
 pub use health::HealthStatus;
 pub use mongo::MongoAdapter;
 pub use tenant_context::TenantContext;
+pub use tenants::TenantRepo;
 
 #[derive(Debug, thiserror::Error)]
 pub enum StorageError {
@@ -23,4 +25,10 @@ pub enum StorageError {
     Mongo(#[from] mongodb::error::Error),
     #[error("not found")]
     NotFound,
+    #[error("widget API key invalid or not found")]
+    ApiKeyInvalid,
+    #[error("master encryption key must be at least 32 bytes")]
+    MasterKeyTooShort,
+    #[error("bson serialization failed: {0}")]
+    Bson(String),
 }

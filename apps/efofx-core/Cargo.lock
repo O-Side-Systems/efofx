@@ -655,6 +655,18 @@ dependencies = [
 ]
 
 [[package]]
+name = "efofx-cache"
+version = "0.1.0"
+dependencies = [
+ "async-trait",
+ "serde",
+ "serde_json",
+ "sha2",
+ "tokio",
+ "tracing",
+]
+
+[[package]]
 name = "efofx-config"
 version = "0.1.0"
 dependencies = [

@@ -1,0 +1,37 @@
+[package]
+name = "efofx-core"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+description = "efofx platform core HTTP server (Axum). Hosts the authoritative API for chat, estimation, widget, feedback, and partner routing."
+
+[[bin]]
+name = "efofx-core"
+path = "src/main.rs"
+
+[dependencies]
+efofx-domain.workspace = true
+efofx-config.workspace = true
+efofx-storage = { workspace = true, features = ["auth-mint"] }
+efofx-openapi.workspace = true
+
+tokio.workspace = true
+axum.workspace = true
+tower.workspace = true
+tower-http.workspace = true
+
+serde.workspace = true
+serde_json.workspace = true
+
+tracing.workspace = true
+tracing-subscriber.workspace = true
+
+thiserror.workspace = true
+anyhow.workspace = true
+uuid.workspace = true
+utoipa.workspace = true
+
+[lints.rust]
+unsafe_code = "forbid"

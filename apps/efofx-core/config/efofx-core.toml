@@ -1,0 +1,28 @@
+# efofx-core default local configuration.
+#
+# Secrets (mongo.uri, crypto.master_key) should be supplied via environment
+# variables, not checked in. Use `.env` for local development.
+
+[server]
+host = "127.0.0.1"
+port = 8080
+
+[mongo]
+db_name = "efofx"
+# uri is required — set via EFOFX_MONGO__URI in your .env
+
+[supabase]
+url = "https://qzdgqepcdaoyigrgtlzv.supabase.co"
+issuer = "https://qzdgqepcdaoyigrgtlzv.supabase.co/auth/v1"
+audience = "authenticated"
+jwks_refresh_seconds = 900
+
+[llm]
+provider = "openai"
+model = "gpt-4o-mini"
+request_timeout_ms = 30000
+streaming_enabled = true
+
+[features]
+contractor_routing = false
+platform_key_fallback = false

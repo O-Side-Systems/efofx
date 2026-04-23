@@ -1,0 +1,21 @@
+[package]
+name = "efofx-config"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+description = "Layered configuration loader for efofx-core. Reads env + TOML with defaults and fail-fast validation."
+
+[dependencies]
+serde.workspace = true
+thiserror.workspace = true
+figment.workspace = true
+tracing.workspace = true
+
+[dev-dependencies]
+# `test` feature enables figment::Jail for env-isolated tests.
+figment = { workspace = true, features = ["test"] }
+
+[lints.rust]
+unsafe_code = "forbid"

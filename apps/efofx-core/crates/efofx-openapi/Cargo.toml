@@ -1,0 +1,19 @@
+[package]
+name = "efofx-openapi"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+description = "OpenAPI document assembly for the efofx platform core. All external routes register their schemas here."
+
+[dependencies]
+efofx-domain.workspace = true
+efofx-storage.workspace = true
+
+serde.workspace = true
+serde_json.workspace = true
+utoipa.workspace = true
+
+[lints.rust]
+unsafe_code = "forbid"

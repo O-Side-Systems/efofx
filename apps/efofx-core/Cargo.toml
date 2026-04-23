@@ -1,0 +1,78 @@
+[workspace]
+resolver = "2"
+members = [
+    "crates/efofx-core",
+    "crates/efofx-domain",
+    "crates/efofx-config",
+    "crates/efofx-storage",
+    "crates/efofx-openapi",
+]
+
+[workspace.package]
+version = "0.1.0"
+edition = "2021"
+rust-version = "1.80"
+license = "UNLICENSED"
+repository = "https://github.com/oside-systems/efofx"
+
+[workspace.dependencies]
+# Async runtime
+tokio = { version = "1.40", features = ["full"] }
+
+# HTTP
+axum = { version = "0.7", features = ["macros", "json"] }
+tower = { version = "0.5", features = ["util"] }
+tower-http = { version = "0.6", features = ["trace", "cors", "request-id", "util"] }
+hyper = "1.4"
+
+# Serialization
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+toml = "0.8"
+
+# Config + env
+figment = { version = "0.10", features = ["env", "toml"] }
+
+# Observability
+tracing = "0.1"
+tracing-subscriber = { version = "0.3", features = ["env-filter", "json"] }
+
+# Errors
+thiserror = "1"
+anyhow = "1"
+
+# Time / IDs
+uuid = { version = "1", features = ["v4", "serde"] }
+time = { version = "0.3", features = ["serde", "formatting", "parsing"] }
+
+# Auth / HTTP client
+jsonwebtoken = "9"
+reqwest = { version = "0.12", default-features = false, features = ["json", "rustls-tls"] }
+
+# Storage
+# mongodb 3.x requires a bson-N feature flag to select the bson version;
+# without one, all bson macros and trait impls vanish and the crate fails to
+# compile with thousands of nonsense errors.
+mongodb = { version = "3", default-features = false, features = ["rustls-tls", "bson-3", "compat-3-3-0"] }
+
+# OpenAPI
+utoipa = { version = "5", features = ["axum_extras", "uuid", "time"] }
+utoipa-axum = "0.1"
+
+# Testing
+trybuild = "1"
+
+# Internal crates
+efofx-domain = { path = "crates/efofx-domain" }
+efofx-config = { path = "crates/efofx-config" }
+efofx-storage = { path = "crates/efofx-storage" }
+efofx-openapi = { path = "crates/efofx-openapi" }
+
+[profile.release]
+opt-level = 3
+lto = "thin"
+codegen-units = 1
+
+[profile.dev]
+opt-level = 0
+debug = true

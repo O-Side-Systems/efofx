@@ -1,0 +1,5 @@
+[toolchain]
+# Pinned for reproducible builds across dev machines. Bump in lockstep with CI.
+channel = "1.90.0"
+components = ["rustfmt", "clippy"]
+profile = "minimal"

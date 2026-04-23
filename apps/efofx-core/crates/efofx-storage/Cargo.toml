@@ -1,0 +1,32 @@
+[package]
+name = "efofx-storage"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+description = "MongoDB adapter and tenant-aware repository primitives. TenantContext gates every tenant-scoped read/write at compile time."
+
+[features]
+# Enables `AuthVerifiedToken::mint`. Only the `efofx-core` binary crate should
+# enable this feature. Any other consumer that tries to mint a TenantContext
+# without this feature fails to compile.
+auth-mint = []
+
+[dependencies]
+efofx-domain.workspace = true
+efofx-config.workspace = true
+
+tokio.workspace = true
+serde.workspace = true
+thiserror.workspace = true
+tracing.workspace = true
+mongodb.workspace = true
+time.workspace = true
+utoipa.workspace = true
+
+[dev-dependencies]
+trybuild.workspace = true
+
+[lints.rust]
+unsafe_code = "forbid"

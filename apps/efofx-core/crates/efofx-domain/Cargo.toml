@@ -1,0 +1,19 @@
+[package]
+name = "efofx-domain"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+description = "Pure domain types, enums, and value objects for the efofx platform core. No I/O."
+
+[dependencies]
+serde.workspace = true
+serde_json.workspace = true
+thiserror.workspace = true
+uuid.workspace = true
+time.workspace = true
+utoipa.workspace = true
+
+[lints.rust]
+unsafe_code = "forbid"

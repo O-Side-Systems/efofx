@@ -22,6 +22,8 @@ efofx-storage.workspace = true
 efofx-openapi.workspace = true
 efofx-auth.workspace = true
 efofx-crypto.workspace = true
+efofx-prompts.workspace = true
+efofx-llm.workspace = true
 
 tokio.workspace = true
 axum.workspace = true

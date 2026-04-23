@@ -41,8 +41,8 @@ pub(crate) fn not_implemented(description: &'static str) -> impl IntoResponse {
 /// 2A; the rest remain 501 stubs until their phase ships.
 pub fn router(state: Arc<AppState>) -> Router<Arc<AppState>> {
     Router::new()
-        .merge(identity::routes(state))
-        .merge(chat::routes())
+        .merge(identity::routes(state.clone()))
+        .merge(chat::routes(state))
         .merge(estimation::routes())
         .merge(widget::routes())
         .merge(leads::routes())

@@ -127,6 +127,12 @@ pub struct LlmConfig {
     pub request_timeout_ms: u64,
     #[serde(default = "default_true")]
     pub streaming_enabled: bool,
+    #[serde(default)]
+    pub temperature: Option<f32>,
+    #[serde(default)]
+    pub max_tokens: Option<u32>,
+    #[serde(default)]
+    pub budgets: LlmBudgetConfig,
 }
 
 impl Default for LlmConfig {
@@ -136,6 +142,36 @@ impl Default for LlmConfig {
             model: default_llm_model(),
             request_timeout_ms: default_request_timeout_ms(),
             streaming_enabled: true,
+            temperature: None,
+            max_tokens: None,
+            budgets: LlmBudgetConfig::default(),
+        }
+    }
+}
+
+/// Per-session and per-tenant token budgets. `0` disables a limit.
+#[derive(Debug, Clone, Copy, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct LlmBudgetConfig {
+    /// Max messages allowed on one chat session. FastAPI uses 50; parity.
+    #[serde(default = "default_per_session_messages")]
+    pub per_session_messages: u32,
+    /// Max cumulative prompt+completion tokens per session. `0` = unlimited.
+    #[serde(default = "default_per_session_tokens")]
+    pub per_session_tokens: u64,
+    /// Max cumulative tokens per tenant across all sessions. `0` = unlimited.
+    /// Enforcement wiring lands with 2B.6; the config slot exists now so
+    /// deployments can prepare values ahead of it.
+    #[serde(default)]
+    pub per_tenant_tokens: u64,
+}
+
+impl Default for LlmBudgetConfig {
+    fn default() -> Self {
+        Self {
+            per_session_messages: default_per_session_messages(),
+            per_session_tokens: default_per_session_tokens(),
+            per_tenant_tokens: 0,
         }
     }
 }
@@ -151,6 +187,12 @@ fn default_request_timeout_ms() -> u64 {
 }
 fn default_true() -> bool {
     true
+}
+fn default_per_session_messages() -> u32 {
+    50
+}
+fn default_per_session_tokens() -> u64 {
+    100_000
 }
 
 #[derive(Debug, Clone, Default, Deserialize)]

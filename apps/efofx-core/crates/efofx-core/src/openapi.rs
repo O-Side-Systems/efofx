@@ -37,7 +37,7 @@ use crate::api;
         api::identity::rotate_api_key,
         // Chat
         api::chat::create_session,
-        api::chat::get_session,
+        api::chat::get_session_handler,
         api::chat::append_message,
         api::chat::generate_estimate,
         // Estimation

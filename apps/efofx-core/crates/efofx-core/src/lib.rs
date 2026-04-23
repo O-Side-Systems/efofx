@@ -25,15 +25,17 @@ use utoipa::OpenApi;
 
 use efofx_auth::{middleware::AuthState, JwksCache};
 use efofx_config::AppConfig;
+use efofx_llm::{LlmProvider, OpenAiProvider};
+use efofx_prompts::PromptRegistry;
 use efofx_storage::auth::{ApiKeyAuth, MasterKey, TenantResolver};
-use efofx_storage::{HealthStatus, MongoAdapter, TenantRepo};
+use efofx_storage::{ChatRepo, HealthStatus, MongoAdapter, TenantRepo};
 
 pub mod api;
 pub mod openapi;
 pub mod services;
 
 use openapi::ApiDoc;
-use services::ByokService;
+use services::{ByokService, ChatService};
 
 const REQUEST_ID_HEADER: HeaderName = HeaderName::from_static("x-request-id");
 
@@ -44,6 +46,7 @@ pub struct AppState {
     pub mongo: MongoAdapter,
     pub tenants: TenantRepo,
     pub byok: ByokService,
+    pub chat: ChatService,
     pub api_key_auth: ApiKeyAuth,
     pub auth: AuthState,
 }
@@ -74,6 +77,26 @@ pub async fn build_app_state(cfg: &AppConfig) -> anyhow::Result<AppState> {
 
     let byok = ByokService::new(tenants.clone(), master_key_arc, http);
 
+    let chat_repo = ChatRepo::new(mongo.clone());
+    chat_repo
+        .ensure_indexes()
+        .await
+        .context("ensure chat_sessions indexes")?;
+
+    let prompts_dir =
+        std::env::var("EFOFX_PROMPTS_DIR").unwrap_or_else(|_| "config/prompts".into());
+    let prompts = Arc::new(
+        PromptRegistry::load_from_dir(&prompts_dir)
+            .with_context(|| format!("load prompts from {prompts_dir}"))?,
+    );
+
+    let llm: Arc<dyn LlmProvider> = Arc::new(
+        OpenAiProvider::new()
+            .with_request_timeout(Duration::from_millis(cfg.llm.request_timeout_ms)),
+    );
+
+    let chat = ChatService::new(chat_repo, prompts, llm, cfg.llm.clone());
+
     let jwks = JwksCache::bootstrap(
         &cfg.supabase.url,
         Duration::from_secs(cfg.supabase.jwks_refresh_seconds),
@@ -92,6 +115,7 @@ pub async fn build_app_state(cfg: &AppConfig) -> anyhow::Result<AppState> {
         mongo,
         tenants,
         byok,
+        chat,
         api_key_auth,
         auth,
     })

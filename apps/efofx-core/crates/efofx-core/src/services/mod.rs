@@ -4,5 +4,7 @@
 //! composed into `AppState`.
 
 pub mod byok;
+pub mod chat;
 
 pub use byok::{ByokError, ByokService};
+pub use chat::{AppendOutcome, ChatService, ChatServiceError};

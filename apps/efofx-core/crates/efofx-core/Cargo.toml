@@ -14,7 +14,7 @@ path = "src/main.rs"
 [dependencies]
 efofx-domain.workspace = true
 efofx-config.workspace = true
-efofx-storage = { workspace = true, features = ["auth-mint"] }
+efofx-storage.workspace = true
 efofx-openapi.workspace = true
 
 tokio.workspace = true

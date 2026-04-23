@@ -7,12 +7,6 @@ license.workspace = true
 repository.workspace = true
 description = "MongoDB adapter and tenant-aware repository primitives. TenantContext gates every tenant-scoped read/write at compile time."
 
-[features]
-# Enables `AuthVerifiedToken::mint`. Only the `efofx-core` binary crate should
-# enable this feature. Any other consumer that tries to mint a TenantContext
-# without this feature fails to compile.
-auth-mint = []
-
 [dependencies]
 efofx-domain.workspace = true
 efofx-config.workspace = true

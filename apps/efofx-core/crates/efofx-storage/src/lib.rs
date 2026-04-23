@@ -2,15 +2,13 @@
 //!
 //! ## Tenant isolation
 //!
-//! The [`TenantContext`] newtype has a private constructor. Every tenant-scoped
-//! repository method requires `&TenantContext` in its signature. Because only
-//! the auth middleware (in the `efofx-core` binary crate) can mint one, there
-//! is no way to call a tenant repo without a verified principal — the compiler
-//! refuses.
-//!
-//! See `tests/compile-fail/` for negative coverage: code that tries to
-//! construct a context directly must fail to compile.
+//! [`TenantContext`]'s constructor is `pub(crate)`. The only way to obtain
+//! one outside this crate is to call a verified-auth entry point in the
+//! [`auth`] module. The compiler refuses any attempt to construct a
+//! context directly from downstream code — see
+//! `tests/compile-fail/` for negative coverage.
 
+pub mod auth;
 pub mod health;
 pub mod mongo;
 pub mod tenant_context;

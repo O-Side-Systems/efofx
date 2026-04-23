@@ -1,0 +1,16 @@
+error[E0624]: associated function `new` is private
+  --> tests/compile-fail/construct_without_auth.rs:12:31
+   |
+12 |     let _ctx = TenantContext::new(_id);
+   |                               ^^^ private associated function
+   |
+  ::: src/tenant_context.rs
+   |
+   |     pub(crate) fn new(tenant_id: TenantId) -> Self {
+   |     ---------------------------------------------- private associated function defined here
+   |
+   = help: items from traits can only be used if the trait is in scope
+help: trait `Paint` which provides `new` is implemented but not in scope; perhaps you want to import it
+   |
+ 5 + use yansi::paint::Paint;
+   |

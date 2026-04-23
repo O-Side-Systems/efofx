@@ -4,7 +4,7 @@ on:
   pull_request:
     branches: [main]
   push:
-    branches: [main]
+    branches: [main, rust-port]
 
 jobs:
   python-checks:
@@ -52,3 +52,38 @@ jobs:
 
       - name: Build efofx-dashboard
         run: cd apps/efofx-dashboard && npm run build
+
+  rust-checks:
+    name: Rust Checks (efofx-core)
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: apps/efofx-core
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Install Rust toolchain
+        # Reads channel + components from apps/efofx-core/rust-toolchain.toml
+        uses: dtolnay/rust-toolchain@master
+        with:
+          toolchain: "1.90.0"
+          components: rustfmt, clippy
+
+      - name: Cache cargo registry + target
+        uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: apps/efofx-core
+
+      - name: cargo fmt --check
+        run: cargo fmt --all -- --check
+
+      - name: cargo clippy
+        run: cargo clippy --workspace --all-targets -- -D warnings
+
+      - name: cargo test
+        run: cargo test --workspace --locked
+
+      - name: cargo build --release
+        run: cargo build --release --workspace --locked

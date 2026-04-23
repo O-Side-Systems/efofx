@@ -384,6 +384,18 @@ impl ReferenceRepo {
     }
 }
 
+/// Decode a raw Mongo document into a domain [`ReferenceClass`]. Public so
+/// the RCF matcher can turn the winning candidate into a typed value
+/// without re-querying. Returns the human-readable decode error as a string
+/// (the exact bson error type isn't part of this crate's public surface).
+pub fn decode_reference_class(doc: Document) -> Result<ReferenceClass, String> {
+    let parsed: ReferenceClassDoc = mongodb::bson::deserialize_from_document(doc)
+        .map_err(|e| format!("decode reference class: {e}"))?;
+    parsed
+        .into_domain()
+        .map_err(|e| format!("into domain: {e}"))
+}
+
 /// Fold "tenant-or-platform" visibility into a mongodb filter document.
 /// `None` context means platform-only.
 fn apply_tenant_visibility(filter: &mut Document, ctx: Option<&TenantContext>) {

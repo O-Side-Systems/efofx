@@ -776,6 +776,24 @@ dependencies = [
 ]
 
 [[package]]
+name = "efofx-rcf"
+version = "0.1.0"
+dependencies = [
+ "async-trait",
+ "efofx-cache",
+ "efofx-domain",
+ "efofx-storage",
+ "mongodb",
+ "serde",
+ "serde_json",
+ "thiserror 1.0.69",
+ "time",
+ "tokio",
+ "tracing",
+ "utoipa",
+]
+
+[[package]]
 name = "efofx-storage"
 version = "0.1.0"
 dependencies = [

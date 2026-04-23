@@ -1,0 +1,28 @@
+[package]
+name = "efofx-rcf"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+description = "Reference Class Forecasting engine: pure scoring functions, confidence-gated matching with an injectable cache, and baseline/adjustment calculations. Ported from app/services/rcf_engine.py."
+
+[dependencies]
+efofx-domain.workspace = true
+efofx-storage.workspace = true
+efofx-cache.workspace = true
+
+async-trait.workspace = true
+mongodb.workspace = true
+serde.workspace = true
+serde_json.workspace = true
+thiserror.workspace = true
+tracing.workspace = true
+utoipa.workspace = true
+
+[dev-dependencies]
+tokio = { workspace = true, features = ["macros", "rt"] }
+time = { workspace = true }
+
+[lints.rust]
+unsafe_code = "forbid"

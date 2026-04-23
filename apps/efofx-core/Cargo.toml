@@ -11,6 +11,7 @@ members = [
     "crates/efofx-prompts",
     "crates/efofx-llm",
     "crates/efofx-cache",
+    "crates/efofx-rcf",
 ]
 
 [workspace.package]
@@ -93,6 +94,7 @@ efofx-crypto = { path = "crates/efofx-crypto" }
 efofx-prompts = { path = "crates/efofx-prompts" }
 efofx-llm = { path = "crates/efofx-llm" }
 efofx-cache = { path = "crates/efofx-cache" }
+efofx-rcf = { path = "crates/efofx-rcf" }
 
 [profile.release]
 opt-level = 3

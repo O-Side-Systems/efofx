@@ -19,7 +19,7 @@ pub mod tenants;
 pub use chat::{ChatRepo, DEFAULT_SESSION_TTL_HOURS};
 pub use health::HealthStatus;
 pub use mongo::MongoAdapter;
-pub use reference::ReferenceRepo;
+pub use reference::{decode_reference_class, ReferenceRepo};
 pub use tenant_context::TenantContext;
 pub use tenants::TenantRepo;
 

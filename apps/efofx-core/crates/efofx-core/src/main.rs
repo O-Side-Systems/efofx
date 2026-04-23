@@ -17,14 +17,22 @@ use tower_http::{
 use tracing::{info, Span};
 
 use efofx_config::AppConfig;
-use efofx_openapi::ApiDoc;
 use efofx_storage::{HealthStatus, MongoAdapter};
 use utoipa::OpenApi;
+
+// Phase 1.2 stub handlers don't deserialize request bodies (they return 501
+// before touching them). Lift this attribute once Phase 2A wires real
+// handlers that consume the DTO fields.
+#[allow(dead_code)]
+mod api;
+mod openapi;
+
+use openapi::ApiDoc;
 
 const REQUEST_ID_HEADER: HeaderName = HeaderName::from_static("x-request-id");
 
 #[derive(Clone)]
-struct AppState {
+pub struct AppState {
     mongo: MongoAdapter,
 }
 
@@ -91,9 +99,12 @@ fn build_router(state: Arc<AppState>) -> Router {
             },
         );
 
-    Router::new()
+    let system = Router::new()
         .route("/health", get(health))
-        .route("/openapi.json", get(openapi_json))
+        .route("/openapi.json", get(openapi_json));
+
+    system
+        .merge(api::router())
         .with_state(state)
         .layer(SetRequestIdLayer::new(
             REQUEST_ID_HEADER.clone(),

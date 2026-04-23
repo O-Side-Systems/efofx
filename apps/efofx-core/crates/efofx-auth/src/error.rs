@@ -74,6 +74,13 @@ impl IntoResponse for AuthError {
 
 impl From<efofx_storage::StorageError> for AuthError {
     fn from(value: efofx_storage::StorageError) -> Self {
-        Self::Storage(value)
+        // Map the api-key-invalid case to its dedicated variant so the
+        // widget surface returns `auth.api_key_invalid` instead of the
+        // generic `auth.invalid_token`. Everything else collapses into the
+        // opaque Storage variant.
+        match value {
+            efofx_storage::StorageError::ApiKeyInvalid => Self::ApiKeyInvalid,
+            other => Self::Storage(other),
+        }
     }
 }

@@ -39,4 +39,23 @@ impl MongoAdapter {
             .await?;
         Ok(())
     }
+
+    /// Build an adapter without pinging the server. For tests that need a
+    /// valid `MongoAdapter` handle to feed into [`TenantResolver`] /
+    /// [`TenantRepo`] but don't actually exercise any Mongo-backed code
+    /// path (e.g. JWT rejection tests that short-circuit before the
+    /// resolver runs). Calls into the returned adapter will fail at query
+    /// time; that's intentional — if a test reaches that point, it was
+    /// mis-scoped.
+    pub async fn for_tests_without_ping(uri: &str, db_name: &str) -> Result<Self, StorageError> {
+        let mut opts = ClientOptions::parse(uri).await?;
+        opts.app_name = Some("efofx-core-tests".into());
+        opts.server_selection_timeout = Some(std::time::Duration::from_millis(100));
+        opts.connect_timeout = Some(std::time::Duration::from_millis(100));
+        let client = Client::with_options(opts)?;
+        Ok(Self {
+            client,
+            db_name: db_name.to_string(),
+        })
+    }
 }

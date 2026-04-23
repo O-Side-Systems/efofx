@@ -144,18 +144,24 @@ Jeff's demo needs, in order, a reliable: **widget branding fetch → auth → ch
 
 ### Tasks
 
-- **2B.1** Port prompt registry — versioned JSON files under `apps/efofx-core/config/prompts/`, loaded at startup, fail-fast if missing.
-- **2B.2** `LlmProvider` trait + `OpenAiProvider` impl using `async-openai`. Streaming, structured output (function calling / response_format), retries, timeouts — all behavior configurable.
-- **2B.3** `ChatService` — session state machine (`active → ready → completed|expired`), readiness evaluation (4 scoping fields OR trigger phrases), LLM follow-up generation.
-- **2B.4** `ScopingExtractor` — pulls `project_type`, `size`, `location`, `timeline`, `special_conditions` from conversation state.
-- **2B.5** `POST /api/v1/chat/send`, `GET /api/v1/chat/{session_id}/history`.
-- **2B.6** Chat-length and per-session token budget enforcement (config-driven, TADR §11.2).
+- **2B.1** Port prompt registry — versioned JSON files under `apps/efofx-core/config/prompts/`, loaded at startup, fail-fast if missing. New `efofx-prompts` crate.
+- **2B.2** `LlmProvider` trait + `OpenAiProvider` impl using `async-openai`. Streaming, structured output (function calling / response_format), retries, timeouts — all behavior configurable. New `efofx-llm` crate.
+- **2B.3** `ChatRepository` in `efofx-storage` — Mongo adapter for `chat_sessions` with TTL index, `TenantContext`-gated.
+- **2B.4** `ScopingExtractor` in `efofx-domain` — pulls `project_type`, `size`, `location`, `timeline`, `special_conditions` from conversation state. Pure, deterministic; mirrors FastAPI byte-for-byte.
+- **2B.5** `ChatService` — session state machine (`active → ready → completed|expired`), readiness evaluation (4 scoping fields OR trigger phrases), LLM follow-up generation. Replaces `not_implemented()` stubs for the three handlers below.
+- **2B.6** Endpoints and limits:
+  - `POST /v1/chat/sessions` — create session (accepts optional `initial_message`).
+  - `GET /v1/chat/sessions/{session_id}` — fetch session with full message history.
+  - `POST /v1/chat/sessions/{session_id}/messages` — append user message, run readiness check, return assistant follow-up.
+  - Per-session message cap (`MAX_CHAT_MESSAGES = 50`) + per-session token budget + per-tenant token budget, all config-driven (TADR §11.2). Typed error codes `chat.message_limit_exceeded` and `chat.token_budget_exceeded` (429).
+
+**Phase 1.2 path shape locked.** Endpoints are resource-oriented (`/v1/chat/sessions/*`) rather than the RPC-style `/api/v1/chat/send` used by FastAPI — the RESTful shape is already baked into the utoipa-generated OpenAPI contract. Session creation is explicit (a `POST /sessions` precedes any message append); FastAPI's lazy session-on-first-send is intentionally not carried forward.
 
 ### Definition of Done
 
-- A chat session started in Rust transitions `active → ready` when the four scoping fields are populated.
-- Length and token budgets reject further messages with a clean error code.
-- Contract tests pass.
+- Creating a session via `POST /v1/chat/sessions` and appending messages via `.../messages` advances the state machine `active → ready` when the four scoping fields are populated or a trigger phrase is detected.
+- Length and token budgets reject further messages with a clean error envelope (`chat.message_limit_exceeded` / `chat.token_budget_exceeded`).
+- Contract tests pass against the utoipa-generated OpenAPI.
 
 ---
 

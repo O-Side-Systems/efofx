@@ -549,6 +549,18 @@ dependencies = [
 ]
 
 [[package]]
+name = "efofx-prompts"
+version = "0.1.0"
+dependencies = [
+ "serde",
+ "serde_json",
+ "sha2",
+ "tempfile",
+ "thiserror 1.0.69",
+ "tracing",
+]
+
+[[package]]
 name = "efofx-storage"
 version = "0.1.0"
 dependencies = [

@@ -8,6 +8,7 @@ members = [
     "crates/efofx-openapi",
     "crates/efofx-auth",
     "crates/efofx-crypto",
+    "crates/efofx-prompts",
 ]
 
 [workspace.package]
@@ -51,6 +52,9 @@ time = { version = "0.3", features = ["serde", "formatting", "parsing"] }
 jsonwebtoken = "9"
 reqwest = { version = "0.12", default-features = false, features = ["json", "rustls-tls"] }
 
+# Hashing (prompt immutability, api-key HMAC)
+sha2 = "0.10"
+
 # Storage
 # mongodb 3.x requires a bson-N feature flag to select the bson version;
 # without one, all bson macros and trait impls vanish and the crate fails to
@@ -71,6 +75,7 @@ efofx-storage = { path = "crates/efofx-storage" }
 efofx-openapi = { path = "crates/efofx-openapi" }
 efofx-auth = { path = "crates/efofx-auth" }
 efofx-crypto = { path = "crates/efofx-crypto" }
+efofx-prompts = { path = "crates/efofx-prompts" }
 
 [profile.release]
 opt-level = 3

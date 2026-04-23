@@ -56,6 +56,9 @@ reqwest = { version = "0.12", default-features = false, features = ["json", "rus
 # Hashing (prompt immutability, api-key HMAC)
 sha2 = "0.10"
 
+# Regex (scoping extraction, input validation)
+regex = "1"
+
 # Storage
 # mongodb 3.x requires a bson-N feature flag to select the bson version;
 # without one, all bson macros and trait impls vanish and the crate fails to

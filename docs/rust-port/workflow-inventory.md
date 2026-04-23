@@ -266,3 +266,17 @@ All design calls below were confirmed with Brett before writing Phase 1.2. Path/
 4. **Widget path renames:** Plural resource nouns and clearer naming (`/v1/widget/leads`, `/v1/widget/consultations`, `/v1/widget/events`). Widget client code updates in Phase 3; consistency ranks above client churn.
 5. **Dashboard endpoints for leads:** Land in Phase 2D alongside widget writes, so the dashboard has server support waiting at Phase 3 cutover. No phase interleaving.
 6. **Image upload:** Deferred. Not in v1. Revisit if multimodal intake becomes a real product requirement.
+
+---
+
+## 8. Scoping-extractor divergences (2026-04-22, Phase 2B.4)
+
+The Rust `scoping::extract_scoping` port intentionally differs from FastAPI's `_update_scoping_context` in one place:
+
+- **Location keyword ordering.** FastAPI's dict ordered the 2-letter code `la` before the multi-word alias `inland empire`. Because matching is case-insensitive substring, `"Inland Empire home"` hit `la` (inside `in**la**nd`) first and routed to *SoCal - Coastal* instead of *SoCal - Inland*. The Rust port moves both 2-letter codes (`la`, `sf`) to the end of the list so every multi-word regional alias wins first. This changes behavior for a small set of messages containing those substrings; no other callers are exercising the region tag in production yet.
+
+Every other quirk of the FastAPI extractor is preserved for parity, including:
+
+- `renovation`/`remodel` matching before `kitchen`/`bathroom`, so `"Kitchen remodel"` maps to `renovation` rather than `kitchen renovation`.
+- The timeline pattern list having seasons before the `by end of …` phrase, so `"by end of summer"` captures only `summer`.
+- Confirmation word matching being whole-token (no punctuation stripping), so `"Yes!"` does not match `yes`.

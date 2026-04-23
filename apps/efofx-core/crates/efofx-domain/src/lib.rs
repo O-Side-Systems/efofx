@@ -16,6 +16,7 @@ pub mod feedback;
 pub mod geo;
 pub mod ids;
 pub mod reference;
+pub mod scoping;
 pub mod tenant;
 pub mod widget;
 
@@ -31,5 +32,9 @@ pub use feedback::{
 pub use geo::Region;
 pub use ids::{SessionId, TenantId};
 pub use reference::{ReferenceClass, ReferenceClassCategory};
+pub use scoping::{
+    extract_scoping, is_confirmation, is_explicit_estimate_trigger, CONFIRMATION_WORDS,
+    ESTIMATE_TRIGGER_PHRASES,
+};
 pub use tenant::{Tenant, TenantTier};
 pub use widget::{BrandingConfig, ConsultationRequest, Lead, LeadStatus};

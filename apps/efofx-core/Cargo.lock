@@ -713,6 +713,7 @@ dependencies = [
 name = "efofx-domain"
 version = "0.1.0"
 dependencies = [
+ "regex",
  "serde",
  "serde_json",
  "thiserror 1.0.69",

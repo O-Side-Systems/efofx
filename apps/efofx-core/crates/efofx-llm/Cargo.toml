@@ -1,0 +1,26 @@
+[package]
+name = "efofx-llm"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+description = "LLM provider abstraction + OpenAI implementation. BYOK key injection, structured output, streaming, classified errors, token counting."
+
+[dependencies]
+serde.workspace = true
+serde_json.workspace = true
+thiserror.workspace = true
+tracing.workspace = true
+tokio.workspace = true
+async-openai.workspace = true
+async-trait.workspace = true
+async-stream.workspace = true
+futures.workspace = true
+tiktoken-rs.workspace = true
+
+[dev-dependencies]
+tokio = { workspace = true, features = ["macros", "rt"] }
+
+[lints.rust]
+unsafe_code = "forbid"

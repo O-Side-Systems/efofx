@@ -37,9 +37,11 @@ pub enum ErrorCode {
 
     // Estimation
     EstimationSessionNotFound,
+    EstimationSessionNotReady,
     EstimationLlmInvalidKey,
     EstimationLlmQuotaExhausted,
     EstimationLlmTransient,
+    EstimationLlmUnknown,
 
     // Feedback
     FeedbackTokenExpired,
@@ -76,9 +78,11 @@ impl ErrorCode {
             ChatLlmTransient => "chat.llm_transient",
             ChatLlmUnknown => "chat.llm_unknown",
             EstimationSessionNotFound => "estimation.session_not_found",
+            EstimationSessionNotReady => "estimation.session_not_ready",
             EstimationLlmInvalidKey => "estimation.llm_invalid_key",
             EstimationLlmQuotaExhausted => "estimation.llm_quota_exhausted",
             EstimationLlmTransient => "estimation.llm_transient",
+            EstimationLlmUnknown => "estimation.llm_unknown",
             FeedbackTokenExpired => "feedback.token_expired",
             FeedbackTokenUsed => "feedback.token_used",
             WidgetBrandingNotFound => "widget.branding_not_found",
@@ -109,10 +113,16 @@ impl ErrorCode {
             ChatLlmTransient => "We're having trouble generating a response. Please try again.",
             ChatLlmUnknown => "An unexpected LLM error occurred.",
             EstimationSessionNotFound => "Estimation session not found.",
+            EstimationSessionNotReady => {
+                "Chat session must be in the ready state before an estimate can be generated."
+            }
             EstimationLlmInvalidKey => "OpenAI API key missing or invalid. Update it in Settings.",
             EstimationLlmQuotaExhausted => "OpenAI quota exhausted. Recharge your OpenAI account.",
             EstimationLlmTransient => {
                 "We're having trouble generating a response. Please try again."
+            }
+            EstimationLlmUnknown => {
+                "An unexpected LLM error occurred while generating the estimate."
             }
             FeedbackTokenExpired => "This feedback link has expired.",
             FeedbackTokenUsed => "This feedback has already been submitted.",
@@ -157,9 +167,11 @@ mod tests {
             ErrorCode::ChatLlmTransient,
             ErrorCode::ChatLlmUnknown,
             ErrorCode::EstimationSessionNotFound,
+            ErrorCode::EstimationSessionNotReady,
             ErrorCode::EstimationLlmInvalidKey,
             ErrorCode::EstimationLlmQuotaExhausted,
             ErrorCode::EstimationLlmTransient,
+            ErrorCode::EstimationLlmUnknown,
             ErrorCode::FeedbackTokenExpired,
             ErrorCode::FeedbackTokenUsed,
             ErrorCode::WidgetBrandingNotFound,

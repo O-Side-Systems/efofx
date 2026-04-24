@@ -17,13 +17,13 @@ use efofx_auth::{middleware::AuthState, JwksCache};
 use efofx_config::SupabaseConfig;
 use efofx_core::{
     build_router,
-    services::{ByokService, ChatService},
+    services::{ByokService, ChatService, EstimationService},
     AppState,
 };
 use efofx_llm::MockLlmProvider;
 use efofx_prompts::PromptRegistry;
 use efofx_storage::auth::{ApiKeyAuth, MasterKey, TenantResolver};
-use efofx_storage::{ChatRepo, MongoAdapter, TenantRepo};
+use efofx_storage::{ChatRepo, EstimationRepo, MongoAdapter, ReferenceRepo, TenantRepo};
 use jsonwebtoken::{Algorithm, EncodingKey, Header};
 use rsa::pkcs1::EncodeRsaPrivateKey;
 use rsa::traits::PublicKeyParts;
@@ -133,13 +133,28 @@ impl TestHarness {
         let byok = ByokService::new(tenants.clone(), Arc::new(master_key), http);
 
         let chat_repo = ChatRepo::new(mongo.clone());
-        // Auth contract tests never reach the chat handlers, but AppState
-        // now requires a ChatService. Wire an empty prompt registry and
-        // a mock LLM so construction succeeds without touching real
-        // Mongo / OpenAI state.
+        let estimates_repo = EstimationRepo::new(mongo.clone());
+        let reference_repo = ReferenceRepo::new(mongo.clone());
+        // Auth contract tests never reach the chat / estimation handlers,
+        // but AppState requires fully-wired services. Use an empty prompt
+        // registry and a mock LLM so construction succeeds without
+        // touching real Mongo / OpenAI state.
         let prompts = Arc::new(PromptRegistry::default());
         let llm: Arc<dyn efofx_llm::LlmProvider> = Arc::new(MockLlmProvider::new());
-        let chat = ChatService::new(chat_repo, prompts, llm, efofx_config::LlmConfig::default());
+        let chat = ChatService::new(
+            chat_repo.clone(),
+            Arc::clone(&prompts),
+            Arc::clone(&llm),
+            efofx_config::LlmConfig::default(),
+        );
+        let estimation = EstimationService::new(
+            chat_repo,
+            estimates_repo,
+            reference_repo,
+            prompts,
+            llm,
+            efofx_config::LlmConfig::default(),
+        );
 
         let jwks = JwksCache::bootstrap(&supabase.url, Duration::from_secs(3600))
             .await
@@ -157,6 +172,7 @@ impl TestHarness {
             tenants,
             byok,
             chat,
+            estimation,
             api_key_auth,
             auth,
         });

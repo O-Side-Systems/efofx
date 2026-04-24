@@ -28,14 +28,16 @@ use efofx_config::AppConfig;
 use efofx_llm::{LlmProvider, OpenAiProvider};
 use efofx_prompts::PromptRegistry;
 use efofx_storage::auth::{ApiKeyAuth, MasterKey, TenantResolver};
-use efofx_storage::{ChatRepo, HealthStatus, MongoAdapter, TenantRepo};
+use efofx_storage::{
+    ChatRepo, EstimationRepo, HealthStatus, MongoAdapter, ReferenceRepo, TenantRepo,
+};
 
 pub mod api;
 pub mod openapi;
 pub mod services;
 
 use openapi::ApiDoc;
-use services::{ByokService, ChatService};
+use services::{ByokService, ChatService, EstimationService};
 
 const REQUEST_ID_HEADER: HeaderName = HeaderName::from_static("x-request-id");
 
@@ -47,6 +49,7 @@ pub struct AppState {
     pub tenants: TenantRepo,
     pub byok: ByokService,
     pub chat: ChatService,
+    pub estimation: EstimationService,
     pub api_key_auth: ApiKeyAuth,
     pub auth: AuthState,
 }
@@ -83,6 +86,18 @@ pub async fn build_app_state(cfg: &AppConfig) -> anyhow::Result<AppState> {
         .await
         .context("ensure chat_sessions indexes")?;
 
+    let estimates_repo = EstimationRepo::new(mongo.clone());
+    estimates_repo
+        .ensure_indexes()
+        .await
+        .context("ensure estimates indexes")?;
+
+    let reference_repo = ReferenceRepo::new(mongo.clone());
+    reference_repo
+        .ensure_indexes()
+        .await
+        .context("ensure reference_classes/projects indexes")?;
+
     let prompts_dir =
         std::env::var("EFOFX_PROMPTS_DIR").unwrap_or_else(|_| "config/prompts".into());
     let prompts = Arc::new(
@@ -95,7 +110,20 @@ pub async fn build_app_state(cfg: &AppConfig) -> anyhow::Result<AppState> {
             .with_request_timeout(Duration::from_millis(cfg.llm.request_timeout_ms)),
     );
 
-    let chat = ChatService::new(chat_repo, prompts, llm, cfg.llm.clone());
+    let chat = ChatService::new(
+        chat_repo.clone(),
+        Arc::clone(&prompts),
+        Arc::clone(&llm),
+        cfg.llm.clone(),
+    );
+    let estimation = EstimationService::new(
+        chat_repo,
+        estimates_repo,
+        reference_repo,
+        prompts,
+        llm,
+        cfg.llm.clone(),
+    );
 
     let jwks = JwksCache::bootstrap(
         &cfg.supabase.url,
@@ -116,6 +144,7 @@ pub async fn build_app_state(cfg: &AppConfig) -> anyhow::Result<AppState> {
         tenants,
         byok,
         chat,
+        estimation,
         api_key_auth,
         auth,
     })

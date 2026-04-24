@@ -5,6 +5,8 @@
 
 pub mod byok;
 pub mod chat;
+pub mod estimation;
 
 pub use byok::{ByokError, ByokService};
 pub use chat::{AppendOutcome, ChatService, ChatServiceError};
+pub use estimation::{EstimationOutcome, EstimationService, EstimationServiceError};

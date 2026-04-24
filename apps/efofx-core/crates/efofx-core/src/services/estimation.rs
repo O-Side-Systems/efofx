@@ -19,16 +19,17 @@ use std::sync::Arc;
 use axum::http::StatusCode;
 use axum::response::{IntoResponse, Response};
 use axum::Json;
+use futures::stream::BoxStream;
 use serde_json::{json, Value};
 use time::{Duration as TimeDuration, OffsetDateTime};
 use tracing::{info, warn};
 
 use efofx_config::LlmConfig;
 use efofx_domain::{
-    ChatStatus, EstimationOutput, EstimationSession, EstimationSessionId, EstimationStatus,
-    ReferenceProject, Region, ScopingContext, SessionId,
+    AdjustmentFactor, ChatStatus, CostCategoryEstimate, EstimationOutput, EstimationSession,
+    EstimationSessionId, EstimationStatus, ReferenceProject, Region, ScopingContext, SessionId,
 };
-use efofx_llm::{ChatRequest as LlmReq, LlmError, LlmProvider, StructuredSchema};
+use efofx_llm::{ChatRequest as LlmReq, LlmError, LlmProvider, StreamEvent, StructuredSchema};
 use efofx_openapi::{ApiError, ErrorCode};
 use efofx_prompts::{PromptError, PromptRegistry};
 use efofx_storage::{ChatRepo, EstimationRepo, ReferenceRepo, StorageError, TenantContext};
@@ -57,6 +58,8 @@ pub enum EstimationServiceError {
     SessionNotReady,
     #[error("tenant has no BYOK OpenAI key on file")]
     MissingByokKey,
+    #[error("estimation session not found")]
+    EstimationSessionNotFound,
     #[error(transparent)]
     Storage(#[from] StorageError),
     #[error(transparent)]
@@ -97,6 +100,13 @@ impl IntoResponse for EstimationServiceError {
                 StatusCode::PAYMENT_REQUIRED,
                 ErrorCode::EstimationLlmInvalidKey.as_str(),
                 "No OpenAI API key on file. Add one in Settings.".to_string(),
+            ),
+            EstimationServiceError::EstimationSessionNotFound => (
+                StatusCode::NOT_FOUND,
+                ErrorCode::EstimationSessionNotFound.as_str(),
+                ErrorCode::EstimationSessionNotFound
+                    .default_message()
+                    .to_string(),
             ),
             EstimationServiceError::Llm(e) => {
                 let (code, http) = match e {
@@ -317,6 +327,68 @@ impl EstimationService {
         Ok(EstimationOutcome { session, output })
     }
 
+    /// Fetch a persisted estimation session by id for the authenticated
+    /// tenant. Applies expire-on-read via the repo.
+    pub async fn get_session(
+        &self,
+        ctx: &TenantContext,
+        session_id: &EstimationSessionId,
+    ) -> Result<EstimationSession, EstimationServiceError> {
+        self.estimates.get(ctx, session_id).await.map_err(|e| {
+            if matches!(e, StorageError::NotFound) {
+                EstimationServiceError::EstimationSessionNotFound
+            } else {
+                EstimationServiceError::Storage(e)
+            }
+        })
+    }
+
+    /// Transition the underlying chat session from `ready` to `completed`.
+    /// Called after a successful generate-estimate SSE stream so the session
+    /// isn't reused for another estimate.
+    pub async fn mark_chat_completed(
+        &self,
+        ctx: &TenantContext,
+        chat_session_id: SessionId,
+    ) -> Result<(), EstimationServiceError> {
+        self.chat_repo
+            .update_status(ctx, chat_session_id, ChatStatus::Completed)
+            .await
+            .map_err(EstimationServiceError::Storage)
+    }
+
+    /// Build the narrative LLM request (system + user prompts from the
+    /// versioned `narrative` prompt). Numeric values are pre-formatted into
+    /// display strings because the v1.1.0 template has plain `{foo}`
+    /// placeholders — no Python-style format specs.
+    pub fn build_narrative_request(
+        &self,
+        description: &str,
+        output: &EstimationOutput,
+    ) -> Result<(LlmReq, String), EstimationServiceError> {
+        let prompt = self
+            .prompts
+            .latest("narrative")
+            .ok_or_else(|| PromptError::NotFound {
+                name: "narrative".into(),
+                version: "latest".into(),
+            })?;
+        let user = render_narrative_user_prompt(&prompt, description, output)?;
+        let req = self.build_llm_request(Some(&prompt.system_prompt), user);
+        Ok((req, prompt.version.clone()))
+    }
+
+    /// Open the streaming narrative call. The returned stream yields
+    /// `StreamEvent::Delta` text chunks followed by a final
+    /// `StreamEvent::Done`.
+    pub async fn stream_narrative(
+        &self,
+        api_key: &str,
+        req: LlmReq,
+    ) -> Result<BoxStream<'static, Result<StreamEvent, LlmError>>, LlmError> {
+        self.llm.stream(api_key, req).await
+    }
+
     async fn call_classify(
         &self,
         api_key: &str,
@@ -429,6 +501,87 @@ pub(crate) fn format_reference_data_section(projects: &[ReferenceProject]) -> St
     let payload = json!({ "reference_projects": projects });
     let body = serde_json::to_string(&payload).unwrap_or_else(|_| "{}".to_string());
     format!("\nReference Data: {body}")
+}
+
+/// Render a dollar amount as `$12,345`. FastAPI uses Python's `:,.0f` format
+/// spec inline in its narrative f-string — we pre-format because the v1.1.0
+/// prompt template has plain `{foo}` placeholders.
+pub(crate) fn format_usd(amount: f64) -> String {
+    let rounded = amount.round() as i64;
+    let sign = if rounded < 0 { "-" } else { "" };
+    let abs = rounded.unsigned_abs();
+    let digits: Vec<char> = abs.to_string().chars().collect();
+    let mut out = String::new();
+    for (i, c) in digits.iter().enumerate() {
+        if i > 0 && (digits.len() - i) % 3 == 0 {
+            out.push(',');
+        }
+        out.push(*c);
+    }
+    format!("${sign}{out}")
+}
+
+/// Format the cost breakdown into the multi-line string the narrative prompt
+/// expects. Mirrors FastAPI's `"- {cat}: ${p50:,.0f} - ${p80:,.0f} ({pct:.0%})"`.
+pub(crate) fn format_cost_breakdown_for_narrative(rows: &[CostCategoryEstimate]) -> String {
+    rows.iter()
+        .map(|r| {
+            format!(
+                "- {}: {} - {} ({}% of total)",
+                r.category,
+                format_usd(r.p50_cost),
+                format_usd(r.p80_cost),
+                (r.percentage_of_total * 100.0).round() as i64,
+            )
+        })
+        .collect::<Vec<_>>()
+        .join("\n")
+}
+
+/// Format adjustment factors into the multi-line string the narrative prompt
+/// expects.
+pub(crate) fn format_adjustment_factors_for_narrative(rows: &[AdjustmentFactor]) -> String {
+    rows.iter()
+        .map(|a| format!("- {}: {}x — {}", a.name, a.multiplier, a.reason))
+        .collect::<Vec<_>>()
+        .join("\n")
+}
+
+/// Format the assumption list into the `- item` form the narrative prompt
+/// expects.
+pub(crate) fn format_assumptions_for_narrative(items: &[String]) -> String {
+    items
+        .iter()
+        .map(|a| format!("- {a}"))
+        .collect::<Vec<_>>()
+        .join("\n")
+}
+
+/// Render the narrative `user_prompt_template` against a persisted
+/// [`EstimationOutput`]. Every placeholder's replacement is pre-formatted
+/// into a display string.
+pub(crate) fn render_narrative_user_prompt(
+    prompt: &efofx_prompts::Prompt,
+    project_description: &str,
+    output: &EstimationOutput,
+) -> Result<String, PromptError> {
+    let cost_p50 = format_usd(output.total_cost_p50);
+    let cost_p80 = format_usd(output.total_cost_p80);
+    let p50_weeks = output.timeline_weeks_p50.to_string();
+    let p80_weeks = output.timeline_weeks_p80.to_string();
+    let breakdown = format_cost_breakdown_for_narrative(&output.cost_breakdown);
+    let adjustments = format_adjustment_factors_for_narrative(&output.adjustment_factors);
+    let assumptions = format_assumptions_for_narrative(&output.assumptions);
+    prompt.render_user(&[
+        ("project_description", project_description),
+        ("total_cost_p50", cost_p50.as_str()),
+        ("total_cost_p80", cost_p80.as_str()),
+        ("timeline_weeks_p50", p50_weeks.as_str()),
+        ("timeline_weeks_p80", p80_weeks.as_str()),
+        ("cost_breakdown", breakdown.as_str()),
+        ("adjustment_factors", adjustments.as_str()),
+        ("assumptions", assumptions.as_str()),
+    ])
 }
 
 /// Hand-built JSON schema for [`EstimationOutput`]. OpenAI strict mode
@@ -817,10 +970,133 @@ mod tests {
                 EstimationServiceError::SchemaParse("nope".into()),
                 StatusCode::INTERNAL_SERVER_ERROR,
             ),
+            (
+                EstimationServiceError::EstimationSessionNotFound,
+                StatusCode::NOT_FOUND,
+            ),
         ];
         for (err, expected) in cases {
             let resp = err.into_response();
             assert_eq!(resp.status(), expected);
         }
+    }
+
+    // --- narrative formatting -----------------------------------------
+
+    #[test]
+    fn format_usd_adds_thousands_separators() {
+        assert_eq!(format_usd(0.0), "$0");
+        assert_eq!(format_usd(950.0), "$950");
+        assert_eq!(format_usd(1_500.0), "$1,500");
+        assert_eq!(format_usd(24_000.0), "$24,000");
+        assert_eq!(format_usd(1_234_567.0), "$1,234,567");
+    }
+
+    #[test]
+    fn format_usd_rounds_half_to_even_but_away_from_zero_is_fine() {
+        // f64::round → away-from-zero. Both 49 and 51 pick the closer integer.
+        assert_eq!(format_usd(1_499.49), "$1,499");
+        assert_eq!(format_usd(1_499.51), "$1,500");
+    }
+
+    #[test]
+    fn cost_breakdown_formats_each_row() {
+        let rows = vec![
+            CostCategoryEstimate {
+                category: "materials".into(),
+                p50_cost: 24_000.0,
+                p80_cost: 28_000.0,
+                percentage_of_total: 0.40,
+            },
+            CostCategoryEstimate {
+                category: "labor".into(),
+                p50_cost: 18_000.0,
+                p80_cost: 22_000.0,
+                percentage_of_total: 0.30,
+            },
+        ];
+        assert_eq!(
+            format_cost_breakdown_for_narrative(&rows),
+            "- materials: $24,000 - $28,000 (40% of total)\n- labor: $18,000 - $22,000 (30% of total)"
+        );
+    }
+
+    #[test]
+    fn cost_breakdown_empty_is_empty_string() {
+        assert_eq!(format_cost_breakdown_for_narrative(&[]), "");
+    }
+
+    #[test]
+    fn adjustment_factors_formats_each_row() {
+        let rows = vec![
+            AdjustmentFactor {
+                name: "Urban premium".into(),
+                multiplier: 1.15,
+                reason: "dense metro".into(),
+            },
+            AdjustmentFactor {
+                name: "Slope".into(),
+                multiplier: 1.20,
+                reason: "steep grade".into(),
+            },
+        ];
+        assert_eq!(
+            format_adjustment_factors_for_narrative(&rows),
+            "- Urban premium: 1.15x — dense metro\n- Slope: 1.2x — steep grade"
+        );
+    }
+
+    #[test]
+    fn assumptions_formats_each_row() {
+        let items = vec!["flat lot".to_string(), "existing sewer tie-in".to_string()];
+        assert_eq!(
+            format_assumptions_for_narrative(&items),
+            "- flat lot\n- existing sewer tie-in"
+        );
+    }
+
+    #[test]
+    fn render_narrative_user_prompt_substitutes_every_placeholder() {
+        // Build a tiny prompt that uses every placeholder; assert the result.
+        let template = "desc={project_description}|p50={total_cost_p50}|p80={total_cost_p80}|wks_p50={timeline_weeks_p50}|wks_p80={timeline_weeks_p80}|cb={cost_breakdown}|af={adjustment_factors}|a={assumptions}";
+        let prompt = efofx_prompts::Prompt {
+            name: "narrative".into(),
+            version: "1.1.0".into(),
+            created_at: "2026-04-23".into(),
+            description: None,
+            system_prompt: "sys".into(),
+            user_prompt_template: template.into(),
+            content_hash: String::new(),
+            source_file: std::path::PathBuf::new(),
+        };
+        let output = EstimationOutput {
+            total_cost_p50: 60_000.0,
+            total_cost_p80: 72_000.0,
+            timeline_weeks_p50: 8,
+            timeline_weeks_p80: 12,
+            cost_breakdown: vec![CostCategoryEstimate {
+                category: "materials".into(),
+                p50_cost: 24_000.0,
+                p80_cost: 28_000.0,
+                percentage_of_total: 0.40,
+            }],
+            adjustment_factors: vec![AdjustmentFactor {
+                name: "Urban premium".into(),
+                multiplier: 1.15,
+                reason: "dense metro".into(),
+            }],
+            confidence_score: 72.0,
+            assumptions: vec!["flat lot".into()],
+            summary: "pool in socal".into(),
+        };
+        let out = render_narrative_user_prompt(&prompt, "Project type: pool.", &output).unwrap();
+        assert!(out.contains("desc=Project type: pool."));
+        assert!(out.contains("p50=$60,000"));
+        assert!(out.contains("p80=$72,000"));
+        assert!(out.contains("wks_p50=8"));
+        assert!(out.contains("wks_p80=12"));
+        assert!(out.contains("cb=- materials: $24,000 - $28,000 (40% of total)"));
+        assert!(out.contains("af=- Urban premium: 1.15x — dense metro"));
+        assert!(out.contains("a=- flat lot"));
     }
 }

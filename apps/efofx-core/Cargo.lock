@@ -681,6 +681,7 @@ name = "efofx-core"
 version = "0.1.0"
 dependencies = [
  "anyhow",
+ "async-stream",
  "axum",
  "base64",
  "efofx-auth",
@@ -691,6 +692,7 @@ dependencies = [
  "efofx-openapi",
  "efofx-prompts",
  "efofx-storage",
+ "futures",
  "http-body-util",
  "hyper",
  "jsonwebtoken",

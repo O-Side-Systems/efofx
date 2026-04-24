@@ -42,8 +42,8 @@ pub(crate) fn not_implemented(description: &'static str) -> impl IntoResponse {
 pub fn router(state: Arc<AppState>) -> Router<Arc<AppState>> {
     Router::new()
         .merge(identity::routes(state.clone()))
-        .merge(chat::routes(state))
-        .merge(estimation::routes())
+        .merge(chat::routes(state.clone()))
+        .merge(estimation::routes(state))
         .merge(widget::routes())
         .merge(leads::routes())
         .merge(feedback::routes())

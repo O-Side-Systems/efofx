@@ -20,7 +20,7 @@ use mongodb::options::ReturnDocument;
 use serde::{Deserialize, Serialize};
 use time::OffsetDateTime;
 
-use efofx_domain::{Tenant, TenantId, TenantTier};
+use efofx_domain::{BrandingConfig, Tenant, TenantId, TenantTier};
 
 use crate::{MongoAdapter, StorageError, TenantContext};
 
@@ -50,8 +50,28 @@ pub(crate) struct TenantDoc {
     #[serde(default = "default_true")]
     pub is_active: bool,
 
+    /// Tenant-owned settings document. Populated by the dashboard over
+    /// `PATCH /v1/me`; read by the widget branding + CORS surfaces.
+    /// `None` (or missing field) means every consumer falls back to
+    /// defaults.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub settings: Option<TenantSettingsDoc>,
+
     pub created_at: BsonDateTime,
     pub updated_at: BsonDateTime,
+}
+
+/// Subdoc persisted under `tenants.settings`. Everything here is
+/// tenant-owned and user-configurable; no secrets.
+#[derive(Debug, Clone, Default, Serialize, Deserialize)]
+pub struct TenantSettingsDoc {
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub branding: Option<BrandingConfig>,
+    /// Origins this tenant's widget is permitted to be embedded on. Used
+    /// by the per-tenant CORS middleware (Phase 2D.5) to reflect
+    /// allow-origin on preflight and actual responses.
+    #[serde(default)]
+    pub allowed_origins: Vec<String>,
 }
 
 fn default_true() -> bool {
@@ -258,4 +278,83 @@ impl TenantRepo {
         let tenant = self.get(ctx).await?;
         Ok(tenant.encrypted_openai_key)
     }
+
+    /// Resolve a tenant's branding by the public API-key prefix — the
+    /// 32-hex `tenant_id` without dashes that appears after `sk_live_` in
+    /// their widget key. Used by the public, unauthenticated
+    /// `GET /v1/widget/branding/{prefix}` endpoint (Phase 2D.1).
+    ///
+    /// Returns `None` when:
+    /// * the prefix is not 32 hex chars,
+    /// * the prefix does not parse as a UUID,
+    /// * no tenant exists for that id,
+    /// * or the tenant is deactivated.
+    ///
+    /// When present, `BrandingConfig::company_name` falls back to the
+    /// tenant's top-level `company_name` if the tenant has no stored
+    /// branding override (matching FastAPI behaviour).
+    pub async fn fetch_branding_by_prefix(
+        &self,
+        api_key_prefix: &str,
+    ) -> Result<Option<BrandingWithOrigins>, StorageError> {
+        let Some(tenant_id) = parse_tenant_id_prefix(api_key_prefix) else {
+            return Ok(None);
+        };
+        let tenant_doc = match self
+            .collection()
+            .find_one(doc! { "tenant_id": tenant_id.0.to_string() })
+            .await?
+        {
+            Some(doc) => doc,
+            None => return Ok(None),
+        };
+        if !tenant_doc.is_active {
+            return Ok(None);
+        }
+
+        let fallback_company = tenant_doc.company_name.clone();
+        let (branding, allowed_origins) = match tenant_doc.settings {
+            Some(s) => (s.branding, s.allowed_origins),
+            None => (None, Vec::new()),
+        };
+
+        let branding = match branding {
+            Some(mut b) => {
+                if b.company_name.is_empty() {
+                    b.company_name = fallback_company;
+                }
+                b
+            }
+            None => BrandingConfig {
+                company_name: fallback_company,
+                ..BrandingConfig::default()
+            },
+        };
+
+        Ok(Some(BrandingWithOrigins {
+            tenant_id,
+            branding,
+            allowed_origins,
+        }))
+    }
+}
+
+/// Result of [`TenantRepo::fetch_branding_by_prefix`]. Carries the
+/// `allowed_origins` so the CORS middleware can populate its cache on
+/// the same lookup — avoids a second read per branding fetch.
+#[derive(Debug, Clone)]
+pub struct BrandingWithOrigins {
+    pub tenant_id: TenantId,
+    pub branding: BrandingConfig,
+    pub allowed_origins: Vec<String>,
+}
+
+/// Parse the public 32-hex tenant-id prefix used by
+/// `GET /v1/widget/branding/{prefix}`. Matches the `simple` UUID
+/// formatting used by [`crate::auth::ApiKeyAuth::generate`].
+fn parse_tenant_id_prefix(prefix: &str) -> Option<TenantId> {
+    if prefix.len() != 32 || !prefix.chars().all(|c| c.is_ascii_hexdigit()) {
+        return None;
+    }
+    uuid::Uuid::parse_str(prefix).ok().map(TenantId)
 }

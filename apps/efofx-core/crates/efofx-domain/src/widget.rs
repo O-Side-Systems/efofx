@@ -29,6 +29,23 @@ fn default_locale() -> String {
     "en".into()
 }
 
+impl Default for BrandingConfig {
+    fn default() -> Self {
+        Self {
+            primary_color: "#2563eb".into(),
+            secondary_color: "#f3f4f6".into(),
+            accent_color: "#1d4ed8".into(),
+            logo_url: None,
+            welcome_message: "Hi! Tell me about your project and I'll help estimate the cost."
+                .into(),
+            button_text: "Get an Estimate".into(),
+            company_name: String::new(),
+            locale: default_locale(),
+            consultation_form_labels: None,
+        }
+    }
+}
+
 /// Lead lifecycle status. New in Rust — FastAPI never surfaced one.
 /// Dashboard drives transitions through `PATCH /v1/leads/{id}`.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize, ToSchema)]

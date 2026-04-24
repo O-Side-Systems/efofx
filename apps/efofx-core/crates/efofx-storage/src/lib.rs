@@ -23,7 +23,7 @@ pub use health::HealthStatus;
 pub use mongo::MongoAdapter;
 pub use reference::{decode_reference_class, ReferenceRepo, UpsertStats};
 pub use tenant_context::TenantContext;
-pub use tenants::TenantRepo;
+pub use tenants::{BrandingWithOrigins, TenantRepo};
 
 #[derive(Debug, thiserror::Error)]
 pub enum StorageError {

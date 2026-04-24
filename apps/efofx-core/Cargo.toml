@@ -81,6 +81,9 @@ tiktoken-rs = "0.11"
 # JSON Schema (structured outputs)
 schemars = "1"
 
+# Rate limiting (in-memory; trait-abstracted so a Valkey impl can drop in later)
+governor = "0.6"
+
 # Testing
 trybuild = "1"
 

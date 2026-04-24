@@ -3,16 +3,20 @@
 use std::sync::Arc;
 
 use axum::{
-    response::IntoResponse,
+    extract::{Path, State},
+    http::StatusCode,
+    middleware::from_fn_with_state,
+    response::{IntoResponse, Response},
     routing::{get, post},
-    Router,
+    Json, Router,
 };
 use serde::{Deserialize, Serialize};
 use utoipa::ToSchema;
 
 use efofx_domain::{AnalyticsEventType, BrandingConfig, ConsultationRequest};
-use efofx_openapi::ApiError;
+use efofx_openapi::{ApiError, ErrorCode};
 
+use crate::middleware::rate_limit::rate_limit;
 use crate::AppState;
 
 use super::not_implemented;
@@ -59,24 +63,53 @@ pub struct AnalyticsSummary {
     pub buckets: Vec<AnalyticsDailyBucket>,
 }
 
-/// Public: fetch a tenant's widget branding by the last-6 of their API key.
-/// Rate-limited per IP. Never includes secrets or PII.
+/// Public: fetch a tenant's widget branding by their API-key prefix.
+/// The prefix is the 32-hex `tenant_id` (no dashes) that appears after
+/// `sk_live_` in the widget's stored API key. Rate-limited per IP
+/// (30 req/min). Never returns secrets or PII.
 #[utoipa::path(
     get,
     path = "/v1/widget/branding/{api_key_prefix}",
     tag = "widget",
     params(
-        ("api_key_prefix" = String, Path, description = "Last-6 hex chars of tenant API key")
+        ("api_key_prefix" = String, Path, description = "32-hex tenant-id prefix (the segment after `sk_live_` in the widget API key)")
     ),
     responses(
         (status = 200, description = "Branding config", body = BrandingConfig),
         (status = 404, description = "No tenant matches that prefix", body = ApiError),
         (status = 429, description = "Rate limit exceeded", body = ApiError),
-        (status = 501, description = "Not yet implemented", body = ApiError),
     ),
 )]
-pub async fn get_branding() -> impl IntoResponse {
-    not_implemented("GET /v1/widget/branding/{prefix}")
+pub async fn get_branding(
+    State(state): State<Arc<AppState>>,
+    Path(api_key_prefix): Path<String>,
+) -> Response {
+    match state
+        .tenants
+        .fetch_branding_by_prefix(&api_key_prefix)
+        .await
+    {
+        Ok(Some(resolved)) => Json(resolved.branding).into_response(),
+        Ok(None) => (
+            StatusCode::NOT_FOUND,
+            Json(ApiError::single(
+                ErrorCode::WidgetBrandingNotFound.as_str(),
+                ErrorCode::WidgetBrandingNotFound.default_message(),
+            )),
+        )
+            .into_response(),
+        Err(err) => {
+            tracing::error!(error = %err, "branding lookup failed");
+            (
+                StatusCode::INTERNAL_SERVER_ERROR,
+                Json(ApiError::single(
+                    "common.internal",
+                    "An internal error occurred",
+                )),
+            )
+                .into_response()
+        }
+    }
 }
 
 /// Capture a lead from the widget.
@@ -153,10 +186,31 @@ pub async fn list_events() -> impl IntoResponse {
     not_implemented("GET /v1/widget/events")
 }
 
-pub fn routes() -> Router<Arc<AppState>> {
-    Router::new()
+/// Assemble the widget router.
+///
+/// Layering (top-down execution order):
+/// * `GET /v1/widget/branding/{prefix}` is **public**. It sits behind
+///   the per-IP rate limiter only — no auth — so the widget can bootstrap
+///   its theme before any user interaction.
+/// * `/v1/widget/leads`, `/v1/widget/consultations`, `POST /v1/widget/events`
+///   require a widget API key. Added in 2D.2–2D.4.
+/// * `GET /v1/widget/events` requires a Supabase JWT (dashboard read).
+///   Added in 2D.4.
+pub fn routes(state: Arc<AppState>) -> Router<Arc<AppState>> {
+    let public = Router::new()
         .route("/v1/widget/branding/{api_key_prefix}", get(get_branding))
+        .route_layer(from_fn_with_state(
+            state.branding_rate_limiter.clone(),
+            rate_limit,
+        ));
+
+    // The remaining widget routes keep their 501 stubs until their
+    // subphase ships. They are reachable as-is (no auth yet) so the
+    // contract surface stays stable for the OpenAPI lint.
+    let other = Router::new()
         .route("/v1/widget/leads", post(create_lead))
         .route("/v1/widget/consultations", post(create_consultation))
-        .route("/v1/widget/events", post(record_event).get(list_events))
+        .route("/v1/widget/events", post(record_event).get(list_events));
+
+    public.merge(other)
 }

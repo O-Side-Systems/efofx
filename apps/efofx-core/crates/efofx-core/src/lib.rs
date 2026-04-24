@@ -33,13 +33,22 @@ use efofx_storage::{
 };
 
 pub mod api;
+pub mod middleware;
 pub mod openapi;
 pub mod services;
 
+use middleware::rate_limit::IpRateLimiter;
 use openapi::ApiDoc;
 use services::{ByokService, ChatService, EstimationService};
 
 const REQUEST_ID_HEADER: HeaderName = HeaderName::from_static("x-request-id");
+
+/// Rate limits for the widget public surface. Per-IP per-minute quotas
+/// enforced by [`middleware::rate_limit`]. Tweakable via config later;
+/// the current values mirror FastAPI (`@limiter.limit("30/minute")` on
+/// branding, `10/minute` on analytics read).
+const BRANDING_RPM: u32 = 30;
+const ANALYTICS_READ_RPM: u32 = 10;
 
 /// Composed application state. Every handler reads the slice of this
 /// struct it needs.
@@ -52,6 +61,8 @@ pub struct AppState {
     pub estimation: EstimationService,
     pub api_key_auth: ApiKeyAuth,
     pub auth: AuthState,
+    pub branding_rate_limiter: IpRateLimiter,
+    pub analytics_rate_limiter: IpRateLimiter,
 }
 
 /// Build the full application state by wiring every service, repo, and
@@ -139,6 +150,9 @@ pub async fn build_app_state(cfg: &AppConfig) -> anyhow::Result<AppState> {
         api_key: api_key_auth.clone(),
     };
 
+    let branding_rate_limiter = IpRateLimiter::per_minute(BRANDING_RPM);
+    let analytics_rate_limiter = IpRateLimiter::per_minute(ANALYTICS_READ_RPM);
+
     Ok(AppState {
         mongo,
         tenants,
@@ -147,6 +161,8 @@ pub async fn build_app_state(cfg: &AppConfig) -> anyhow::Result<AppState> {
         estimation,
         api_key_auth,
         auth,
+        branding_rate_limiter,
+        analytics_rate_limiter,
     })
 }
 
@@ -212,7 +228,14 @@ pub async fn run(cfg: AppConfig) -> anyhow::Result<()> {
     let addr: std::net::SocketAddr = format!("{}:{}", cfg.server.host, cfg.server.port).parse()?;
     let listener = tokio::net::TcpListener::bind(addr).await?;
     info!(%addr, "listening");
-    axum::serve(listener, app).await?;
+    // `into_make_service_with_connect_info` is required so the
+    // rate-limit middleware can read the peer socket as a fallback IP
+    // key when `x-forwarded-for` is absent.
+    axum::serve(
+        listener,
+        app.into_make_service_with_connect_info::<std::net::SocketAddr>(),
+    )
+    .await?;
     Ok(())
 }
 

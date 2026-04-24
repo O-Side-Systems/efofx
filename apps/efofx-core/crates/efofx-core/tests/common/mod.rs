@@ -17,6 +17,7 @@ use efofx_auth::{middleware::AuthState, JwksCache};
 use efofx_config::SupabaseConfig;
 use efofx_core::{
     build_router,
+    middleware::rate_limit::IpRateLimiter,
     services::{ByokService, ChatService, EstimationService},
     AppState,
 };
@@ -175,6 +176,8 @@ impl TestHarness {
             estimation,
             api_key_auth,
             auth,
+            branding_rate_limiter: IpRateLimiter::per_minute(1_000_000),
+            analytics_rate_limiter: IpRateLimiter::per_minute(1_000_000),
         });
         let router = build_router(state);
 

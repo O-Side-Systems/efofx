@@ -16,6 +16,7 @@ pub mod mongo;
 pub mod reference;
 pub mod tenant_context;
 pub mod tenants;
+pub mod widget;
 
 pub use chat::{ChatRepo, DEFAULT_SESSION_TTL_HOURS};
 pub use estimation::EstimationRepo;
@@ -24,6 +25,7 @@ pub use mongo::MongoAdapter;
 pub use reference::{decode_reference_class, ReferenceRepo, UpsertStats};
 pub use tenant_context::TenantContext;
 pub use tenants::{BrandingWithOrigins, TenantRepo};
+pub use widget::{NewConsultation, NewLead, WidgetLeadRepo};
 
 #[derive(Debug, thiserror::Error)]
 pub enum StorageError {

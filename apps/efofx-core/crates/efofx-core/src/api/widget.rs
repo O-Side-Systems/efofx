@@ -3,7 +3,7 @@
 use std::sync::Arc;
 
 use axum::{
-    extract::{Path, State},
+    extract::{Extension, Path, State},
     http::StatusCode,
     middleware::from_fn_with_state,
     response::{IntoResponse, Response},
@@ -12,9 +12,12 @@ use axum::{
 };
 use serde::{Deserialize, Serialize};
 use utoipa::ToSchema;
+use uuid::Uuid;
 
-use efofx_domain::{AnalyticsEventType, BrandingConfig, ConsultationRequest};
+use efofx_auth::middleware::widget_api_key;
+use efofx_domain::{AnalyticsEventType, BrandingConfig, ConsultationRequest, SessionId};
 use efofx_openapi::{ApiError, ErrorCode};
+use efofx_storage::{NewLead, TenantContext};
 
 use crate::middleware::rate_limit::rate_limit;
 use crate::AppState;
@@ -112,7 +115,9 @@ pub async fn get_branding(
     }
 }
 
-/// Capture a lead from the widget.
+/// Capture a lead from the widget. Persists to `widget_leads` and
+/// returns 201 with the same `session_id` echoed back so the widget can
+/// thread it into the next step (estimate, consultation, …).
 #[utoipa::path(
     post,
     path = "/v1/widget/leads",
@@ -123,11 +128,94 @@ pub async fn get_branding(
         (status = 201, description = "Lead captured", body = LeadCaptureResponse),
         (status = 400, description = "Validation failed", body = ApiError),
         (status = 401, description = "API key invalid", body = ApiError),
-        (status = 501, description = "Not yet implemented", body = ApiError),
     ),
 )]
-pub async fn create_lead() -> impl IntoResponse {
-    not_implemented("POST /v1/widget/leads")
+pub async fn create_lead(
+    State(state): State<Arc<AppState>>,
+    Extension(ctx): Extension<TenantContext>,
+    Json(body): Json<LeadCaptureRequest>,
+) -> Response {
+    let session_id = match parse_session_id(&body.session_id) {
+        Ok(id) => id,
+        Err(resp) => return resp,
+    };
+    if let Err(resp) = validate_contact(&body.name, &body.email, &body.phone) {
+        return resp;
+    }
+
+    let new = NewLead {
+        session_id,
+        name: body.name,
+        email: body.email,
+        phone: body.phone,
+    };
+
+    match state.widget_leads.insert_lead(&ctx, &new).await {
+        Ok(_lead_id) => (
+            StatusCode::CREATED,
+            Json(LeadCaptureResponse {
+                message: "Lead captured successfully".into(),
+                session_id: body.session_id,
+            }),
+        )
+            .into_response(),
+        Err(err) => {
+            tracing::error!(error = %err, "lead insert failed");
+            internal_error()
+        }
+    }
+}
+
+/// Parse and validate a session id, returning a 400 envelope on failure
+/// so the widget never silently writes against a malformed key.
+#[allow(clippy::result_large_err)]
+fn parse_session_id(raw: &str) -> Result<SessionId, Response> {
+    Uuid::parse_str(raw).map(SessionId).map_err(|_| {
+        (
+            StatusCode::BAD_REQUEST,
+            Json(ApiError::single(
+                ErrorCode::ValidationFailed.as_str(),
+                "session_id must be a UUID",
+            )),
+        )
+            .into_response()
+    })
+}
+
+/// Lightweight contact-field validation. Mirrors the FastAPI Pydantic
+/// constraints (`min_length=1, max_length=200` for name; `5..=30` for
+/// phone) without pulling in an `email` validator — clean strings only.
+#[allow(clippy::result_large_err)]
+fn validate_contact(name: &str, email: &str, phone: &str) -> Result<(), Response> {
+    if name.trim().is_empty() || name.len() > 200 {
+        return Err(validation_error("name must be 1–200 chars"));
+    }
+    if email.trim().is_empty() || !email.contains('@') {
+        return Err(validation_error("email must contain '@'"));
+    }
+    if phone.trim().is_empty() || phone.len() < 5 || phone.len() > 30 {
+        return Err(validation_error("phone must be 5–30 chars"));
+    }
+    Ok(())
+}
+
+fn validation_error(msg: &'static str) -> Response {
+    (
+        StatusCode::BAD_REQUEST,
+        Json(ApiError::single(ErrorCode::ValidationFailed.as_str(), msg)),
+    )
+        .into_response()
+}
+
+fn internal_error() -> Response {
+    (
+        StatusCode::INTERNAL_SERVER_ERROR,
+        Json(ApiError::single(
+            "common.internal",
+            "An internal error occurred",
+        )),
+    )
+        .into_response()
 }
 
 /// Submit a consultation request. Triggers the contractor notification email.
@@ -204,13 +292,19 @@ pub fn routes(state: Arc<AppState>) -> Router<Arc<AppState>> {
             rate_limit,
         ));
 
-    // The remaining widget routes keep their 501 stubs until their
-    // subphase ships. They are reachable as-is (no auth yet) so the
-    // contract surface stays stable for the OpenAPI lint.
-    let other = Router::new()
+    // Widget API-key authenticated routes. Stubs (consultations,
+    // record_event) get the same auth layer now so the contract is
+    // already locked; their handlers replace `not_implemented` in
+    // 2D.3 / 2D.4.
+    let widget_authed = Router::new()
         .route("/v1/widget/leads", post(create_lead))
         .route("/v1/widget/consultations", post(create_consultation))
-        .route("/v1/widget/events", post(record_event).get(list_events));
+        .route("/v1/widget/events", post(record_event))
+        .route_layer(from_fn_with_state(state.auth.clone(), widget_api_key));
 
-    public.merge(other)
+    // GET /v1/widget/events lands in 2D.4 with Supabase JWT auth — kept
+    // off the widget-key router so the layering stays correct.
+    let dashboard = Router::new().route("/v1/widget/events", get(list_events));
+
+    public.merge(widget_authed).merge(dashboard)
 }

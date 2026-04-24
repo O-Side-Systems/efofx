@@ -29,7 +29,7 @@ use efofx_llm::{LlmProvider, OpenAiProvider};
 use efofx_prompts::PromptRegistry;
 use efofx_storage::auth::{ApiKeyAuth, MasterKey, TenantResolver};
 use efofx_storage::{
-    ChatRepo, EstimationRepo, HealthStatus, MongoAdapter, ReferenceRepo, TenantRepo,
+    ChatRepo, EstimationRepo, HealthStatus, MongoAdapter, ReferenceRepo, TenantRepo, WidgetLeadRepo,
 };
 
 pub mod api;
@@ -56,6 +56,7 @@ const ANALYTICS_READ_RPM: u32 = 10;
 pub struct AppState {
     pub mongo: MongoAdapter,
     pub tenants: TenantRepo,
+    pub widget_leads: WidgetLeadRepo,
     pub byok: ByokService,
     pub chat: ChatService,
     pub estimation: EstimationService,
@@ -109,6 +110,12 @@ pub async fn build_app_state(cfg: &AppConfig) -> anyhow::Result<AppState> {
         .await
         .context("ensure reference_classes/projects indexes")?;
 
+    let widget_leads = WidgetLeadRepo::new(mongo.clone());
+    widget_leads
+        .ensure_indexes()
+        .await
+        .context("ensure widget_leads indexes")?;
+
     let prompts_dir =
         std::env::var("EFOFX_PROMPTS_DIR").unwrap_or_else(|_| "config/prompts".into());
     let prompts = Arc::new(
@@ -156,6 +163,7 @@ pub async fn build_app_state(cfg: &AppConfig) -> anyhow::Result<AppState> {
     Ok(AppState {
         mongo,
         tenants,
+        widget_leads,
         byok,
         chat,
         estimation,

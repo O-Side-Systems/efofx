@@ -24,7 +24,9 @@ use efofx_core::{
 use efofx_llm::MockLlmProvider;
 use efofx_prompts::PromptRegistry;
 use efofx_storage::auth::{ApiKeyAuth, MasterKey, TenantResolver};
-use efofx_storage::{ChatRepo, EstimationRepo, MongoAdapter, ReferenceRepo, TenantRepo};
+use efofx_storage::{
+    ChatRepo, EstimationRepo, MongoAdapter, ReferenceRepo, TenantRepo, WidgetLeadRepo,
+};
 use jsonwebtoken::{Algorithm, EncodingKey, Header};
 use rsa::pkcs1::EncodeRsaPrivateKey;
 use rsa::traits::PublicKeyParts;
@@ -136,6 +138,7 @@ impl TestHarness {
         let chat_repo = ChatRepo::new(mongo.clone());
         let estimates_repo = EstimationRepo::new(mongo.clone());
         let reference_repo = ReferenceRepo::new(mongo.clone());
+        let widget_leads = WidgetLeadRepo::new(mongo.clone());
         // Auth contract tests never reach the chat / estimation handlers,
         // but AppState requires fully-wired services. Use an empty prompt
         // registry and a mock LLM so construction succeeds without
@@ -171,6 +174,7 @@ impl TestHarness {
         let state = Arc::new(AppState {
             mongo,
             tenants,
+            widget_leads,
             byok,
             chat,
             estimation,

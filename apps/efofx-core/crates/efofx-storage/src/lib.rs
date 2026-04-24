@@ -21,7 +21,7 @@ pub use chat::{ChatRepo, DEFAULT_SESSION_TTL_HOURS};
 pub use estimation::EstimationRepo;
 pub use health::HealthStatus;
 pub use mongo::MongoAdapter;
-pub use reference::{decode_reference_class, ReferenceRepo};
+pub use reference::{decode_reference_class, ReferenceRepo, UpsertStats};
 pub use tenant_context::TenantContext;
 pub use tenants::TenantRepo;
 

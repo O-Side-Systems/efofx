@@ -1,0 +1,119 @@
+{
+  "class": {
+    "category": "construction",
+    "subcategory": "kitchen_remodel",
+    "name": "residential_kitchen_remodel_midrange",
+    "description": "Mid-range residential kitchen remodel. Full replacement of cabinets, countertops, appliances, flooring, and lighting within the existing footprint. Assumes no structural changes and no plumbing relocation beyond the sink.",
+    "keywords": [
+      "kitchen",
+      "remodel",
+      "renovation",
+      "residential",
+      "cabinets",
+      "countertops"
+    ],
+    "regions": ["SoCal - Coastal", "SoCal - Inland", "NorCal - Bay Area"],
+    "attributes": {
+      "size_range": "150-250 sq ft",
+      "scope": "cabinets_countertops_appliances_floor",
+      "structural_changes": false,
+      "plumbing_relocation": false,
+      "finish_level": "mid-range"
+    },
+    "cost_distribution": {
+      "p50": 62000,
+      "p80": 85000,
+      "p95": 115000,
+      "currency": "USD"
+    },
+    "timeline_distribution": {
+      "p50_days": 42,
+      "p80_days": 63,
+      "p95_days": 90
+    },
+    "cost_breakdown_template": {
+      "demolition": 0.05,
+      "cabinetry": 0.28,
+      "countertops": 0.12,
+      "appliances": 0.15,
+      "flooring": 0.08,
+      "electrical_and_lighting": 0.08,
+      "plumbing": 0.05,
+      "labor": 0.12,
+      "overhead_and_profit": 0.07
+    },
+    "is_synthetic": true,
+    "validation_source": "synthetic_seed_v1"
+  },
+  "projects": [
+    {
+      "project_id": "kitchen_socal_001",
+      "region": "SoCal - Coastal",
+      "description": "180 sq ft kitchen remodel: shaker cabinets, quartz counters, stainless mid-tier appliances, LVP flooring.",
+      "size_sqft": 180.0,
+      "total_cost": 64500.0,
+      "timeline_weeks": 7,
+      "team_size": 3,
+      "cost_breakdown": {
+        "demolition": 3225.0,
+        "cabinetry": 18060.0,
+        "countertops": 7740.0,
+        "appliances": 9675.0,
+        "flooring": 5160.0,
+        "electrical_and_lighting": 5160.0,
+        "plumbing": 3225.0,
+        "labor": 7740.0,
+        "overhead_and_profit": 4515.0
+      },
+      "completion_date": "2025-01-30T00:00:00Z",
+      "quality_score": 0.87,
+      "source": "synthetic_seed"
+    },
+    {
+      "project_id": "kitchen_socal_002",
+      "region": "SoCal - Inland",
+      "description": "200 sq ft kitchen remodel: semi-custom cabinets, granite counters, gas range upgrade, tile backsplash.",
+      "size_sqft": 200.0,
+      "total_cost": 58000.0,
+      "timeline_weeks": 6,
+      "team_size": 3,
+      "cost_breakdown": {
+        "demolition": 2900.0,
+        "cabinetry": 16240.0,
+        "countertops": 6960.0,
+        "appliances": 8700.0,
+        "flooring": 4640.0,
+        "electrical_and_lighting": 4640.0,
+        "plumbing": 2900.0,
+        "labor": 6960.0,
+        "overhead_and_profit": 4060.0
+      },
+      "completion_date": "2024-08-11T00:00:00Z",
+      "quality_score": 0.83,
+      "source": "synthetic_seed"
+    },
+    {
+      "project_id": "kitchen_bay_001",
+      "region": "NorCal - Bay Area",
+      "description": "220 sq ft kitchen remodel: custom cabinets, quartz waterfall island, induction range, engineered oak floor.",
+      "size_sqft": 220.0,
+      "total_cost": 89000.0,
+      "timeline_weeks": 9,
+      "team_size": 4,
+      "cost_breakdown": {
+        "demolition": 4450.0,
+        "cabinetry": 24920.0,
+        "countertops": 10680.0,
+        "appliances": 13350.0,
+        "flooring": 7120.0,
+        "electrical_and_lighting": 7120.0,
+        "plumbing": 4450.0,
+        "labor": 10680.0,
+        "overhead_and_profit": 6230.0
+      },
+      "completion_date": "2025-05-08T00:00:00Z",
+      "quality_score": 0.9,
+      "source": "synthetic_seed"
+    }
+  ]
+}

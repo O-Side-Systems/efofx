@@ -15,6 +15,12 @@ path = "src/lib.rs"
 name = "efofx-core"
 path = "src/main.rs"
 
+# Operational binary: one-shot seeder that upserts platform-scoped reference
+# classes and projects from JSON fixtures under `config/reference-data/`.
+[[bin]]
+name = "seed-references"
+path = "src/bin/seed-references.rs"
+
 [dependencies]
 efofx-domain.workspace = true
 efofx-config.workspace = true

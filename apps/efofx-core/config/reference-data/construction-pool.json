@@ -1,0 +1,96 @@
+{
+  "class": {
+    "category": "construction",
+    "subcategory": "pool",
+    "name": "residential_pool_socal",
+    "description": "Standard residential swimming pool construction in Southern California. In-ground gunite construction with basic plaster finish; excludes spa, water features, and luxury decking.",
+    "keywords": ["pool", "swimming", "residential", "concrete", "gunite", "backyard"],
+    "regions": ["SoCal - Coastal", "SoCal - Inland"],
+    "attributes": {
+      "size_range": "300-500 sq ft",
+      "depth": "4-8 feet",
+      "includes_spa": false,
+      "finish_type": "plaster",
+      "construction_type": "gunite"
+    },
+    "cost_distribution": {
+      "p50": 55000,
+      "p80": 72000,
+      "p95": 95000,
+      "currency": "USD"
+    },
+    "timeline_distribution": {
+      "p50_days": 45,
+      "p80_days": 60,
+      "p95_days": 90
+    },
+    "cost_breakdown_template": {
+      "excavation": 0.15,
+      "materials": 0.40,
+      "labor": 0.30,
+      "permits": 0.05,
+      "overhead": 0.10
+    },
+    "is_synthetic": true,
+    "validation_source": "synthetic_seed_v1"
+  },
+  "projects": [
+    {
+      "project_id": "pool_socal_001",
+      "region": "SoCal - Coastal",
+      "description": "15x30 plaster gunite pool, basic Baja shelf, no spa.",
+      "size_sqft": 450.0,
+      "total_cost": 58500.0,
+      "timeline_weeks": 8,
+      "team_size": 4,
+      "cost_breakdown": {
+        "excavation": 8775.0,
+        "materials": 23400.0,
+        "labor": 17550.0,
+        "permits": 2925.0,
+        "overhead": 5850.0
+      },
+      "completion_date": "2025-06-15T00:00:00Z",
+      "quality_score": 0.9,
+      "source": "synthetic_seed"
+    },
+    {
+      "project_id": "pool_socal_002",
+      "region": "SoCal - Inland",
+      "description": "16x32 plaster gunite pool with step entry, standard equipment pad.",
+      "size_sqft": 512.0,
+      "total_cost": 54000.0,
+      "timeline_weeks": 7,
+      "team_size": 3,
+      "cost_breakdown": {
+        "excavation": 8100.0,
+        "materials": 21600.0,
+        "labor": 16200.0,
+        "permits": 2700.0,
+        "overhead": 5400.0
+      },
+      "completion_date": "2025-03-22T00:00:00Z",
+      "quality_score": 0.85,
+      "source": "synthetic_seed"
+    },
+    {
+      "project_id": "pool_socal_003",
+      "region": "SoCal - Coastal",
+      "description": "18x36 plaster gunite pool with Baja shelf and LED lighting.",
+      "size_sqft": 648.0,
+      "total_cost": 72500.0,
+      "timeline_weeks": 10,
+      "team_size": 4,
+      "cost_breakdown": {
+        "excavation": 10875.0,
+        "materials": 29000.0,
+        "labor": 21750.0,
+        "permits": 3625.0,
+        "overhead": 7250.0
+      },
+      "completion_date": "2024-11-02T00:00:00Z",
+      "quality_score": 0.88,
+      "source": "synthetic_seed"
+    }
+  ]
+}

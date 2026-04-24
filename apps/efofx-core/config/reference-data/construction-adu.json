@@ -1,0 +1,112 @@
+{
+  "class": {
+    "category": "construction",
+    "subcategory": "adu",
+    "name": "residential_adu_detached",
+    "description": "Detached residential Accessory Dwelling Unit (ADU) on an existing single-family lot. Slab-on-grade foundation, wood-frame, one bedroom, one bath, basic finish level.",
+    "keywords": [
+      "adu",
+      "accessory dwelling",
+      "granny flat",
+      "residential",
+      "detached",
+      "backyard cottage"
+    ],
+    "regions": ["SoCal - Coastal", "SoCal - Inland", "NorCal - Bay Area"],
+    "attributes": {
+      "size_range": "500-800 sq ft",
+      "bedrooms": 1,
+      "bathrooms": 1,
+      "foundation": "slab-on-grade",
+      "structure": "wood-frame",
+      "finish_level": "basic"
+    },
+    "cost_distribution": {
+      "p50": 190000,
+      "p80": 245000,
+      "p95": 310000,
+      "currency": "USD"
+    },
+    "timeline_distribution": {
+      "p50_days": 150,
+      "p80_days": 210,
+      "p95_days": 300
+    },
+    "cost_breakdown_template": {
+      "sitework": 0.08,
+      "foundation": 0.12,
+      "framing": 0.18,
+      "mechanical_electrical_plumbing": 0.20,
+      "finishes": 0.22,
+      "permits_and_fees": 0.08,
+      "overhead_and_profit": 0.12
+    },
+    "is_synthetic": true,
+    "validation_source": "synthetic_seed_v1"
+  },
+  "projects": [
+    {
+      "project_id": "adu_socal_001",
+      "region": "SoCal - Coastal",
+      "description": "650 sq ft detached ADU, 1BR/1BA, composite siding, mini-split HVAC.",
+      "size_sqft": 650.0,
+      "total_cost": 198000.0,
+      "timeline_weeks": 24,
+      "team_size": 5,
+      "cost_breakdown": {
+        "sitework": 15840.0,
+        "foundation": 23760.0,
+        "framing": 35640.0,
+        "mechanical_electrical_plumbing": 39600.0,
+        "finishes": 43560.0,
+        "permits_and_fees": 15840.0,
+        "overhead_and_profit": 23760.0
+      },
+      "completion_date": "2025-02-18T00:00:00Z",
+      "quality_score": 0.9,
+      "source": "synthetic_seed"
+    },
+    {
+      "project_id": "adu_socal_002",
+      "region": "SoCal - Inland",
+      "description": "540 sq ft detached studio ADU, stucco exterior, tankless water heater.",
+      "size_sqft": 540.0,
+      "total_cost": 175000.0,
+      "timeline_weeks": 20,
+      "team_size": 4,
+      "cost_breakdown": {
+        "sitework": 14000.0,
+        "foundation": 21000.0,
+        "framing": 31500.0,
+        "mechanical_electrical_plumbing": 35000.0,
+        "finishes": 38500.0,
+        "permits_and_fees": 14000.0,
+        "overhead_and_profit": 21000.0
+      },
+      "completion_date": "2024-10-05T00:00:00Z",
+      "quality_score": 0.82,
+      "source": "synthetic_seed"
+    },
+    {
+      "project_id": "adu_bay_001",
+      "region": "NorCal - Bay Area",
+      "description": "720 sq ft detached ADU with loft, 1BR/1BA, fiber-cement siding, heat-pump HVAC.",
+      "size_sqft": 720.0,
+      "total_cost": 258000.0,
+      "timeline_weeks": 30,
+      "team_size": 5,
+      "cost_breakdown": {
+        "sitework": 20640.0,
+        "foundation": 30960.0,
+        "framing": 46440.0,
+        "mechanical_electrical_plumbing": 51600.0,
+        "finishes": 56760.0,
+        "permits_and_fees": 20640.0,
+        "overhead_and_profit": 30960.0
+      },
+      "completion_date": "2025-04-12T00:00:00Z",
+      "quality_score": 0.88,
+      "source": "synthetic_seed"
+    }
+  ]
+}

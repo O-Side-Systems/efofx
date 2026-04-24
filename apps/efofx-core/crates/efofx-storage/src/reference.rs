@@ -6,10 +6,10 @@
 //! [`TenantContext`] and fold platform data into the result so a tenant
 //! without any custom rows still sees the platform catalog.
 //!
-//! All write methods deliberately go unimplemented in this phase — reference
-//! data is seeded by an out-of-band script and edited via ops tooling, not
-//! user-facing endpoints. A tenant-scoped create/update path will land
-//! alongside the first tenant-customization UI.
+//! The only writes exposed in this phase target **platform** rows
+//! (`tenant_id: null`) and power the `seed-references` ops binary —
+//! user-facing tenant endpoints will land alongside the first
+//! tenant-customization UI.
 //!
 //! Indexes created by [`ReferenceRepo::ensure_indexes`]:
 //! - `reference_classes`: `{tenant_id: 1, category: 1}`,
@@ -190,9 +190,116 @@ fn bson_to_offset(dt: BsonDateTime) -> Result<OffsetDateTime, StorageError> {
         .map_err(|e| StorageError::Bson(format!("timestamp out of range: {e}")))
 }
 
-#[allow(dead_code)]
 fn offset_to_bson(dt: OffsetDateTime) -> BsonDateTime {
     BsonDateTime::from_system_time(SystemTime::from(dt))
+}
+
+/// Convert an LLM-hint JSON scalar into BSON. The `attributes` /
+/// `metadata` maps only ever carry scalar hints in practice, but the
+/// conversion is general enough to handle arrays / objects too.
+fn json_to_bson(v: serde_json::Value) -> Result<Bson, StorageError> {
+    mongodb::bson::serialize_to_bson(&v).map_err(|e| StorageError::Bson(format!("json→bson: {e}")))
+}
+
+impl ReferenceClassDoc {
+    /// Build a platform-scoped storage document from a domain value. Clears
+    /// `_id` so the upsert path lets Mongo keep or mint it, and forces
+    /// `tenant_id: null` (platform rows only).
+    fn from_platform_domain(c: &ReferenceClass) -> Result<Self, StorageError> {
+        let attributes = c
+            .attributes
+            .iter()
+            .map(|(k, v)| Ok((k.clone(), json_to_bson(v.clone())?)))
+            .collect::<Result<BTreeMap<_, _>, StorageError>>()?;
+        Ok(ReferenceClassDoc {
+            id: None,
+            tenant_id: None,
+            category: c.category.clone(),
+            subcategory: c.subcategory.clone(),
+            name: c.name.clone(),
+            description: c.description.clone(),
+            keywords: c.keywords.clone(),
+            regions: c.regions.clone(),
+            attributes,
+            cost_distribution: CostDistributionDoc {
+                p50: c.cost_distribution.p50,
+                p80: c.cost_distribution.p80,
+                p95: c.cost_distribution.p95,
+                currency: c.cost_distribution.currency.clone(),
+            },
+            timeline_distribution: TimelineDistributionDoc {
+                p50_days: c.timeline_distribution.p50_days,
+                p80_days: c.timeline_distribution.p80_days,
+                p95_days: c.timeline_distribution.p95_days,
+            },
+            cost_breakdown_template: c.cost_breakdown_template.clone(),
+            is_synthetic: c.is_synthetic,
+            validation_source: c.validation_source.clone(),
+            created_at: offset_to_bson(c.created_at),
+            updated_at: c.updated_at.map(offset_to_bson),
+        })
+    }
+}
+
+impl ReferenceProjectDoc {
+    /// Build a platform-scoped storage document from a domain value. Clears
+    /// `_id` and forces `tenant_id: null`.
+    fn from_platform_domain(p: &ReferenceProject) -> Result<Self, StorageError> {
+        let metadata = p
+            .metadata
+            .iter()
+            .map(|(k, v)| Ok((k.clone(), json_to_bson(v.clone())?)))
+            .collect::<Result<BTreeMap<_, _>, StorageError>>()?;
+        Ok(ReferenceProjectDoc {
+            id: None,
+            tenant_id: None,
+            project_id: p.project_id.clone(),
+            reference_class: p.reference_class.clone(),
+            region: p.region.clone(),
+            description: p.description.clone(),
+            size_sqft: p.size_sqft,
+            total_cost: p.total_cost,
+            timeline_weeks: p.timeline_weeks,
+            team_size: p.team_size,
+            cost_breakdown: p.cost_breakdown.clone(),
+            completion_date: offset_to_bson(p.completion_date),
+            quality_score: p.quality_score,
+            source: p.source.clone(),
+            metadata,
+            is_active: p.is_active,
+            created_at: offset_to_bson(p.created_at),
+            updated_at: p.updated_at.map(offset_to_bson),
+        })
+    }
+}
+
+/// Outcome of a platform-rows upsert batch. Accumulated across calls by
+/// [`UpsertStats::observe`]. Used by the `seed-references` binary to emit
+/// a concise summary without inspecting raw [`mongodb::results::UpdateResult`]
+/// values.
+#[derive(Debug, Clone, Copy, Default)]
+pub struct UpsertStats {
+    pub inserted: u64,
+    pub modified: u64,
+    pub unchanged: u64,
+}
+
+impl UpsertStats {
+    /// Folded total across all outcomes.
+    pub fn total(&self) -> u64 {
+        self.inserted + self.modified + self.unchanged
+    }
+
+    /// Record one upsert result.
+    pub fn observe(&mut self, result: &mongodb::results::UpdateResult) {
+        if result.upserted_id.is_some() {
+            self.inserted += 1;
+        } else if result.modified_count > 0 {
+            self.modified += 1;
+        } else {
+            self.unchanged += 1;
+        }
+    }
 }
 
 fn bson_to_json(b: Bson) -> Result<serde_json::Value, StorageError> {
@@ -362,6 +469,75 @@ impl ReferenceRepo {
             out.push(doc.into_domain()?);
         }
         Ok(out)
+    }
+
+    /// Upsert a **platform** reference class by `name`. Platform rows are
+    /// visible to every tenant. The caller owns content validation but we
+    /// re-verify cost-breakdown sums defensively so a bad fixture can't slip
+    /// through.
+    ///
+    /// Returns the raw [`mongodb::results::UpdateResult`] so the seeding
+    /// binary can distinguish inserts from modifications.
+    pub async fn upsert_platform_class(
+        &self,
+        class: &ReferenceClass,
+    ) -> Result<mongodb::results::UpdateResult, StorageError> {
+        class
+            .validate_cost_breakdown()
+            .map_err(StorageError::Bson)?;
+        let doc = ReferenceClassDoc::from_platform_domain(class)?;
+        let filter = doc! { "tenant_id": Bson::Null, "name": class.name.clone() };
+        let opts = mongodb::options::ReplaceOptions::builder()
+            .upsert(true)
+            .build();
+        Ok(self
+            .classes()
+            .replace_one(filter, &doc)
+            .with_options(opts)
+            .await?)
+    }
+
+    /// Upsert a **platform** reference project by `project_id`. Project IDs
+    /// are expected to be globally unique across platform data; collisions
+    /// with tenant-scoped projects are avoided by the `tenant_id: null`
+    /// filter clause.
+    pub async fn upsert_platform_project(
+        &self,
+        project: &ReferenceProject,
+    ) -> Result<mongodb::results::UpdateResult, StorageError> {
+        let doc = ReferenceProjectDoc::from_platform_domain(project)?;
+        let filter = doc! {
+            "tenant_id": Bson::Null,
+            "project_id": project.project_id.clone(),
+        };
+        let opts = mongodb::options::ReplaceOptions::builder()
+            .upsert(true)
+            .build();
+        Ok(self
+            .projects()
+            .replace_one(filter, &doc)
+            .with_options(opts)
+            .await?)
+    }
+
+    /// Delete every platform reference class (`tenant_id: null`). Used by the
+    /// seeding binary's `--clean` mode. Tenant-scoped rows are untouched.
+    pub async fn delete_platform_classes(&self) -> Result<u64, StorageError> {
+        let result = self
+            .classes_docs()
+            .delete_many(doc! { "tenant_id": Bson::Null })
+            .await?;
+        Ok(result.deleted_count)
+    }
+
+    /// Delete every platform reference project (`tenant_id: null`). Used by
+    /// the seeding binary's `--clean` mode.
+    pub async fn delete_platform_projects(&self) -> Result<u64, StorageError> {
+        let result = self
+            .projects_docs()
+            .delete_many(doc! { "tenant_id": Bson::Null })
+            .await?;
+        Ok(result.deleted_count)
     }
 
     /// Raw `Document` variant for callers (like the RCF engine) that need to

@@ -25,7 +25,9 @@ pub use mongo::MongoAdapter;
 pub use reference::{decode_reference_class, ReferenceRepo, UpsertStats};
 pub use tenant_context::TenantContext;
 pub use tenants::{BrandingWithOrigins, TenantRepo};
-pub use widget::{NewConsultation, NewLead, WidgetLeadRepo};
+pub use widget::{
+    NewConsultation, NewLead, WidgetAnalyticsRepo, WidgetDailyBucket, WidgetLeadRepo,
+};
 
 #[derive(Debug, thiserror::Error)]
 pub enum StorageError {

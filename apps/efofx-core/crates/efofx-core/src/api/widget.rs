@@ -3,7 +3,7 @@
 use std::sync::Arc;
 
 use axum::{
-    extract::{Extension, Path, State},
+    extract::{Extension, Path, Query, State},
     http::StatusCode,
     middleware::from_fn_with_state,
     response::{IntoResponse, Response},
@@ -11,10 +11,11 @@ use axum::{
     Json, Router,
 };
 use serde::{Deserialize, Serialize};
+use time::{format_description::well_known::Iso8601, Duration as TimeDuration, OffsetDateTime};
 use utoipa::ToSchema;
 use uuid::Uuid;
 
-use efofx_auth::middleware::widget_api_key;
+use efofx_auth::middleware::{supabase_jwt, widget_api_key};
 use efofx_domain::{AnalyticsEventType, BrandingConfig, ConsultationRequest, SessionId};
 use efofx_email::EmailMessage;
 use efofx_openapi::{ApiError, ErrorCode};
@@ -22,8 +23,6 @@ use efofx_storage::{NewConsultation, NewLead, TenantContext};
 
 use crate::middleware::rate_limit::rate_limit;
 use crate::AppState;
-
-use super::not_implemented;
 
 #[derive(Debug, Clone, Deserialize, ToSchema)]
 pub struct LeadCaptureRequest {
@@ -324,7 +323,10 @@ fn validate_consultation_message(msg: &str) -> Result<(), Response> {
     Ok(())
 }
 
-/// Record a widget analytics event. Fire-and-forget from the widget.
+/// Record a widget analytics event. Fire-and-forget from the widget —
+/// upserts a daily bucket and increments the per-event counter. Always
+/// returns 204 on a known event type, even if the upsert itself fails
+/// (analytics is non-critical and FastAPI parity is "swallow and log").
 #[utoipa::path(
     post,
     path = "/v1/widget/events",
@@ -335,14 +337,35 @@ fn validate_consultation_message(msg: &str) -> Result<(), Response> {
         (status = 204, description = "Event recorded"),
         (status = 400, description = "Unknown event type", body = ApiError),
         (status = 401, description = "API key invalid", body = ApiError),
-        (status = 501, description = "Not yet implemented", body = ApiError),
     ),
 )]
-pub async fn record_event() -> impl IntoResponse {
-    not_implemented("POST /v1/widget/events")
+pub async fn record_event(
+    State(state): State<Arc<AppState>>,
+    Extension(ctx): Extension<TenantContext>,
+    Json(body): Json<AnalyticsEventRequest>,
+) -> Response {
+    let field = analytics_field_name(body.event_type);
+    let date_iso = today_utc_iso();
+    if let Err(err) = state
+        .widget_analytics
+        .increment_today(&ctx, field, &date_iso)
+        .await
+    {
+        // Non-critical — log and still return 204 so the widget keeps
+        // firing events without backpressure. Matches FastAPI.
+        tracing::warn!(error = %err, "widget analytics upsert failed");
+    }
+    StatusCode::NO_CONTENT.into_response()
 }
 
-/// Read daily analytics buckets for the authenticated tenant.
+#[derive(Debug, Clone, Deserialize, Default)]
+pub struct AnalyticsRangeParams {
+    pub days: Option<u32>,
+}
+
+/// Read daily analytics buckets for the authenticated tenant. Caller
+/// passes `?days=N` (1..=365); out-of-range values are silently clamped
+/// to 30 — matches FastAPI's "fallback to default" behavior.
 #[utoipa::path(
     get,
     path = "/v1/widget/events",
@@ -355,11 +378,75 @@ pub async fn record_event() -> impl IntoResponse {
         (status = 200, description = "Daily buckets", body = AnalyticsSummary),
         (status = 401, description = "Authentication required", body = ApiError),
         (status = 429, description = "Rate limit exceeded", body = ApiError),
-        (status = 501, description = "Not yet implemented", body = ApiError),
     ),
 )]
-pub async fn list_events() -> impl IntoResponse {
-    not_implemented("GET /v1/widget/events")
+pub async fn list_events(
+    State(state): State<Arc<AppState>>,
+    Extension(ctx): Extension<TenantContext>,
+    Query(params): Query<AnalyticsRangeParams>,
+) -> Response {
+    let days = match params.days {
+        Some(d) if (1..=365).contains(&d) => d,
+        _ => 30,
+    };
+    let start_date = match start_date_iso(days) {
+        Some(s) => s,
+        None => {
+            tracing::error!(days, "analytics: failed to compute start date");
+            return internal_error();
+        }
+    };
+
+    match state
+        .widget_analytics
+        .find_range(&ctx, &start_date, days as i64)
+        .await
+    {
+        Ok(rows) => {
+            let buckets = rows
+                .into_iter()
+                .map(|b| AnalyticsDailyBucket {
+                    date: b.date,
+                    widget_view: b.widget_view,
+                    chat_start: b.chat_start,
+                    estimate_complete: b.estimate_complete,
+                })
+                .collect();
+            Json(AnalyticsSummary { days, buckets }).into_response()
+        }
+        Err(err) => {
+            tracing::error!(error = %err, "analytics range read failed");
+            internal_error()
+        }
+    }
+}
+
+/// Map the typed event enum to the persisted counter field name. Keeps
+/// the field allowlist in one place — never substitute user input into a
+/// Mongo update key.
+fn analytics_field_name(event: AnalyticsEventType) -> &'static str {
+    match event {
+        AnalyticsEventType::WidgetView => "widget_view",
+        AnalyticsEventType::ChatStart => "chat_start",
+        AnalyticsEventType::EstimateComplete => "estimate_complete",
+    }
+}
+
+/// Today's date in `YYYY-MM-DD` (UTC). Used as the daily-bucket key.
+fn today_utc_iso() -> String {
+    OffsetDateTime::now_utc()
+        .date()
+        .format(&Iso8601::DATE)
+        .unwrap_or_else(|_| "1970-01-01".to_string())
+}
+
+/// Compute `today - days` as `YYYY-MM-DD` (UTC). Returns `None` only on
+/// arithmetic overflow, which is impossible for the validated `1..=365`
+/// range but kept for defense-in-depth.
+fn start_date_iso(days: u32) -> Option<String> {
+    let now = OffsetDateTime::now_utc();
+    let earlier = now.checked_sub(TimeDuration::days(days as i64))?;
+    earlier.date().format(&Iso8601::DATE).ok()
 }
 
 /// Assemble the widget router.
@@ -380,19 +467,25 @@ pub fn routes(state: Arc<AppState>) -> Router<Arc<AppState>> {
             rate_limit,
         ));
 
-    // Widget API-key authenticated routes. Stubs (consultations,
-    // record_event) get the same auth layer now so the contract is
-    // already locked; their handlers replace `not_implemented` in
-    // 2D.3 / 2D.4.
+    // Widget API-key authenticated routes — leads, consultations, and
+    // analytics writes. Same auth layer for all three.
     let widget_authed = Router::new()
         .route("/v1/widget/leads", post(create_lead))
         .route("/v1/widget/consultations", post(create_consultation))
         .route("/v1/widget/events", post(record_event))
         .route_layer(from_fn_with_state(state.auth.clone(), widget_api_key));
 
-    // GET /v1/widget/events lands in 2D.4 with Supabase JWT auth — kept
-    // off the widget-key router so the layering stays correct.
-    let dashboard = Router::new().route("/v1/widget/events", get(list_events));
+    // Dashboard read of the analytics buckets. Lives on a separate
+    // router so the JWT middleware doesn't see the widget-API-key
+    // routes. Per-IP rate-limited at 10 req/min — a noisy dashboard tab
+    // shouldn't flood the storage layer.
+    let dashboard = Router::new()
+        .route("/v1/widget/events", get(list_events))
+        .route_layer(from_fn_with_state(state.auth.clone(), supabase_jwt))
+        .route_layer(from_fn_with_state(
+            state.analytics_rate_limiter.clone(),
+            rate_limit,
+        ));
 
     public.merge(widget_authed).merge(dashboard)
 }

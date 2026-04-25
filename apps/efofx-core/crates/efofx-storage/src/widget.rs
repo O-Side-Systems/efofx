@@ -19,9 +19,6 @@ use crate::{MongoAdapter, StorageError, TenantContext};
 
 pub(crate) const WIDGET_LEADS_COLLECTION: &str = "widget_leads";
 
-/// Used by the analytics repo landing in 2D.4. Declared next to the
-/// leads collection so both shapes live in one module.
-#[allow(dead_code)]
 pub(crate) const WIDGET_ANALYTICS_COLLECTION: &str = "widget_analytics";
 
 /// Storage-layer lead document. Mirrors FastAPI's `widget_leads`
@@ -222,4 +219,138 @@ fn bson_to_offset(dt: BsonDateTime) -> Result<OffsetDateTime, StorageError> {
 
 fn now_bson() -> BsonDateTime {
     BsonDateTime::from_system_time(SystemTime::now())
+}
+
+/// Persisted widget-analytics daily bucket. One document per
+/// `(tenant_id, date)`, with per-event-type counters incremented in
+/// place. Mirrors the FastAPI `widget_analytics` shape.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct WidgetDailyBucket {
+    /// ISO date `YYYY-MM-DD`. UTC.
+    pub date: String,
+    #[serde(default)]
+    pub widget_view: u64,
+    #[serde(default)]
+    pub chat_start: u64,
+    #[serde(default)]
+    pub estimate_complete: u64,
+}
+
+/// Tenant-scoped repository for `widget_analytics`. All writes are
+/// fire-and-forget upserts; reads return ordered daily buckets.
+#[derive(Clone)]
+pub struct WidgetAnalyticsRepo {
+    mongo: MongoAdapter,
+}
+
+impl WidgetAnalyticsRepo {
+    pub fn new(mongo: MongoAdapter) -> Self {
+        Self { mongo }
+    }
+
+    fn collection(&self) -> mongodb::Collection<mongodb::bson::Document> {
+        self.mongo
+            .database()
+            .collection(WIDGET_ANALYTICS_COLLECTION)
+    }
+
+    /// Build the indexes the analytics surface depends on. The
+    /// `(tenant_id, date)` index is unique so the upsert path can rely
+    /// on at most one document per day per tenant. Idempotent.
+    pub async fn ensure_indexes(&self) -> Result<(), StorageError> {
+        let unique_tenant_date = IndexModel::builder()
+            .keys(doc! { "tenant_id": 1, "date": 1 })
+            .options(
+                IndexOptions::builder()
+                    .name("widget_analytics__tenant_date_unique_idx".to_string())
+                    .unique(true)
+                    .build(),
+            )
+            .build();
+        self.collection().create_index(unique_tenant_date).await?;
+        Ok(())
+    }
+
+    /// Increment the counter for `event_field` in today's bucket. Caller
+    /// passes the field name (`widget_view`, `chat_start`,
+    /// `estimate_complete`). Allowlisting happens at the API layer; this
+    /// method does *not* re-validate, but it never substitutes the field
+    /// into a free-form key path.
+    pub async fn increment_today(
+        &self,
+        ctx: &TenantContext,
+        event_field: &str,
+        date_iso: &str,
+    ) -> Result<(), StorageError> {
+        let filter = doc! {
+            "tenant_id": ctx.tenant_id().to_string(),
+            "date": date_iso,
+        };
+        let update = doc! {
+            "$inc": { event_field: 1i64 },
+            "$setOnInsert": {
+                "tenant_id": ctx.tenant_id().to_string(),
+                "date": date_iso,
+            },
+        };
+        let opts = mongodb::options::UpdateOptions::builder()
+            .upsert(true)
+            .build();
+        self.collection()
+            .update_one(filter, update)
+            .with_options(opts)
+            .await?;
+        Ok(())
+    }
+
+    /// Return the daily buckets for the tenant whose `date` is `>=
+    /// start_date_iso`, sorted descending. The widget read endpoint
+    /// caps `days` to 365 before calling.
+    pub async fn find_range(
+        &self,
+        ctx: &TenantContext,
+        start_date_iso: &str,
+        limit: i64,
+    ) -> Result<Vec<WidgetDailyBucket>, StorageError> {
+        use futures::stream::TryStreamExt;
+
+        let filter = doc! {
+            "tenant_id": ctx.tenant_id().to_string(),
+            "date": { "$gte": start_date_iso },
+        };
+        let opts = mongodb::options::FindOptions::builder()
+            .sort(doc! { "date": -1 })
+            .limit(limit)
+            .projection(doc! {
+                "_id": 0,
+                "date": 1,
+                "widget_view": 1,
+                "chat_start": 1,
+                "estimate_complete": 1,
+            })
+            .build();
+
+        let mut cursor = self.collection().find(filter).with_options(opts).await?;
+        let mut out = Vec::new();
+        while let Some(d) = cursor.try_next().await? {
+            // Tolerate missing counter fields on legacy docs.
+            let bucket = WidgetDailyBucket {
+                date: d.get_str("date").unwrap_or_default().to_string(),
+                widget_view: d
+                    .get_i64("widget_view")
+                    .unwrap_or_else(|_| d.get_i32("widget_view").unwrap_or(0) as i64)
+                    as u64,
+                chat_start: d
+                    .get_i64("chat_start")
+                    .unwrap_or_else(|_| d.get_i32("chat_start").unwrap_or(0) as i64)
+                    as u64,
+                estimate_complete: d
+                    .get_i64("estimate_complete")
+                    .unwrap_or_else(|_| d.get_i32("estimate_complete").unwrap_or(0) as i64)
+                    as u64,
+            };
+            out.push(bucket);
+        }
+        Ok(out)
+    }
 }

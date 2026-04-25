@@ -17,7 +17,7 @@ use efofx_auth::{middleware::AuthState, JwksCache};
 use efofx_config::SupabaseConfig;
 use efofx_core::{
     build_router,
-    middleware::rate_limit::IpRateLimiter,
+    middleware::{rate_limit::IpRateLimiter, tenant_cors::OriginCache},
     services::{ByokService, ChatService, EstimationService},
     AppState,
 };
@@ -103,6 +103,10 @@ pub struct TestHarness {
     pub signer: TestSigner,
     pub router: Router,
     pub supabase: SupabaseConfig,
+    /// Origin cache shared with the router. Tests that exercise the
+    /// per-tenant CORS layer pre-seed origins here without needing to
+    /// stage the branding-fetch round trip.
+    pub origin_cache: OriginCache,
 }
 
 impl TestHarness {
@@ -175,6 +179,7 @@ impl TestHarness {
         };
 
         let email: Arc<dyn EmailSender> = Arc::new(NoopSender);
+        let origin_cache = OriginCache::new();
         let state = Arc::new(AppState {
             mongo,
             tenants,
@@ -187,6 +192,7 @@ impl TestHarness {
             auth,
             branding_rate_limiter: IpRateLimiter::per_minute(1_000_000),
             analytics_rate_limiter: IpRateLimiter::per_minute(1_000_000),
+            origin_cache: origin_cache.clone(),
             email,
             email_from: Arc::from("noreply@efofx.test"),
         });
@@ -197,6 +203,7 @@ impl TestHarness {
             signer,
             router,
             supabase,
+            origin_cache,
         }
     }
 

@@ -279,6 +279,39 @@ impl TenantRepo {
         Ok(tenant.encrypted_openai_key)
     }
 
+    /// Fetch only `tenants.settings.allowed_origins` for the
+    /// authenticated tenant. Used by the per-tenant CORS middleware to
+    /// seed its origin cache after the widget-API-key auth resolves a
+    /// tenant; cheap projection so the hot path never decodes the full
+    /// tenant doc.
+    pub async fn fetch_allowed_origins(
+        &self,
+        ctx: &TenantContext,
+    ) -> Result<Vec<String>, StorageError> {
+        let projection = doc! { "settings.allowed_origins": 1, "_id": 0 };
+        let opts = mongodb::options::FindOneOptions::builder()
+            .projection(projection)
+            .build();
+        let maybe_doc = self
+            .docs_collection()
+            .find_one(doc! { "tenant_id": ctx.tenant_id().to_string() })
+            .with_options(opts)
+            .await?;
+        let Some(doc) = maybe_doc else {
+            return Ok(Vec::new());
+        };
+        let Some(settings) = doc.get_document("settings").ok() else {
+            return Ok(Vec::new());
+        };
+        let Some(arr) = settings.get_array("allowed_origins").ok() else {
+            return Ok(Vec::new());
+        };
+        Ok(arr
+            .iter()
+            .filter_map(|b| b.as_str().map(|s| s.to_string()))
+            .collect())
+    }
+
     /// Resolve a tenant's branding by the public API-key prefix — the
     /// 32-hex `tenant_id` without dashes that appears after `sk_live_` in
     /// their widget key. Used by the public, unauthenticated

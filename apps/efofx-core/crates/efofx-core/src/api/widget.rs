@@ -22,6 +22,9 @@ use efofx_openapi::{ApiError, ErrorCode};
 use efofx_storage::{NewConsultation, NewLead, TenantContext};
 
 use crate::middleware::rate_limit::rate_limit;
+use crate::middleware::tenant_cors::{
+    build_widget_cors_layer, seed_widget_origins, SeedOriginsState,
+};
 use crate::AppState;
 
 #[derive(Debug, Clone, Deserialize, ToSchema)]
@@ -92,7 +95,14 @@ pub async fn get_branding(
         .fetch_branding_by_prefix(&api_key_prefix)
         .await
     {
-        Ok(Some(resolved)) => Json(resolved.branding).into_response(),
+        Ok(Some(resolved)) => {
+            // Fold the tenant's allowed origins into the cache that the
+            // per-tenant CORS layer consults. Branding fetch is the
+            // primary seeding path — it runs on every widget bootstrap,
+            // before any preflighted API-key request.
+            state.origin_cache.insert_many(&resolved.allowed_origins);
+            Json(resolved.branding).into_response()
+        }
         Ok(None) => (
             StatusCode::NOT_FOUND,
             Json(ApiError::single(
@@ -468,12 +478,26 @@ pub fn routes(state: Arc<AppState>) -> Router<Arc<AppState>> {
         ));
 
     // Widget API-key authenticated routes — leads, consultations, and
-    // analytics writes. Same auth layer for all three.
+    // analytics writes. Layering, outer to inner:
+    //   1. tenant CORS — preflight is handled here so it never touches
+    //      auth; only origins seeded by branding fetch / post-auth seed
+    //      are reflected.
+    //   2. widget_api_key auth — verifies the key, injects TenantContext.
+    //   3. seed_widget_origins — opportunistically refreshes the origin
+    //      cache for this tenant (cache miss only). Affects *future*
+    //      preflights; the current request already passed step 1.
+    //   4. handler.
+    let seed_state = SeedOriginsState {
+        tenants: state.tenants.clone(),
+        cache: state.origin_cache.clone(),
+    };
     let widget_authed = Router::new()
         .route("/v1/widget/leads", post(create_lead))
         .route("/v1/widget/consultations", post(create_consultation))
         .route("/v1/widget/events", post(record_event))
-        .route_layer(from_fn_with_state(state.auth.clone(), widget_api_key));
+        .route_layer(from_fn_with_state(seed_state, seed_widget_origins))
+        .route_layer(from_fn_with_state(state.auth.clone(), widget_api_key))
+        .layer(build_widget_cors_layer(state.origin_cache.clone()));
 
     // Dashboard read of the analytics buckets. Lives on a separate
     // router so the JWT middleware doesn't see the widget-API-key

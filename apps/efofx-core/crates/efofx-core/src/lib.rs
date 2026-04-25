@@ -16,7 +16,6 @@ use axum::{
     Json, Router,
 };
 use tower_http::{
-    cors::{Any, CorsLayer},
     request_id::{MakeRequestUuid, PropagateRequestIdLayer, SetRequestIdLayer},
     trace::TraceLayer,
 };
@@ -40,6 +39,7 @@ pub mod openapi;
 pub mod services;
 
 use middleware::rate_limit::IpRateLimiter;
+use middleware::tenant_cors::OriginCache;
 use openapi::ApiDoc;
 use services::{ByokService, ChatService, EstimationService};
 
@@ -67,6 +67,11 @@ pub struct AppState {
     pub auth: AuthState,
     pub branding_rate_limiter: IpRateLimiter,
     pub analytics_rate_limiter: IpRateLimiter,
+    /// Allowed-origin set for the widget API-key surface. Seeded by the
+    /// branding handler and the post-auth seeding middleware; consulted
+    /// by the per-tenant CORS layer on every request. See
+    /// [`middleware::tenant_cors`].
+    pub origin_cache: OriginCache,
     /// Outbound mailer. `Arc<dyn EmailSender>` so the consultation handler
     /// can fire-and-forget through whichever backend `email.resend_api_key`
     /// selected at boot — Resend in prod, [`NoopSender`] when unset.
@@ -196,6 +201,7 @@ pub async fn build_app_state(cfg: &AppConfig) -> anyhow::Result<AppState> {
 
     let branding_rate_limiter = IpRateLimiter::per_minute(BRANDING_RPM);
     let analytics_rate_limiter = IpRateLimiter::per_minute(ANALYTICS_READ_RPM);
+    let origin_cache = OriginCache::new();
 
     Ok(AppState {
         mongo,
@@ -209,18 +215,20 @@ pub async fn build_app_state(cfg: &AppConfig) -> anyhow::Result<AppState> {
         auth,
         branding_rate_limiter,
         analytics_rate_limiter,
+        origin_cache,
         email,
         email_from,
     })
 }
 
-/// Wire the HTTP router with trace, request-id, and CORS layers applied.
+/// Wire the HTTP router with trace and request-id layers applied.
+///
+/// CORS is intentionally *not* a global layer here — the widget-API-key
+/// surface gets its own per-tenant CORS in
+/// [`api::widget::routes`]. Other surfaces are server-to-server (the
+/// dashboard runs at the same origin as the SPA build proxy in dev, or
+/// behind a CDN in prod) and don't currently need cross-origin access.
 pub fn build_router(state: Arc<AppState>) -> Router {
-    let cors = CorsLayer::new()
-        .allow_methods(Any)
-        .allow_origin(Any)
-        .allow_headers(Any);
-
     let trace = TraceLayer::new_for_http()
         .make_span_with(|req: &Request<_>| {
             let request_id = req
@@ -255,7 +263,6 @@ pub fn build_router(state: Arc<AppState>) -> Router {
         ))
         .layer(PropagateRequestIdLayer::new(REQUEST_ID_HEADER.clone()))
         .layer(trace)
-        .layer(cors)
 }
 
 /// Start the server. Blocks until shutdown.

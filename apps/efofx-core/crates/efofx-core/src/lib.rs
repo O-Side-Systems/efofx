@@ -25,6 +25,7 @@ use utoipa::OpenApi;
 
 use efofx_auth::{middleware::AuthState, JwksCache};
 use efofx_config::AppConfig;
+use efofx_email::{EmailSender, NoopSender, ResendSender};
 use efofx_llm::{LlmProvider, OpenAiProvider};
 use efofx_prompts::PromptRegistry;
 use efofx_storage::auth::{ApiKeyAuth, MasterKey, TenantResolver};
@@ -64,6 +65,13 @@ pub struct AppState {
     pub auth: AuthState,
     pub branding_rate_limiter: IpRateLimiter,
     pub analytics_rate_limiter: IpRateLimiter,
+    /// Outbound mailer. `Arc<dyn EmailSender>` so the consultation handler
+    /// can fire-and-forget through whichever backend `email.resend_api_key`
+    /// selected at boot — Resend in prod, [`NoopSender`] when unset.
+    pub email: Arc<dyn EmailSender>,
+    /// `From:` address used on every outbound email. Cached on `AppState`
+    /// so handlers don't need to plumb [`AppConfig`] through.
+    pub email_from: Arc<str>,
 }
 
 /// Build the full application state by wiring every service, repo, and
@@ -90,7 +98,28 @@ pub async fn build_app_state(cfg: &AppConfig) -> anyhow::Result<AppState> {
         .build()
         .context("build http client")?;
 
-    let byok = ByokService::new(tenants.clone(), master_key_arc, http);
+    let byok = ByokService::new(tenants.clone(), master_key_arc, http.clone());
+
+    let email: Arc<dyn EmailSender> = match cfg
+        .email
+        .resend_api_key
+        .as_deref()
+        .map(str::trim)
+        .filter(|k| !k.is_empty())
+    {
+        Some(key) => {
+            tracing::info!("email sender: resend");
+            Arc::new(ResendSender::new(http.clone(), key.to_string()))
+        }
+        None => {
+            tracing::warn!(
+                "email.resend_api_key absent — using NoopSender; consultation \
+                 emails will be skipped (lead is still persisted)"
+            );
+            Arc::new(NoopSender)
+        }
+    };
+    let email_from: Arc<str> = Arc::from(cfg.email.from_address.clone().into_boxed_str());
 
     let chat_repo = ChatRepo::new(mongo.clone());
     chat_repo
@@ -171,6 +200,8 @@ pub async fn build_app_state(cfg: &AppConfig) -> anyhow::Result<AppState> {
         auth,
         branding_rate_limiter,
         analytics_rate_limiter,
+        email,
+        email_from,
     })
 }
 

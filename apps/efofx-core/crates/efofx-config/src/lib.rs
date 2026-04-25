@@ -42,6 +42,8 @@ pub struct AppConfig {
     #[serde(default)]
     pub llm: LlmConfig,
     #[serde(default)]
+    pub email: EmailConfig,
+    #[serde(default)]
     pub features: FeatureFlags,
 }
 
@@ -193,6 +195,36 @@ fn default_per_session_messages() -> u32 {
 }
 fn default_per_session_tokens() -> u64 {
     100_000
+}
+
+/// Outbound email settings. The whole struct is optional — a missing
+/// `resend_api_key` means the runtime wires a no-op sender so consultation
+/// inserts succeed and the email simply gets logged. Mirrors FastAPI's
+/// "skip if MAIL_* unset" behaviour.
+#[derive(Debug, Clone, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct EmailConfig {
+    /// Resend API key. Treat as secret. When empty/absent, the no-op
+    /// sender is used.
+    #[serde(default)]
+    pub resend_api_key: Option<String>,
+    /// `From:` address on outbound mail. Must be a verified sender on the
+    /// Resend account.
+    #[serde(default = "default_from_address")]
+    pub from_address: String,
+}
+
+impl Default for EmailConfig {
+    fn default() -> Self {
+        Self {
+            resend_api_key: None,
+            from_address: default_from_address(),
+        }
+    }
+}
+
+fn default_from_address() -> String {
+    "noreply@efofx.dev".into()
 }
 
 #[derive(Debug, Clone, Default, Deserialize)]

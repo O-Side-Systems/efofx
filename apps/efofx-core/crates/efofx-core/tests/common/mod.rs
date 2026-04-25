@@ -21,6 +21,7 @@ use efofx_core::{
     services::{ByokService, ChatService, EstimationService},
     AppState,
 };
+use efofx_email::{EmailSender, NoopSender};
 use efofx_llm::MockLlmProvider;
 use efofx_prompts::PromptRegistry;
 use efofx_storage::auth::{ApiKeyAuth, MasterKey, TenantResolver};
@@ -171,6 +172,7 @@ impl TestHarness {
             api_key: api_key_auth.clone(),
         };
 
+        let email: Arc<dyn EmailSender> = Arc::new(NoopSender);
         let state = Arc::new(AppState {
             mongo,
             tenants,
@@ -182,6 +184,8 @@ impl TestHarness {
             auth,
             branding_rate_limiter: IpRateLimiter::per_minute(1_000_000),
             analytics_rate_limiter: IpRateLimiter::per_minute(1_000_000),
+            email,
+            email_from: Arc::from("noreply@efofx.test"),
         });
         let router = build_router(state);
 

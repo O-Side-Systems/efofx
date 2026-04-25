@@ -16,8 +16,9 @@ use uuid::Uuid;
 
 use efofx_auth::middleware::widget_api_key;
 use efofx_domain::{AnalyticsEventType, BrandingConfig, ConsultationRequest, SessionId};
+use efofx_email::EmailMessage;
 use efofx_openapi::{ApiError, ErrorCode};
-use efofx_storage::{NewLead, TenantContext};
+use efofx_storage::{NewConsultation, NewLead, TenantContext};
 
 use crate::middleware::rate_limit::rate_limit;
 use crate::AppState;
@@ -218,7 +219,11 @@ fn internal_error() -> Response {
         .into_response()
 }
 
-/// Submit a consultation request. Triggers the contractor notification email.
+/// Submit a consultation request. Persists the lead with
+/// `lead_type=consultation` and a free-text `message`, then fires a
+/// notification email to the tenant's stored contact address. Email is
+/// best-effort: a failure is logged but the response is still 201,
+/// matching FastAPI's "lead is the source of truth" semantics.
 #[utoipa::path(
     post,
     path = "/v1/widget/consultations",
@@ -229,11 +234,94 @@ fn internal_error() -> Response {
         (status = 201, description = "Consultation captured", body = ConsultationCapturedResponse),
         (status = 400, description = "Validation failed", body = ApiError),
         (status = 401, description = "API key invalid", body = ApiError),
-        (status = 501, description = "Not yet implemented", body = ApiError),
     ),
 )]
-pub async fn create_consultation() -> impl IntoResponse {
-    not_implemented("POST /v1/widget/consultations")
+pub async fn create_consultation(
+    State(state): State<Arc<AppState>>,
+    Extension(ctx): Extension<TenantContext>,
+    Json(body): Json<ConsultationRequest>,
+) -> Response {
+    if let Err(resp) = validate_contact(&body.name, &body.email, &body.phone) {
+        return resp;
+    }
+    if let Err(resp) = validate_consultation_message(&body.message) {
+        return resp;
+    }
+
+    // Resolve the contractor email up front so we can include it in the
+    // outbound message. A missing/inactive tenant here would also have
+    // failed the widget-key middleware, so a NotFound is genuinely
+    // surprising — surface as 500.
+    let tenant = match state.tenants.get(&ctx).await {
+        Ok(t) => t,
+        Err(err) => {
+            tracing::error!(error = %err, "consultation: tenant lookup failed");
+            return internal_error();
+        }
+    };
+
+    let new = NewConsultation {
+        session_id: body.session_id,
+        name: body.name.clone(),
+        email: body.email.clone(),
+        phone: body.phone.clone(),
+        message: body.message.clone(),
+    };
+
+    let lead_id = match state.widget_leads.insert_consultation(&ctx, &new).await {
+        Ok(id) => id,
+        Err(err) => {
+            tracing::error!(error = %err, "consultation insert failed");
+            return internal_error();
+        }
+    };
+
+    // Fire-and-forget email — log on failure, do not surface to the
+    // caller. Lead is already saved.
+    let subject = "New consultation request from your widget";
+    let mail_body = format!(
+        "New consultation request from your estimation widget:\n\n\
+         Name: {name}\n\
+         Email: {email}\n\
+         Phone: {phone}\n\n\
+         Message:\n{message}\n",
+        name = body.name,
+        email = body.email,
+        phone = body.phone,
+        message = body.message,
+    );
+    if let Err(err) = state
+        .email
+        .send_text(EmailMessage {
+            from: state.email_from.as_ref(),
+            to: tenant.email.as_str(),
+            subject,
+            body: &mail_body,
+        })
+        .await
+    {
+        tracing::error!(error = %err, lead_id = %lead_id, "consultation email failed");
+    }
+
+    (
+        StatusCode::CREATED,
+        Json(ConsultationCapturedResponse {
+            lead_id,
+            message: "Consultation request captured successfully".into(),
+        }),
+    )
+        .into_response()
+}
+
+#[allow(clippy::result_large_err)]
+fn validate_consultation_message(msg: &str) -> Result<(), Response> {
+    if msg.trim().is_empty() {
+        return Err(validation_error("message must not be empty"));
+    }
+    if msg.len() > 2000 {
+        return Err(validation_error("message must be ≤ 2000 chars"));
+    }
+    Ok(())
 }
 
 /// Record a widget analytics event. Fire-and-forget from the widget.

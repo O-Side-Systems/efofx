@@ -30,6 +30,7 @@ efofx-auth.workspace = true
 efofx-crypto.workspace = true
 efofx-prompts.workspace = true
 efofx-llm.workspace = true
+efofx-email.workspace = true
 
 tokio.workspace = true
 axum.workspace = true
@@ -59,6 +60,7 @@ hyper.workspace = true
 http-body-util = "0.1"
 jsonwebtoken.workspace = true
 wiremock = "0.6"
+efofx-email.workspace = true
 rsa = { version = "0.9", features = ["sha2"] }
 rand = "0.8"
 base64 = "0.22"

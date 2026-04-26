@@ -209,4 +209,122 @@ mod tests {
             "widget_api_key security scheme missing"
         );
     }
+
+    /// Pin the widget surface contract: per Phase 2D, every widget verb
+    /// declares the right auth scheme + status codes. Schemas referenced
+    /// by the widget DTOs are required components so the generated
+    /// client stays generatable. Update this test only when the widget
+    /// contract intentionally changes.
+    #[test]
+    fn openapi_widget_surface_contract() {
+        let doc = ApiDoc::openapi();
+        let path_item = |p: &str| {
+            doc.paths
+                .paths
+                .get(p)
+                .unwrap_or_else(|| panic!("missing path {p}"))
+                .clone()
+        };
+
+        // Branding — public, 200 + 404 + 429
+        let branding = path_item("/v1/widget/branding/{api_key_prefix}");
+        let op = branding.get.as_ref().expect("branding GET op missing");
+        assert!(op.security.is_none(), "branding must be public");
+        let codes: Vec<&str> = op.responses.responses.keys().map(|s| s.as_str()).collect();
+        for code in ["200", "404", "429"] {
+            assert!(
+                codes.contains(&code),
+                "branding missing response {code}: {codes:?}"
+            );
+        }
+
+        // Leads — widget API key, 201 + 400 + 401
+        let leads = path_item("/v1/widget/leads");
+        let op = leads.post.as_ref().expect("leads POST op missing");
+        assert!(
+            has_security(op, "widget_api_key"),
+            "leads must require widget_api_key"
+        );
+        for code in ["201", "400", "401"] {
+            assert!(
+                op.responses.responses.contains_key(code),
+                "leads missing response {code}"
+            );
+        }
+
+        // Consultations — widget API key, 201 + 400 + 401
+        let consult = path_item("/v1/widget/consultations");
+        let op = consult
+            .post
+            .as_ref()
+            .expect("consultations POST op missing");
+        assert!(
+            has_security(op, "widget_api_key"),
+            "consultations must require widget_api_key"
+        );
+        for code in ["201", "400", "401"] {
+            assert!(
+                op.responses.responses.contains_key(code),
+                "consultations missing response {code}"
+            );
+        }
+
+        // Events — POST is widget API key (204), GET is supabase_jwt (200 + 429)
+        let events = path_item("/v1/widget/events");
+        let post_op = events.post.as_ref().expect("events POST op missing");
+        assert!(
+            has_security(post_op, "widget_api_key"),
+            "POST events must require widget_api_key"
+        );
+        for code in ["204", "401"] {
+            assert!(
+                post_op.responses.responses.contains_key(code),
+                "POST events missing response {code}"
+            );
+        }
+        let get_op = events.get.as_ref().expect("events GET op missing");
+        assert!(
+            has_security(get_op, "supabase_jwt"),
+            "GET events must require supabase_jwt"
+        );
+        for code in ["200", "401", "429"] {
+            assert!(
+                get_op.responses.responses.contains_key(code),
+                "GET events missing response {code}"
+            );
+        }
+
+        // Schemas referenced by the widget surface must all be present.
+        let components = doc.components.as_ref().expect("components present");
+        for schema in [
+            "BrandingConfig",
+            "ConsultationRequest",
+            "AnalyticsEventType",
+            "LeadCaptureRequest",
+            "LeadCaptureResponse",
+            "ConsultationCapturedResponse",
+            "AnalyticsEventRequest",
+            "AnalyticsDailyBucket",
+            "AnalyticsSummary",
+        ] {
+            assert!(
+                components.schemas.contains_key(schema),
+                "missing widget schema: {schema}"
+            );
+        }
+    }
+
+    /// `value` on `SecurityRequirement` is private; round-trip through
+    /// JSON to inspect declared schemes.
+    fn has_security(op: &utoipa::openapi::path::Operation, scheme: &str) -> bool {
+        let Some(reqs) = op.security.as_ref() else {
+            return false;
+        };
+        reqs.iter().any(|r| {
+            serde_json::to_value(r)
+                .ok()
+                .and_then(|v| v.as_object().map(|m| m.contains_key(scheme)))
+                .unwrap_or(false)
+        })
+    }
 }

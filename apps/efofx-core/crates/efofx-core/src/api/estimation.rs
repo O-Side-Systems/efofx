@@ -82,6 +82,6 @@ pub async fn get_estimation(
 
 pub fn routes(state: Arc<AppState>) -> Router<Arc<AppState>> {
     Router::new()
-        .route("/v1/estimates/{session_id}", get(get_estimation))
+        .route("/v1/estimates/:session_id", get(get_estimation))
         .route_layer(from_fn_with_state(state.auth.clone(), either_auth))
 }

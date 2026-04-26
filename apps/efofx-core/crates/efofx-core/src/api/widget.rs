@@ -471,7 +471,7 @@ fn start_date_iso(days: u32) -> Option<String> {
 ///   Added in 2D.4.
 pub fn routes(state: Arc<AppState>) -> Router<Arc<AppState>> {
     let public = Router::new()
-        .route("/v1/widget/branding/{api_key_prefix}", get(get_branding))
+        .route("/v1/widget/branding/:api_key_prefix", get(get_branding))
         .route_layer(from_fn_with_state(
             state.branding_rate_limiter.clone(),
             rate_limit,

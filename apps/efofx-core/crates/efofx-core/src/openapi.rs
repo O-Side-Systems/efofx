@@ -519,4 +519,57 @@ mod tests {
             );
         }
     }
+
+    /// Pin the integration surface contract: per Phase 2F, the
+    /// contractor-match endpoint declares widget_api_key auth and the
+    /// 200 / 400 / 401 / 404 envelope. The 501 response is gone — the
+    /// stub has been replaced by a real handler. Schemas referenced by
+    /// the integration DTOs are required components so the generated
+    /// client stays generatable. Update this test only when the
+    /// integration contract intentionally changes.
+    #[test]
+    fn openapi_integration_surface_contract() {
+        let doc = ApiDoc::openapi();
+        let path_item = |p: &str| {
+            doc.paths
+                .paths
+                .get(p)
+                .unwrap_or_else(|| panic!("missing path {p}"))
+                .clone()
+        };
+
+        // POST /v1/integration/contractor-match — widget_api_key only,
+        // 200 / 400 / 401 / 404. The previous 501 stub response must be
+        // gone now that the handler is real.
+        let path = path_item("/v1/integration/contractor-match");
+        let op = path.post.as_ref().expect("POST contractor-match missing");
+        assert!(
+            has_security(op, "widget_api_key"),
+            "contractor-match must require widget_api_key"
+        );
+        assert!(
+            !has_security(op, "supabase_jwt"),
+            "contractor-match is partner-facing — supabase_jwt must not appear"
+        );
+        for code in ["200", "400", "401", "404"] {
+            assert!(
+                op.responses.responses.contains_key(code),
+                "contractor-match missing response {code}"
+            );
+        }
+        assert!(
+            !op.responses.responses.contains_key("501"),
+            "contractor-match still advertises 501 — remove the stub response"
+        );
+
+        // Schemas referenced by the integration surface must all be
+        // present.
+        let components = doc.components.as_ref().expect("components present");
+        for schema in ["ContractorMatchRequest", "ContractorMatchResponse"] {
+            assert!(
+                components.schemas.contains_key(schema),
+                "missing integration schema: {schema}"
+            );
+        }
+    }
 }

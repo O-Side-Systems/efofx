@@ -47,6 +47,6 @@ pub fn router(state: Arc<AppState>) -> Router<Arc<AppState>> {
         .merge(widget::routes(state.clone()))
         .merge(leads::routes())
         .merge(feedback::routes(state.clone()))
-        .merge(calibration::routes(state))
-        .merge(integration::routes())
+        .merge(calibration::routes(state.clone()))
+        .merge(integration::routes(state))
 }

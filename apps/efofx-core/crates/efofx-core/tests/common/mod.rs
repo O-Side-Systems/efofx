@@ -18,7 +18,7 @@ use efofx_config::SupabaseConfig;
 use efofx_core::{
     build_router,
     middleware::{rate_limit::IpRateLimiter, tenant_cors::OriginCache},
-    services::{ByokService, ChatService, EstimationService},
+    services::{ByokService, CalibrationService, ChatService, EstimationService},
     AppState,
 };
 use efofx_email::{EmailSender, NoopSender};
@@ -26,8 +26,8 @@ use efofx_llm::MockLlmProvider;
 use efofx_prompts::PromptRegistry;
 use efofx_storage::auth::{ApiKeyAuth, MasterKey, TenantResolver};
 use efofx_storage::{
-    ChatRepo, EstimationRepo, FeedbackRepo, MagicLinkRepo, MongoAdapter, ReferenceRepo, TenantRepo,
-    WidgetAnalyticsRepo, WidgetLeadRepo,
+    CalibrationRepo, ChatRepo, EstimationRepo, FeedbackRepo, MagicLinkRepo, MongoAdapter,
+    ReferenceRepo, TenantRepo, WidgetAnalyticsRepo, WidgetLeadRepo,
 };
 use jsonwebtoken::{Algorithm, EncodingKey, Header};
 use rsa::pkcs1::EncodeRsaPrivateKey;
@@ -168,6 +168,9 @@ impl TestHarness {
             llm,
             efofx_config::LlmConfig::default(),
         );
+        let calibration_repo = CalibrationRepo::new(mongo.clone());
+        let calibration =
+            CalibrationService::new(calibration_repo, efofx_config::CalibrationConfig::default());
 
         let jwks = JwksCache::bootstrap(&supabase.url, Duration::from_secs(3600))
             .await
@@ -192,6 +195,7 @@ impl TestHarness {
             byok,
             chat,
             estimation,
+            calibration,
             api_key_auth,
             auth,
             branding_rate_limiter: IpRateLimiter::per_minute(1_000_000),

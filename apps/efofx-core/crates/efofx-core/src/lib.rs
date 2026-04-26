@@ -29,8 +29,8 @@ use efofx_llm::{LlmProvider, OpenAiProvider};
 use efofx_prompts::PromptRegistry;
 use efofx_storage::auth::{ApiKeyAuth, MasterKey, TenantResolver};
 use efofx_storage::{
-    ChatRepo, EstimationRepo, FeedbackRepo, HealthStatus, MagicLinkRepo, MongoAdapter,
-    ReferenceRepo, TenantRepo, WidgetAnalyticsRepo, WidgetLeadRepo,
+    CalibrationRepo, ChatRepo, EstimationRepo, FeedbackRepo, HealthStatus, MagicLinkRepo,
+    MongoAdapter, ReferenceRepo, TenantRepo, WidgetAnalyticsRepo, WidgetLeadRepo,
 };
 
 pub mod api;
@@ -41,7 +41,7 @@ pub mod services;
 use middleware::rate_limit::IpRateLimiter;
 use middleware::tenant_cors::OriginCache;
 use openapi::ApiDoc;
-use services::{ByokService, ChatService, EstimationService};
+use services::{ByokService, CalibrationService, ChatService, EstimationService};
 
 const REQUEST_ID_HEADER: HeaderName = HeaderName::from_static("x-request-id");
 
@@ -65,6 +65,7 @@ pub struct AppState {
     pub byok: ByokService,
     pub chat: ChatService,
     pub estimation: EstimationService,
+    pub calibration: CalibrationService,
     pub api_key_auth: ApiKeyAuth,
     pub auth: AuthState,
     pub branding_rate_limiter: IpRateLimiter,
@@ -210,6 +211,9 @@ pub async fn build_app_state(cfg: &AppConfig) -> anyhow::Result<AppState> {
         cfg.llm.clone(),
     );
 
+    let calibration_repo = CalibrationRepo::new(mongo.clone());
+    let calibration = CalibrationService::new(calibration_repo, cfg.calibration.clone());
+
     let jwks = JwksCache::bootstrap(
         &cfg.supabase.url,
         Duration::from_secs(cfg.supabase.jwks_refresh_seconds),
@@ -238,6 +242,7 @@ pub async fn build_app_state(cfg: &AppConfig) -> anyhow::Result<AppState> {
         byok,
         chat,
         estimation,
+        calibration,
         api_key_auth,
         auth,
         branding_rate_limiter,

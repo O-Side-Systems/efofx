@@ -127,12 +127,13 @@ use crate::api;
         api::feedback::FeedbackEmailRequest,
         api::feedback::FeedbackEmailResponse,
         // Calibration
-        api::calibration::BelowThresholdResponse,
-        api::calibration::CalibrationMetricsResponse,
-        api::calibration::AccuracyBucket,
+        api::calibration::AccuracyBuckets,
         api::calibration::ReferenceClassAccuracy,
+        api::calibration::CalibrationMetrics,
+        api::calibration::MetricsBelowThreshold,
         api::calibration::CalibrationTrendPoint,
-        api::calibration::CalibrationTrendResponse,
+        api::calibration::CalibrationTrend,
+        api::calibration::TrendBelowThreshold,
         // Integration
         api::integration::ContractorMatchRequest,
         api::integration::ContractorMatchResponse,

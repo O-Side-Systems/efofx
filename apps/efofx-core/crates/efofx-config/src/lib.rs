@@ -44,6 +44,8 @@ pub struct AppConfig {
     #[serde(default)]
     pub email: EmailConfig,
     #[serde(default)]
+    pub calibration: CalibrationConfig,
+    #[serde(default)]
     pub features: FeatureFlags,
 }
 
@@ -236,6 +238,32 @@ fn default_from_address() -> String {
 
 fn default_app_base_url() -> String {
     "http://localhost:8080".into()
+}
+
+/// Calibration dashboard knobs.
+///
+/// `minimum_outcomes` is the FastAPI `CALIBRATION_THRESHOLD = 10` —
+/// metrics + trend swap to a `below_threshold` envelope until the
+/// tenant has accumulated at least this many real feedback outcomes.
+/// Lifted into config so a future per-tenant override is a one-line
+/// edit.
+#[derive(Debug, Clone, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct CalibrationConfig {
+    #[serde(default = "default_minimum_outcomes")]
+    pub minimum_outcomes: u64,
+}
+
+impl Default for CalibrationConfig {
+    fn default() -> Self {
+        Self {
+            minimum_outcomes: default_minimum_outcomes(),
+        }
+    }
+}
+
+fn default_minimum_outcomes() -> u64 {
+    10
 }
 
 #[derive(Debug, Clone, Default, Deserialize)]

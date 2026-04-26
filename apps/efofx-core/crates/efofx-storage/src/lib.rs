@@ -9,6 +9,7 @@
 //! `tests/compile-fail/` for negative coverage.
 
 pub mod auth;
+pub mod calibration;
 pub mod chat;
 pub mod estimation;
 pub mod feedback;
@@ -20,6 +21,7 @@ pub mod tenant_context;
 pub mod tenants;
 pub mod widget;
 
+pub use calibration::{CalibrationRcGroup, CalibrationRepo, CalibrationTrendPoint, DateFilter};
 pub use chat::{ChatRepo, DEFAULT_SESSION_TTL_HOURS};
 pub use estimation::EstimationRepo;
 pub use feedback::{

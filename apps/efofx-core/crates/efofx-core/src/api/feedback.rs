@@ -5,8 +5,8 @@
 
 use std::sync::Arc;
 
-use axum::extract::{Extension, State};
-use axum::http::StatusCode;
+use axum::extract::{Extension, Form, Path, State};
+use axum::http::{header, StatusCode};
 use axum::middleware::from_fn_with_state;
 use axum::response::{IntoResponse, Response};
 use axum::{
@@ -17,15 +17,18 @@ use serde::{Deserialize, Serialize};
 use utoipa::ToSchema;
 
 use efofx_auth::middleware::{either_auth, supabase_jwt};
-use efofx_domain::{EstimationSessionId, FeedbackDocument, FeedbackSubmission, FeedbackSummary};
+use efofx_domain::{
+    BrandingConfig, EstimationSessionId, FeedbackDocument, FeedbackSubmission, FeedbackSummary,
+};
 use efofx_email::EmailMessage;
 use efofx_openapi::{ApiError, ErrorCode};
-use efofx_storage::{NewFeedback, NewMagicLink, TenantContext};
+use efofx_storage::{
+    EstimateSnapshotDoc, MagicLinkDoc, NewFeedback, NewFeedbackWithSnapshot, NewMagicLink,
+    TenantContext, TokenState,
+};
 
 use crate::services::EstimationServiceError;
 use crate::AppState;
-
-use super::not_implemented;
 
 #[derive(Debug, Clone, Deserialize, ToSchema)]
 pub struct CreateFeedbackRequest {
@@ -253,21 +256,55 @@ pub async fn request_email(
 }
 
 /// Render the feedback form. Idempotent — scanner-safe. Sets `opened_at`
-/// on first visit; does not consume the token.
+/// on first visit; does not consume the token. Always returns HTTP 200
+/// with `text/html`: token state is encoded by the body, not the
+/// status, so an email-scanner preview never tells the user something
+/// is wrong before the customer clicks through.
 #[utoipa::path(
     get,
     path = "/v1/feedback/forms/{token}",
     tag = "feedback",
     params(("token" = String, Path, description = "Raw magic-link token from email")),
     responses(
-        (status = 200, description = "HTML form", content_type = "text/html"),
-        (status = 404, description = "Token not found", body = ApiError),
-        (status = 410, description = "Token expired", body = ApiError),
-        (status = 501, description = "Not yet implemented", body = ApiError),
+        (status = 200, description = "HTML page (form / expired / thank-you)", content_type = "text/html"),
     ),
 )]
-pub async fn render_form() -> impl IntoResponse {
-    not_implemented("GET /v1/feedback/forms/{token}")
+pub async fn render_form(
+    State(state): State<Arc<AppState>>,
+    Path(token): Path<String>,
+) -> Response {
+    let resolved = match state.magic_link.resolve(&token).await {
+        Ok(state) => state,
+        Err(err) => {
+            tracing::error!(error = %err, "magic link resolve failed");
+            return html_response(&render_expired(&BrandingConfig::default()));
+        }
+    };
+
+    match resolved {
+        TokenState::NotFound | TokenState::Expired(_) => {
+            let branding = match &resolved {
+                TokenState::Expired(doc) => branding_for_tenant(&state, &doc.tenant_id).await,
+                _ => BrandingConfig::default(),
+            };
+            html_response(&render_expired(&branding))
+        }
+        TokenState::Used(doc) => {
+            let branding = branding_for_tenant(&state, &doc.tenant_id).await;
+            html_response(&render_thank_you(&branding))
+        }
+        TokenState::Valid(doc) => {
+            // Best-effort opened-at stamp; failure here is logged but
+            // never blocks rendering the form. Email scanners hitting
+            // the URL stamp opened_at too — that's fine, FastAPI does
+            // the same and it's not security-relevant.
+            if let Err(err) = state.magic_link.mark_opened(&token).await {
+                tracing::warn!(error = %err, "mark_opened failed");
+            }
+            let branding = branding_for_tenant(&state, &doc.tenant_id).await;
+            html_response(&render_form_page(&branding, &doc, &token))
+        }
+    }
 }
 
 /// Submit the feedback form. Consumes the token atomically — resubmits
@@ -281,13 +318,163 @@ pub async fn render_form() -> impl IntoResponse {
     responses(
         (status = 200, description = "HTML thank-you page", content_type = "text/html"),
         (status = 400, description = "Validation failed", body = ApiError),
-        (status = 404, description = "Token not found", body = ApiError),
-        (status = 410, description = "Token already used or expired", body = ApiError),
-        (status = 501, description = "Not yet implemented", body = ApiError),
     ),
 )]
-pub async fn submit_form() -> impl IntoResponse {
-    not_implemented("POST /v1/feedback/forms/{token}")
+pub async fn submit_form(
+    State(state): State<Arc<AppState>>,
+    Path(token): Path<String>,
+    Form(submission): Form<FeedbackSubmission>,
+) -> Response {
+    if let Err(resp) = validate_submission(&submission) {
+        return resp;
+    }
+
+    let resolved = match state.magic_link.resolve(&token).await {
+        Ok(s) => s,
+        Err(err) => {
+            tracing::error!(error = %err, "magic link resolve failed");
+            return html_response(&render_expired(&BrandingConfig::default()));
+        }
+    };
+
+    let doc = match resolved {
+        TokenState::Valid(doc) => doc,
+        TokenState::Used(doc) => {
+            // Idempotent resubmit — render the thank-you page so the
+            // customer can't tell whether their first POST was the
+            // winner. No double-write.
+            let branding = branding_for_tenant(&state, &doc.tenant_id).await;
+            return html_response(&render_thank_you(&branding));
+        }
+        TokenState::Expired(doc) => {
+            let branding = branding_for_tenant(&state, &doc.tenant_id).await;
+            return html_response(&render_expired(&branding));
+        }
+        TokenState::NotFound => {
+            return html_response(&render_expired(&BrandingConfig::default()));
+        }
+    };
+
+    match state.magic_link.consume(&token).await {
+        Ok(true) => {}
+        Ok(false) => {
+            // Lost the race — another POST claimed the token first.
+            // Render thank-you, never double-insert.
+            let branding = branding_for_tenant(&state, &doc.tenant_id).await;
+            return html_response(&render_thank_you(&branding));
+        }
+        Err(err) => {
+            tracing::error!(error = %err, "consume token failed");
+            let branding = branding_for_tenant(&state, &doc.tenant_id).await;
+            return html_response(&render_expired(&branding));
+        }
+    }
+
+    let new = NewFeedbackWithSnapshot {
+        estimation_session_id: doc.estimation_session_id.clone(),
+        reference_class_id: None,
+        actual_cost: submission.actual_cost,
+        actual_timeline_weeks: submission.actual_timeline_weeks,
+        rating: submission.rating,
+        discrepancy_reason_primary: submission.discrepancy_reason_primary,
+        discrepancy_reason_secondary: submission.discrepancy_reason_secondary,
+        comment: submission.comment,
+        // EstimationOutput is not persisted alongside the session in the
+        // current schema (see api/estimation.rs:71). Until that gap
+        // closes, the snapshot fields go in zero — calibration in 2E.5
+        // will simply find no useful variance for tokens minted from
+        // sessions without a stored result. The wire shape is preserved
+        // so a future migration is additive.
+        estimate_snapshot: EstimateSnapshotDoc {
+            total_cost_p50: 0.0,
+            total_cost_p80: 0.0,
+            timeline_weeks_p50: 0,
+            timeline_weeks_p80: 0,
+            cost_breakdown: Vec::new(),
+            assumptions: Vec::new(),
+            confidence_score: 0.0,
+        },
+    };
+
+    if let Err(err) = state
+        .feedback
+        .insert_with_snapshot(&doc.tenant_id, new)
+        .await
+    {
+        tracing::error!(error = %err, "feedback insert_with_snapshot failed");
+        let branding = branding_for_tenant(&state, &doc.tenant_id).await;
+        return html_response(&render_expired(&branding));
+    }
+
+    let branding = branding_for_tenant(&state, &doc.tenant_id).await;
+    html_response(&render_thank_you(&branding))
+}
+
+async fn branding_for_tenant(state: &AppState, tenant_id: &str) -> BrandingConfig {
+    match state.tenants.fetch_branding_by_tenant_id(tenant_id).await {
+        Ok(Some(b)) => b,
+        Ok(None) => BrandingConfig::default(),
+        Err(err) => {
+            tracing::warn!(error = %err, tenant_id, "branding fetch failed; using defaults");
+            BrandingConfig::default()
+        }
+    }
+}
+
+fn html_response(body: &str) -> Response {
+    (
+        StatusCode::OK,
+        [(header::CONTENT_TYPE, "text/html; charset=utf-8")],
+        body.to_string(),
+    )
+        .into_response()
+}
+
+fn render_form_page(branding: &BrandingConfig, doc: &MagicLinkDoc, token: &str) -> String {
+    FORM_HTML
+        .replace("{{primary_color}}", &esc(&branding.primary_color))
+        .replace("{{company_name}}", &esc(&render_company_name(branding)))
+        .replace("{{project_name}}", &esc(&doc.project_name))
+        .replace("{{token}}", &esc(token))
+}
+
+fn render_thank_you(branding: &BrandingConfig) -> String {
+    THANK_YOU_HTML
+        .replace("{{primary_color}}", &esc(&branding.primary_color))
+        .replace("{{company_name}}", &esc(&render_company_name(branding)))
+}
+
+fn render_expired(branding: &BrandingConfig) -> String {
+    EXPIRED_HTML
+        .replace("{{primary_color}}", &esc(&branding.primary_color))
+        .replace("{{company_name}}", &esc(&render_company_name(branding)))
+}
+
+fn render_company_name(branding: &BrandingConfig) -> String {
+    if branding.company_name.is_empty() {
+        "Your contractor".into()
+    } else {
+        branding.company_name.clone()
+    }
+}
+
+/// Minimal HTML escape — sufficient for the four substitution slots
+/// (color hex, company name, project name, token). Token is always a
+/// 43-char base64url string so it is escape-clean, but we run it
+/// through the same path for safety.
+fn esc(s: &str) -> String {
+    let mut out = String::with_capacity(s.len());
+    for ch in s.chars() {
+        match ch {
+            '&' => out.push_str("&amp;"),
+            '<' => out.push_str("&lt;"),
+            '>' => out.push_str("&gt;"),
+            '"' => out.push_str("&quot;"),
+            '\'' => out.push_str("&#39;"),
+            c => out.push(c),
+        }
+    }
+    out
 }
 
 // FeedbackDocument referenced so the OpenAPI component graph keeps it.
@@ -322,6 +509,27 @@ fn validate_email_request(body: &FeedbackEmailRequest) -> Result<(), Response> {
     Ok(())
 }
 
+#[allow(clippy::result_large_err)]
+fn validate_submission(body: &FeedbackSubmission) -> Result<(), Response> {
+    if !(1..=5).contains(&body.rating) {
+        return Err(validation_error("rating must be between 1 and 5"));
+    }
+    if !(body.actual_cost.is_finite() && body.actual_cost > 0.0) {
+        return Err(validation_error("actual_cost must be greater than 0"));
+    }
+    if body.actual_timeline_weeks == 0 {
+        return Err(validation_error(
+            "actual_timeline_weeks must be greater than 0",
+        ));
+    }
+    if let Some(c) = &body.comment {
+        if c.len() > 2000 {
+            return Err(validation_error("comment must be ≤ 2000 chars"));
+        }
+    }
+    Ok(())
+}
+
 fn validation_error(msg: &'static str) -> Response {
     (
         StatusCode::BAD_REQUEST,
@@ -348,8 +556,8 @@ fn internal_error() -> Response {
 ///   contractor dashboards and embedded widgets both call this.
 /// * `GET /v1/feedback/summary` is dashboard-only; supabase_jwt enforced.
 /// * `POST /v1/feedback/email-requests` is dashboard-only (2E.3 stub).
-/// * `GET|POST /v1/feedback/forms/{token}` is public, token-gated (2E.4
-///   stub) — no auth layer applied here.
+/// * `GET|POST /v1/feedback/forms/{token}` is public, token-gated. No
+///   auth layer applied here — the token *is* the auth.
 pub fn routes(state: Arc<AppState>) -> Router<Arc<AppState>> {
     let either_authed = Router::new()
         .route("/v1/feedback", post(create_feedback))
@@ -367,3 +575,107 @@ pub fn routes(state: Arc<AppState>) -> Router<Arc<AppState>> {
 
     either_authed.merge(dashboard).merge(public)
 }
+
+// ----------------------------------------------------------------------
+// Inline HTML pages
+//
+// Three short pages embedded as `&'static str`. We avoid an HTML
+// template engine (askama / minijinja) on purpose — adding a fourth
+// page is the right time to swap in a real engine. Total weight is
+// well under 4 KB each. Substitution is naive `.replace("{{...}}", ...)`
+// because we control every placeholder source and run untrusted strings
+// through `esc()` before substitution.
+// ----------------------------------------------------------------------
+
+const FORM_HTML: &str = r#"<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Project feedback</title>
+<style>
+  body { font-family: system-ui, -apple-system, Segoe UI, Roboto, sans-serif; background: #f8fafc; margin: 0; padding: 2rem; color: #1f2937; }
+  .card { max-width: 540px; margin: 0 auto; background: #fff; border-radius: 12px; padding: 2rem; box-shadow: 0 1px 3px rgba(0,0,0,.08); }
+  h1 { color: {{primary_color}}; margin-top: 0; }
+  label { display: block; margin: 1rem 0 .25rem; font-weight: 600; }
+  input, select, textarea { width: 100%; padding: .6rem; border: 1px solid #d1d5db; border-radius: 6px; font: inherit; box-sizing: border-box; }
+  textarea { min-height: 6rem; resize: vertical; }
+  button { background: {{primary_color}}; color: #fff; border: 0; padding: .75rem 1.5rem; border-radius: 6px; font-size: 1rem; font-weight: 600; cursor: pointer; margin-top: 1.5rem; }
+  .meta { color: #6b7280; font-size: .9rem; }
+</style>
+</head>
+<body>
+<div class="card">
+  <h1>How did {{project_name}} go?</h1>
+  <p class="meta">{{company_name}} would love your feedback. It takes about a minute.</p>
+  <form method="post" action="/v1/feedback/forms/{{token}}">
+    <label>Overall rating (1–5)</label>
+    <input type="number" name="rating" min="1" max="5" required>
+
+    <label>Actual cost (USD)</label>
+    <input type="number" name="actual_cost" min="0" step="0.01" required>
+
+    <label>Actual timeline (weeks)</label>
+    <input type="number" name="actual_timeline_weeks" min="1" required>
+
+    <label>Primary reason the estimate was off</label>
+    <select name="discrepancy_reason_primary" required>
+      <option value="estimate_was_accurate">Estimate was accurate</option>
+      <option value="scope_changed">Scope changed</option>
+      <option value="unforeseen_issues">Unforeseen issues</option>
+      <option value="timeline_pressure">Timeline pressure</option>
+      <option value="vendor_material_costs">Vendor or material costs</option>
+      <option value="client_changes">Client changes</option>
+    </select>
+
+    <label>Anything else? (optional)</label>
+    <textarea name="comment" maxlength="2000"></textarea>
+
+    <button type="submit">Submit feedback</button>
+  </form>
+</div>
+</body>
+</html>
+"#;
+
+const THANK_YOU_HTML: &str = r#"<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Thank you</title>
+<style>
+  body { font-family: system-ui, -apple-system, Segoe UI, Roboto, sans-serif; background: #f8fafc; margin: 0; padding: 2rem; color: #1f2937; }
+  .card { max-width: 540px; margin: 0 auto; background: #fff; border-radius: 12px; padding: 2rem; box-shadow: 0 1px 3px rgba(0,0,0,.08); text-align: center; }
+  h1 { color: {{primary_color}}; margin-top: 0; }
+</style>
+</head>
+<body>
+<div class="card">
+  <h1>Thank you</h1>
+  <p>Your feedback has been recorded. {{company_name}} appreciates the help calibrating future estimates.</p>
+</div>
+</body>
+</html>
+"#;
+
+const EXPIRED_HTML: &str = r#"<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Link expired</title>
+<style>
+  body { font-family: system-ui, -apple-system, Segoe UI, Roboto, sans-serif; background: #f8fafc; margin: 0; padding: 2rem; color: #1f2937; }
+  .card { max-width: 540px; margin: 0 auto; background: #fff; border-radius: 12px; padding: 2rem; box-shadow: 0 1px 3px rgba(0,0,0,.08); text-align: center; }
+  h1 { color: {{primary_color}}; margin-top: 0; }
+</style>
+</head>
+<body>
+<div class="card">
+  <h1>This link has expired</h1>
+  <p>The feedback link you followed is no longer valid. Reach out to {{company_name}} if you'd still like to share how the project went.</p>
+</div>
+</body>
+</html>
+"#;

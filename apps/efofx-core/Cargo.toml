@@ -27,7 +27,7 @@ repository = "https://github.com/oside-systems/efofx"
 tokio = { version = "1.40", features = ["full"] }
 
 # HTTP
-axum = { version = "0.7", features = ["macros", "json"] }
+axum = { version = "0.7", features = ["macros", "json", "form"] }
 tower = { version = "0.5", features = ["util"] }
 tower-http = { version = "0.6", features = ["trace", "cors", "request-id", "util"] }
 hyper = "1.4"

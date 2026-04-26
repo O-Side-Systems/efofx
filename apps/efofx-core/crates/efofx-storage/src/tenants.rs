@@ -370,6 +370,47 @@ impl TenantRepo {
             allowed_origins,
         }))
     }
+
+    /// Resolve branding by raw `tenant_id` string — used by the public,
+    /// token-gated feedback form route which has no [`TenantContext`]
+    /// (the magic-link doc carries the tenant id forward).
+    ///
+    /// Same fallback semantics as
+    /// [`Self::fetch_branding_by_prefix`]: empty `company_name` is
+    /// filled from the top-level tenant doc; deactivated tenants
+    /// resolve to `None`.
+    pub async fn fetch_branding_by_tenant_id(
+        &self,
+        tenant_id: &str,
+    ) -> Result<Option<BrandingConfig>, StorageError> {
+        let tenant_doc = match self
+            .collection()
+            .find_one(doc! { "tenant_id": tenant_id })
+            .await?
+        {
+            Some(doc) => doc,
+            None => return Ok(None),
+        };
+        if !tenant_doc.is_active {
+            return Ok(None);
+        }
+
+        let fallback_company = tenant_doc.company_name.clone();
+        let branding = tenant_doc.settings.and_then(|s| s.branding);
+        let branding = match branding {
+            Some(mut b) => {
+                if b.company_name.is_empty() {
+                    b.company_name = fallback_company;
+                }
+                b
+            }
+            None => BrandingConfig {
+                company_name: fallback_company,
+                ..BrandingConfig::default()
+            },
+        };
+        Ok(Some(branding))
+    }
 }
 
 /// Result of [`TenantRepo::fetch_branding_by_prefix`]. Carries the

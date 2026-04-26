@@ -328,4 +328,195 @@ mod tests {
                 .unwrap_or(false)
         })
     }
+
+    /// Pin the feedback surface contract: per Phase 2E, every feedback
+    /// verb declares the right auth scheme + status codes. The public
+    /// HTML form route is intentionally unauthenticated and returns
+    /// `text/html`. Schemas referenced by the feedback DTOs are required
+    /// components so the generated client stays generatable. Update this
+    /// test only when the feedback contract intentionally changes.
+    #[test]
+    fn openapi_feedback_surface_contract() {
+        let doc = ApiDoc::openapi();
+        let path_item = |p: &str| {
+            doc.paths
+                .paths
+                .get(p)
+                .unwrap_or_else(|| panic!("missing path {p}"))
+                .clone()
+        };
+
+        // POST /v1/feedback — supabase_jwt OR widget_api_key, 201/400/401
+        let create = path_item("/v1/feedback");
+        let op = create.post.as_ref().expect("POST /v1/feedback missing");
+        assert!(
+            has_security(op, "supabase_jwt"),
+            "create_feedback must accept supabase_jwt"
+        );
+        assert!(
+            has_security(op, "widget_api_key"),
+            "create_feedback must accept widget_api_key"
+        );
+        for code in ["201", "400", "401"] {
+            assert!(
+                op.responses.responses.contains_key(code),
+                "create_feedback missing response {code}"
+            );
+        }
+
+        // GET /v1/feedback/summary — supabase_jwt only, 200/401
+        let summary = path_item("/v1/feedback/summary");
+        let op = summary.get.as_ref().expect("GET summary missing");
+        assert!(
+            has_security(op, "supabase_jwt"),
+            "feedback_summary must require supabase_jwt"
+        );
+        assert!(
+            !has_security(op, "widget_api_key"),
+            "feedback_summary is dashboard-only — widget_api_key must not appear"
+        );
+        for code in ["200", "401"] {
+            assert!(
+                op.responses.responses.contains_key(code),
+                "feedback_summary missing response {code}"
+            );
+        }
+
+        // POST /v1/feedback/email-requests — supabase_jwt only, 202/400/401/404
+        let email = path_item("/v1/feedback/email-requests");
+        let op = email.post.as_ref().expect("POST email-requests missing");
+        assert!(
+            has_security(op, "supabase_jwt"),
+            "request_email must require supabase_jwt"
+        );
+        assert!(
+            !has_security(op, "widget_api_key"),
+            "request_email is dashboard-only — widget_api_key must not appear"
+        );
+        for code in ["202", "400", "401", "404"] {
+            assert!(
+                op.responses.responses.contains_key(code),
+                "request_email missing response {code}"
+            );
+        }
+
+        // GET + POST /v1/feedback/forms/{token} — public, HTML responses.
+        // The path uses the OpenAPI 3 `{token}` form even though the
+        // axum router registers `:token` (axum 0.7 / matchit 0.7
+        // constraint, see Phase 2D checkpoint).
+        let form = path_item("/v1/feedback/forms/{token}");
+
+        let get_op = form.get.as_ref().expect("GET form missing");
+        assert!(
+            get_op.security.is_none(),
+            "render_form must be public (token-gated, no auth scheme)"
+        );
+        assert!(
+            get_op.responses.responses.contains_key("200"),
+            "render_form must declare 200 (HTML always returned, status encodes nothing)"
+        );
+
+        let post_op = form.post.as_ref().expect("POST form missing");
+        assert!(
+            post_op.security.is_none(),
+            "submit_form must be public (token-gated, no auth scheme)"
+        );
+        for code in ["200", "400"] {
+            assert!(
+                post_op.responses.responses.contains_key(code),
+                "submit_form missing response {code}"
+            );
+        }
+
+        // Schemas referenced by the feedback surface must all be present.
+        let components = doc.components.as_ref().expect("components present");
+        for schema in [
+            "DiscrepancyReason",
+            "EstimateSnapshot",
+            "FeedbackSubmission",
+            "FeedbackDocument",
+            "FeedbackSummary",
+            "CreateFeedbackRequest",
+            "CreateFeedbackResponse",
+            "FeedbackEmailRequest",
+            "FeedbackEmailResponse",
+        ] {
+            assert!(
+                components.schemas.contains_key(schema),
+                "missing feedback schema: {schema}"
+            );
+        }
+    }
+
+    /// Pin the calibration surface contract: per Phase 2E, both
+    /// calibration verbs are dashboard-only (supabase_jwt) and declare
+    /// the validation 400 envelope alongside the 401. Update this test
+    /// only when the calibration contract intentionally changes.
+    #[test]
+    fn openapi_calibration_surface_contract() {
+        let doc = ApiDoc::openapi();
+        let path_item = |p: &str| {
+            doc.paths
+                .paths
+                .get(p)
+                .unwrap_or_else(|| panic!("missing path {p}"))
+                .clone()
+        };
+
+        // GET /v1/calibration/metrics — supabase_jwt, 200/400/401
+        let metrics = path_item("/v1/calibration/metrics");
+        let op = metrics.get.as_ref().expect("GET metrics missing");
+        assert!(
+            has_security(op, "supabase_jwt"),
+            "calibration metrics must require supabase_jwt"
+        );
+        assert!(
+            !has_security(op, "widget_api_key"),
+            "calibration metrics is dashboard-only — widget_api_key must not appear"
+        );
+        for code in ["200", "400", "401"] {
+            assert!(
+                op.responses.responses.contains_key(code),
+                "calibration metrics missing response {code}"
+            );
+        }
+
+        // GET /v1/calibration/trend — supabase_jwt, 200/400/401
+        let trend = path_item("/v1/calibration/trend");
+        let op = trend.get.as_ref().expect("GET trend missing");
+        assert!(
+            has_security(op, "supabase_jwt"),
+            "calibration trend must require supabase_jwt"
+        );
+        assert!(
+            !has_security(op, "widget_api_key"),
+            "calibration trend is dashboard-only — widget_api_key must not appear"
+        );
+        for code in ["200", "400", "401"] {
+            assert!(
+                op.responses.responses.contains_key(code),
+                "calibration trend missing response {code}"
+            );
+        }
+
+        // Schemas referenced by the calibration surface must all be
+        // present — including the below-threshold sibling types so the
+        // wire union (currently expressed as parallel components) stays
+        // generatable.
+        let components = doc.components.as_ref().expect("components present");
+        for schema in [
+            "AccuracyBuckets",
+            "ReferenceClassAccuracy",
+            "CalibrationMetrics",
+            "MetricsBelowThreshold",
+            "CalibrationTrendPoint",
+            "CalibrationTrend",
+            "TrendBelowThreshold",
+        ] {
+            assert!(
+                components.schemas.contains_key(schema),
+                "missing calibration schema: {schema}"
+            );
+        }
+    }
 }

@@ -121,8 +121,6 @@ async fn feedback_summary_rejects_widget_key() {
 
 #[tokio::test]
 async fn email_request_requires_jwt() {
-    // email-requests is still a 501 stub in 2E.2, but it must sit behind
-    // the JWT layer so the 501 only ever reaches authenticated callers.
     let harness = TestHarness::new().await;
     let body = serde_json::json!({
         "estimation_session_id": "sess_abc",
@@ -132,6 +130,48 @@ async fn email_request_requires_jwt() {
         .method("POST")
         .uri("/v1/feedback/email-requests")
         .header("content-type", "application/json")
+        .body(Body::from(serde_json::to_vec(&body).unwrap()))
+        .unwrap();
+    let (status, body) = dispatch(&harness, req).await;
+    assert_eq!(status, StatusCode::UNAUTHORIZED);
+    assert!(err_code(&body).is_some(), "expected envelope, got {body}");
+}
+
+#[tokio::test]
+async fn email_request_rejects_widget_key() {
+    // The dashboard-only mint route must reject widget keys — they
+    // never reach the JWT branch because the route is behind
+    // supabase_jwt only.
+    let harness = TestHarness::new().await;
+    let body = serde_json::json!({
+        "estimation_session_id": "sess_abc",
+        "customer_email": "user@example.com",
+    });
+    let req = Request::builder()
+        .method("POST")
+        .uri("/v1/feedback/email-requests")
+        .header("content-type", "application/json")
+        .header("x-api-key", "sk_live_unknown_key_value")
+        .body(Body::from(serde_json::to_vec(&body).unwrap()))
+        .unwrap();
+    let (status, _body) = dispatch(&harness, req).await;
+    assert_eq!(status, StatusCode::UNAUTHORIZED);
+}
+
+#[tokio::test]
+async fn email_request_rejects_unknown_jwt_kid() {
+    let harness = TestHarness::new().await;
+    let claims = harness.valid_claims("user-1");
+    let token = harness.signer.sign_with_kid("nope", &claims);
+    let body = serde_json::json!({
+        "estimation_session_id": "sess_abc",
+        "customer_email": "user@example.com",
+    });
+    let req = Request::builder()
+        .method("POST")
+        .uri("/v1/feedback/email-requests")
+        .header("content-type", "application/json")
+        .header("authorization", format!("Bearer {token}"))
         .body(Body::from(serde_json::to_vec(&body).unwrap()))
         .unwrap();
     let (status, body) = dispatch(&harness, req).await;

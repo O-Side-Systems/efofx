@@ -29,8 +29,8 @@ use efofx_llm::{LlmProvider, OpenAiProvider};
 use efofx_prompts::PromptRegistry;
 use efofx_storage::auth::{ApiKeyAuth, MasterKey, TenantResolver};
 use efofx_storage::{
-    ChatRepo, EstimationRepo, FeedbackRepo, HealthStatus, MongoAdapter, ReferenceRepo, TenantRepo,
-    WidgetAnalyticsRepo, WidgetLeadRepo,
+    ChatRepo, EstimationRepo, FeedbackRepo, HealthStatus, MagicLinkRepo, MongoAdapter,
+    ReferenceRepo, TenantRepo, WidgetAnalyticsRepo, WidgetLeadRepo,
 };
 
 pub mod api;
@@ -61,6 +61,7 @@ pub struct AppState {
     pub widget_leads: WidgetLeadRepo,
     pub widget_analytics: WidgetAnalyticsRepo,
     pub feedback: FeedbackRepo,
+    pub magic_link: MagicLinkRepo,
     pub byok: ByokService,
     pub chat: ChatService,
     pub estimation: EstimationService,
@@ -80,6 +81,10 @@ pub struct AppState {
     /// `From:` address used on every outbound email. Cached on `AppState`
     /// so handlers don't need to plumb [`AppConfig`] through.
     pub email_from: Arc<str>,
+    /// Public-facing base URL used to build customer-clickable links
+    /// embedded in outbound email (feedback magic links, etc). No
+    /// trailing slash — the handler appends a leading-slash path.
+    pub app_base_url: Arc<str>,
 }
 
 /// Build the full application state by wiring every service, repo, and
@@ -128,6 +133,13 @@ pub async fn build_app_state(cfg: &AppConfig) -> anyhow::Result<AppState> {
         }
     };
     let email_from: Arc<str> = Arc::from(cfg.email.from_address.clone().into_boxed_str());
+    let app_base_url: Arc<str> = Arc::from(
+        cfg.email
+            .app_base_url
+            .trim_end_matches('/')
+            .to_string()
+            .into_boxed_str(),
+    );
 
     let chat_repo = ChatRepo::new(mongo.clone());
     chat_repo
@@ -164,6 +176,12 @@ pub async fn build_app_state(cfg: &AppConfig) -> anyhow::Result<AppState> {
         .ensure_indexes()
         .await
         .context("ensure feedback indexes")?;
+
+    let magic_link = MagicLinkRepo::new(mongo.clone());
+    magic_link
+        .ensure_indexes()
+        .await
+        .context("ensure feedback_tokens indexes")?;
 
     let prompts_dir =
         std::env::var("EFOFX_PROMPTS_DIR").unwrap_or_else(|_| "config/prompts".into());
@@ -216,6 +234,7 @@ pub async fn build_app_state(cfg: &AppConfig) -> anyhow::Result<AppState> {
         widget_leads,
         widget_analytics,
         feedback,
+        magic_link,
         byok,
         chat,
         estimation,
@@ -226,6 +245,7 @@ pub async fn build_app_state(cfg: &AppConfig) -> anyhow::Result<AppState> {
         origin_cache,
         email,
         email_from,
+        app_base_url,
     })
 }
 

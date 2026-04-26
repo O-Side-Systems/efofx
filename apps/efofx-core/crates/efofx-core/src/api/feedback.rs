@@ -17,10 +17,12 @@ use serde::{Deserialize, Serialize};
 use utoipa::ToSchema;
 
 use efofx_auth::middleware::{either_auth, supabase_jwt};
-use efofx_domain::{FeedbackDocument, FeedbackSubmission, FeedbackSummary};
+use efofx_domain::{EstimationSessionId, FeedbackDocument, FeedbackSubmission, FeedbackSummary};
+use efofx_email::EmailMessage;
 use efofx_openapi::{ApiError, ErrorCode};
-use efofx_storage::{NewFeedback, TenantContext};
+use efofx_storage::{NewFeedback, NewMagicLink, TenantContext};
 
+use crate::services::EstimationServiceError;
 use crate::AppState;
 
 use super::not_implemented;
@@ -153,7 +155,12 @@ pub async fn feedback_summary(
 }
 
 /// Mint a feedback magic-link and email it to the customer. The raw token
-/// is sent only in the email. Token TTL: 72 hours (config override).
+/// is sent only in the email. Token TTL: 72 hours.
+///
+/// Email send is best-effort — if Resend errors or no sender is wired
+/// (NoopSender), the magic link is still persisted and a `202` is
+/// returned. This mirrors the consultation flow: the system of record
+/// is the database, not the mailer.
 #[utoipa::path(
     post,
     path = "/v1/feedback/email-requests",
@@ -164,11 +171,85 @@ pub async fn feedback_summary(
         (status = 202, description = "Email queued", body = FeedbackEmailResponse),
         (status = 400, description = "Validation failed", body = ApiError),
         (status = 401, description = "Authentication required", body = ApiError),
-        (status = 501, description = "Not yet implemented", body = ApiError),
+        (status = 404, description = "Estimation session not found", body = ApiError),
     ),
 )]
-pub async fn request_email() -> impl IntoResponse {
-    not_implemented("POST /v1/feedback/email-requests")
+pub async fn request_email(
+    State(state): State<Arc<AppState>>,
+    Extension(ctx): Extension<TenantContext>,
+    Json(body): Json<FeedbackEmailRequest>,
+) -> Response {
+    if let Err(resp) = validate_email_request(&body) {
+        return resp;
+    }
+
+    // Confirm the estimation session belongs to this tenant before
+    // minting a token. The service surfaces a 404 envelope itself for
+    // NotFound; other errors get surfaced as their respective envelopes.
+    let session_id = EstimationSessionId(body.estimation_session_id.clone());
+    if let Err(err) = state.estimation.get_session(&ctx, &session_id).await {
+        if matches!(err, EstimationServiceError::EstimationSessionNotFound) {
+            return err.into_response();
+        }
+        tracing::error!(error = %err, "feedback email: session lookup failed");
+        return err.into_response();
+    }
+
+    let new = NewMagicLink {
+        tenant_id: ctx.tenant_id().to_string(),
+        estimation_session_id: body.estimation_session_id.clone(),
+        customer_email: body.customer_email.clone(),
+        project_name: body.project_name.clone(),
+    };
+    let minted = match state.magic_link.create(new).await {
+        Ok(m) => m,
+        Err(err) => {
+            tracing::error!(error = %err, "magic link mint failed");
+            return internal_error();
+        }
+    };
+
+    let url = format!(
+        "{base}/v1/feedback/forms/{token}",
+        base = state.app_base_url,
+        token = minted.raw_token,
+    );
+    let subject = format!("How did {} go?", body.project_name);
+    let mail_body = format!(
+        "Hi,\n\n\
+         We'd love your feedback on the {project} estimate. Tell us how the \
+         project actually wrapped up — it takes a couple of minutes and helps \
+         us calibrate future estimates.\n\n\
+         {url}\n\n\
+         This link expires in 72 hours.\n",
+        project = body.project_name,
+        url = url,
+    );
+    if let Err(err) = state
+        .email
+        .send_text(EmailMessage {
+            from: state.email_from.as_ref(),
+            to: body.customer_email.as_str(),
+            subject: &subject,
+            body: &mail_body,
+        })
+        .await
+    {
+        tracing::error!(
+            error = %err,
+            token_hash = %minted.token_hash,
+            "feedback magic-link email failed"
+        );
+    }
+
+    (
+        StatusCode::ACCEPTED,
+        Json(FeedbackEmailResponse {
+            message: "Feedback request email queued".into(),
+            token_hash: minted.token_hash,
+        }),
+    )
+        .into_response()
 }
 
 /// Render the feedback form. Idempotent — scanner-safe. Sets `opened_at`
@@ -223,6 +304,20 @@ fn validate_create_feedback(body: &CreateFeedbackRequest) -> Result<(), Response
     }
     if !(1..=5).contains(&body.rating) {
         return Err(validation_error("rating must be between 1 and 5"));
+    }
+    Ok(())
+}
+
+#[allow(clippy::result_large_err)]
+fn validate_email_request(body: &FeedbackEmailRequest) -> Result<(), Response> {
+    if body.estimation_session_id.trim().is_empty() {
+        return Err(validation_error("estimation_session_id must not be empty"));
+    }
+    if body.customer_email.trim().is_empty() || !body.customer_email.contains('@') {
+        return Err(validation_error("customer_email must contain '@'"));
+    }
+    if body.project_name.trim().is_empty() || body.project_name.len() > 200 {
+        return Err(validation_error("project_name must be 1–200 chars"));
     }
     Ok(())
 }

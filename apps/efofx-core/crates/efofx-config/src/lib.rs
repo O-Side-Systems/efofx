@@ -212,6 +212,12 @@ pub struct EmailConfig {
     /// Resend account.
     #[serde(default = "default_from_address")]
     pub from_address: String,
+    /// Public-facing base URL used to build customer-clickable links
+    /// embedded in outbound email (e.g. feedback magic links). No
+    /// trailing slash. Defaults to `http://localhost:8080` for local
+    /// development; production deployments override.
+    #[serde(default = "default_app_base_url")]
+    pub app_base_url: String,
 }
 
 impl Default for EmailConfig {
@@ -219,12 +225,17 @@ impl Default for EmailConfig {
         Self {
             resend_api_key: None,
             from_address: default_from_address(),
+            app_base_url: default_app_base_url(),
         }
     }
 }
 
 fn default_from_address() -> String {
     "noreply@efofx.dev".into()
+}
+
+fn default_app_base_url() -> String {
+    "http://localhost:8080".into()
 }
 
 #[derive(Debug, Clone, Default, Deserialize)]

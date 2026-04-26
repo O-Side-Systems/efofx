@@ -11,7 +11,9 @@
 pub mod auth;
 pub mod chat;
 pub mod estimation;
+pub mod feedback;
 pub mod health;
+pub mod magic_link;
 pub mod mongo;
 pub mod reference;
 pub mod tenant_context;
@@ -20,7 +22,15 @@ pub mod widget;
 
 pub use chat::{ChatRepo, DEFAULT_SESSION_TTL_HOURS};
 pub use estimation::EstimationRepo;
+pub use feedback::{
+    EstimateSnapshotDoc, FeedbackRepo, FeedbackSummaryStats, NewFeedback,
+    NewFeedbackWithSnapshot,
+};
 pub use health::HealthStatus;
+pub use magic_link::{
+    hash_token, MagicLinkDoc, MagicLinkRepo, MintedMagicLink, NewMagicLink, TokenState,
+    MAGIC_LINK_TTL_HOURS,
+};
 pub use mongo::MongoAdapter;
 pub use reference::{decode_reference_class, ReferenceRepo, UpsertStats};
 pub use tenant_context::TenantContext;

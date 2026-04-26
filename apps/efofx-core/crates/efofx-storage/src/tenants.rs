@@ -13,6 +13,7 @@
 //! [`crate::auth::TenantResolver`] (same crate) and gates the provisioning
 //! upsert.
 
+use std::collections::BTreeMap;
 use std::time::SystemTime;
 
 use mongodb::bson::{self, doc, DateTime as BsonDateTime, Document};
@@ -72,6 +73,53 @@ pub struct TenantSettingsDoc {
     /// allow-origin on preflight and actual responses.
     #[serde(default)]
     pub allowed_origins: Vec<String>,
+    /// Partner-routing configuration (Phase 2F). `None` means routing is
+    /// disabled — the contractor-match endpoint and SSE `routing_tags`
+    /// field still respond, but tags resolve to an empty list and the
+    /// `directory_url` is `None`.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub routing: Option<RoutingConfig>,
+}
+
+/// Per-tenant partner-routing configuration (Phase 2F.1).
+///
+/// Persisted under `tenants.settings.routing`. Read by the
+/// `RoutingService` (tag derivation) and the `contractor_match`
+/// handler (URL substitution). All fields are optional — an explicit
+/// `RoutingConfig { enabled: false, .. }` and a missing `routing`
+/// document are equivalent.
+///
+/// Tag overrides map a canonical tag string (e.g. `"pool"`) to the
+/// partner's preferred wire string (e.g. `"swimming-pool"`). Cost-tier
+/// breakpoints are inclusive lower bounds for `mid` and `high` —
+/// values strictly below `cost_tier_breakpoints[0]` are `low`.
+#[derive(Debug, Clone, Default, Serialize, Deserialize)]
+pub struct RoutingConfig {
+    #[serde(default)]
+    pub enabled: bool,
+    /// Template URL with `{name}` placeholders. Recognised placeholders:
+    /// `{tags}` (comma-joined), `{region}`, `{project_type}`,
+    /// `{cost_tier}`. Unknown placeholders pass through untouched.
+    /// `None` means no `directory_url` is returned.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub directory_url_template: Option<String>,
+    /// Map from canonical tag (without prefix) to the partner's
+    /// preferred wire string. Applied after tag derivation, before URL
+    /// substitution.
+    #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
+    pub tag_overrides: BTreeMap<String, String>,
+    /// Inclusive lower bounds in dollars for the `mid` and `high`
+    /// cost tiers. Defaults to `[25_000, 250_000]` when omitted.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub cost_tier_breakpoints: Option<[u64; 2]>,
+}
+
+impl RoutingConfig {
+    /// Effective breakpoints — `cost_tier_breakpoints` if set, else
+    /// the documented defaults `[25_000, 250_000]`.
+    pub fn effective_breakpoints(&self) -> [u64; 2] {
+        self.cost_tier_breakpoints.unwrap_or([25_000, 250_000])
+    }
 }
 
 fn default_true() -> bool {
@@ -371,6 +419,38 @@ impl TenantRepo {
         }))
     }
 
+    /// Fetch the partner-routing config for the authenticated tenant
+    /// (Phase 2F). Returns `None` when the tenant has no `settings`
+    /// document or has not configured routing — the caller treats
+    /// `None` as "routing disabled" and proceeds with empty tags +
+    /// no `directory_url`.
+    pub async fn fetch_routing_config(
+        &self,
+        ctx: &TenantContext,
+    ) -> Result<Option<RoutingConfig>, StorageError> {
+        let projection = doc! { "settings.routing": 1, "_id": 0 };
+        let opts = mongodb::options::FindOneOptions::builder()
+            .projection(projection)
+            .build();
+        let maybe_doc = self
+            .docs_collection()
+            .find_one(doc! { "tenant_id": ctx.tenant_id().to_string() })
+            .with_options(opts)
+            .await?;
+        let Some(doc) = maybe_doc else {
+            return Ok(None);
+        };
+        let Some(settings) = doc.get_document("settings").ok() else {
+            return Ok(None);
+        };
+        let Some(routing_doc) = settings.get_document("routing").ok() else {
+            return Ok(None);
+        };
+        let routing: RoutingConfig = bson::deserialize_from_document(routing_doc.clone())
+            .map_err(|e| StorageError::Bson(format!("decode routing config: {e}")))?;
+        Ok(Some(routing))
+    }
+
     /// Resolve branding by raw `tenant_id` string — used by the public,
     /// token-gated feedback form route which has no [`TenantContext`]
     /// (the magic-link doc carries the tenant id forward).
@@ -431,4 +511,114 @@ fn parse_tenant_id_prefix(prefix: &str) -> Option<TenantId> {
         return None;
     }
     uuid::Uuid::parse_str(prefix).ok().map(TenantId)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn routing_config_default_is_disabled() {
+        let cfg = RoutingConfig::default();
+        assert!(!cfg.enabled);
+        assert!(cfg.directory_url_template.is_none());
+        assert!(cfg.tag_overrides.is_empty());
+        assert!(cfg.cost_tier_breakpoints.is_none());
+        // Default breakpoints fall through to the documented values so
+        // the RoutingService doesn't need to know about defaulting.
+        assert_eq!(cfg.effective_breakpoints(), [25_000, 250_000]);
+    }
+
+    #[test]
+    fn routing_config_explicit_breakpoints_win() {
+        let cfg = RoutingConfig {
+            cost_tier_breakpoints: Some([10_000, 100_000]),
+            ..RoutingConfig::default()
+        };
+        assert_eq!(cfg.effective_breakpoints(), [10_000, 100_000]);
+    }
+
+    #[test]
+    fn routing_config_round_trip_full() {
+        let mut overrides = BTreeMap::new();
+        overrides.insert("pool".into(), "swimming-pool".into());
+        overrides.insert("residential".into(), "single-family".into());
+
+        let cfg = RoutingConfig {
+            enabled: true,
+            directory_url_template: Some(
+                "https://partner.example/find?tags={tags}&region={region}".into(),
+            ),
+            tag_overrides: overrides,
+            cost_tier_breakpoints: Some([15_000, 150_000]),
+        };
+
+        let bson = bson::serialize_to_document(&cfg).unwrap();
+        let back: RoutingConfig = bson::deserialize_from_document(bson).unwrap();
+        assert!(back.enabled);
+        assert_eq!(
+            back.directory_url_template.as_deref(),
+            Some("https://partner.example/find?tags={tags}&region={region}")
+        );
+        assert_eq!(
+            back.tag_overrides.get("pool").map(String::as_str),
+            Some("swimming-pool")
+        );
+        assert_eq!(back.cost_tier_breakpoints, Some([15_000, 150_000]));
+    }
+
+    #[test]
+    fn routing_config_omits_empty_optional_fields_on_serialize() {
+        // Wire shape stays compact when routing is configured but most
+        // fields are defaulted — matters for tenants that flip
+        // `enabled = true` without customising anything else.
+        let cfg = RoutingConfig {
+            enabled: true,
+            ..RoutingConfig::default()
+        };
+        let bson = bson::serialize_to_document(&cfg).unwrap();
+        assert_eq!(bson.get_bool("enabled").unwrap(), true);
+        assert!(!bson.contains_key("directory_url_template"));
+        assert!(!bson.contains_key("tag_overrides"));
+        assert!(!bson.contains_key("cost_tier_breakpoints"));
+    }
+
+    #[test]
+    fn settings_doc_routing_field_optional_for_legacy_tenants() {
+        // Tenants provisioned before 2F have no `settings.routing` field;
+        // the default Deserialize must not fail.
+        let bson = bson::doc! {
+            "branding": null,
+            "allowed_origins": [],
+        };
+        let settings: TenantSettingsDoc = bson::deserialize_from_document(bson).unwrap();
+        assert!(settings.routing.is_none());
+    }
+
+    #[test]
+    fn settings_doc_routing_round_trips_through_settings_subdoc() {
+        let cfg = RoutingConfig {
+            enabled: true,
+            directory_url_template: Some("https://x/{cost_tier}".into()),
+            tag_overrides: BTreeMap::new(),
+            cost_tier_breakpoints: None,
+        };
+        let settings = TenantSettingsDoc {
+            branding: None,
+            allowed_origins: vec!["https://example.com".into()],
+            routing: Some(cfg),
+        };
+        let bson = bson::serialize_to_document(&settings).unwrap();
+        // Field name pinned — `fetch_routing_config` projects on
+        // `settings.routing`, so a typo here would silently disable
+        // routing for every tenant.
+        assert!(bson.contains_key("routing"));
+        let back: TenantSettingsDoc = bson::deserialize_from_document(bson).unwrap();
+        let routing = back.routing.expect("routing round-trips");
+        assert!(routing.enabled);
+        assert_eq!(
+            routing.directory_url_template.as_deref(),
+            Some("https://x/{cost_tier}")
+        );
+    }
 }

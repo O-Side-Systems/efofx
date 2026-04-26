@@ -91,9 +91,7 @@ impl MagicLinkRepo {
     }
 
     fn collection(&self) -> mongodb::Collection<MagicLinkDoc> {
-        self.mongo
-            .database()
-            .collection(FEEDBACK_TOKENS_COLLECTION)
+        self.mongo.database().collection(FEEDBACK_TOKENS_COLLECTION)
     }
 
     /// Idempotent index creation. Call on startup.
@@ -124,10 +122,7 @@ impl MagicLinkRepo {
 
     /// Mint and persist a magic link. Returns the raw token (for email)
     /// and its hash (for caller telemetry / response body).
-    pub async fn create(
-        &self,
-        new: NewMagicLink,
-    ) -> Result<MintedMagicLink, StorageError> {
+    pub async fn create(&self, new: NewMagicLink) -> Result<MintedMagicLink, StorageError> {
         let raw = generate_raw_token();
         let hash = hash_token(&raw);
         let now_st = SystemTime::now();
@@ -233,8 +228,7 @@ fn hex_encode(bytes: &[u8]) -> String {
 /// base64url(no-pad) encoder. Avoids pulling the `base64` crate into
 /// `efofx-storage`'s dependency graph for a single 32-byte payload.
 fn url_safe_no_pad(bytes: &[u8]) -> String {
-    const ALPHABET: &[u8; 64] =
-        b"ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789-_";
+    const ALPHABET: &[u8; 64] = b"ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789-_";
     let mut out = String::with_capacity((bytes.len() * 4).div_ceil(3));
     let mut chunks = bytes.chunks_exact(3);
     for chunk in &mut chunks {
@@ -280,7 +274,9 @@ mod tests {
         let a = generate_raw_token();
         let b = generate_raw_token();
         assert_ne!(a, b);
-        assert!(a.chars().all(|c| c.is_ascii_alphanumeric() || c == '-' || c == '_'));
+        assert!(a
+            .chars()
+            .all(|c| c.is_ascii_alphanumeric() || c == '-' || c == '_'));
         // 32 bytes => 43-char base64url no-pad
         assert_eq!(a.len(), 43);
     }

@@ -1,3 +1,5 @@
+use std::collections::HashMap;
+
 use serde::{Deserialize, Serialize};
 use time::OffsetDateTime;
 use utoipa::ToSchema;
@@ -73,6 +75,11 @@ fn default_schema_version() -> u32 {
 }
 
 /// Aggregate feedback stats returned by `GET /v1/feedback/summary`.
+///
+/// `feedback_by_type` and `reference_class_accuracy_avg` keep parity with
+/// the FastAPI dashboard JSON. Both are skipped when empty/absent so the
+/// wire shape stays compatible with older clients reading just the
+/// totals.
 #[derive(Debug, Clone, Default, Serialize, Deserialize, ToSchema)]
 pub struct FeedbackSummary {
     pub total_feedback: u64,
@@ -81,6 +88,10 @@ pub struct FeedbackSummary {
     pub cost_accuracy_avg: Option<f64>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub timeline_accuracy_avg: Option<f64>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub reference_class_accuracy_avg: Option<f64>,
+    #[serde(default, skip_serializing_if = "HashMap::is_empty")]
+    pub feedback_by_type: HashMap<String, u64>,
 }
 
 #[cfg(test)]

@@ -5,16 +5,21 @@
 
 use std::sync::Arc;
 
+use axum::extract::{Extension, State};
+use axum::http::StatusCode;
+use axum::middleware::from_fn_with_state;
+use axum::response::{IntoResponse, Response};
 use axum::{
-    response::IntoResponse,
     routing::{get, post},
-    Router,
+    Json, Router,
 };
 use serde::{Deserialize, Serialize};
 use utoipa::ToSchema;
 
+use efofx_auth::middleware::{either_auth, supabase_jwt};
 use efofx_domain::{FeedbackDocument, FeedbackSubmission, FeedbackSummary};
-use efofx_openapi::ApiError;
+use efofx_openapi::{ApiError, ErrorCode};
+use efofx_storage::{NewFeedback, TenantContext};
 
 use crate::AppState;
 
@@ -60,7 +65,9 @@ pub struct FeedbackEmailResponse {
     pub token_hash: String,
 }
 
-/// Submit feedback on an existing estimation session.
+/// Submit feedback on an existing estimation session. Accepts either a
+/// dashboard-issued Supabase JWT or a widget API key — both flows produce
+/// a [`TenantContext`] before the handler runs.
 #[utoipa::path(
     post,
     path = "/v1/feedback",
@@ -71,12 +78,46 @@ pub struct FeedbackEmailResponse {
         (status = 201, description = "Feedback captured", body = CreateFeedbackResponse),
         (status = 400, description = "Validation failed", body = ApiError),
         (status = 401, description = "Authentication required", body = ApiError),
-        (status = 404, description = "Estimation session not found", body = ApiError),
-        (status = 501, description = "Not yet implemented", body = ApiError),
     ),
 )]
-pub async fn create_feedback() -> impl IntoResponse {
-    not_implemented("POST /v1/feedback")
+pub async fn create_feedback(
+    State(state): State<Arc<AppState>>,
+    Extension(ctx): Extension<TenantContext>,
+    Json(body): Json<CreateFeedbackRequest>,
+) -> Response {
+    if let Err(resp) = validate_create_feedback(&body) {
+        return resp;
+    }
+
+    let new = NewFeedback {
+        estimation_session_id: body.estimation_session_id,
+        feedback_type: body.feedback_type,
+        rating: body.rating,
+        comment: body.comment,
+        actual_cost: body.actual_cost,
+        actual_timeline_weeks: body.actual_timeline_weeks,
+        // The 2E.2 wire DTO doesn't carry these; magic-link / future
+        // widget flows fill them in.
+        actual_team_size: None,
+        cost_accuracy: None,
+        timeline_accuracy: None,
+        reference_class_accuracy: None,
+    };
+
+    match state.feedback.insert_basic(&ctx, &new).await {
+        Ok(feedback_id) => (
+            StatusCode::CREATED,
+            Json(CreateFeedbackResponse {
+                feedback_id,
+                message: "Feedback recorded successfully".into(),
+            }),
+        )
+            .into_response(),
+        Err(err) => {
+            tracing::error!(error = %err, "feedback insert failed");
+            internal_error()
+        }
+    }
 }
 
 /// Aggregate feedback summary for the authenticated tenant.
@@ -88,11 +129,27 @@ pub async fn create_feedback() -> impl IntoResponse {
     responses(
         (status = 200, description = "Aggregate stats", body = FeedbackSummary),
         (status = 401, description = "Authentication required", body = ApiError),
-        (status = 501, description = "Not yet implemented", body = ApiError),
     ),
 )]
-pub async fn feedback_summary() -> impl IntoResponse {
-    not_implemented("GET /v1/feedback/summary")
+pub async fn feedback_summary(
+    State(state): State<Arc<AppState>>,
+    Extension(ctx): Extension<TenantContext>,
+) -> Response {
+    match state.feedback.summary(&ctx).await {
+        Ok(stats) => Json(FeedbackSummary {
+            total_feedback: stats.total_feedback,
+            average_rating: stats.average_rating,
+            cost_accuracy_avg: stats.cost_accuracy_avg,
+            timeline_accuracy_avg: stats.timeline_accuracy_avg,
+            reference_class_accuracy_avg: stats.reference_class_accuracy_avg,
+            feedback_by_type: stats.feedback_by_type,
+        })
+        .into_response(),
+        Err(err) => {
+            tracing::error!(error = %err, "feedback summary failed");
+            internal_error()
+        }
+    }
 }
 
 /// Mint a feedback magic-link and email it to the customer. The raw token
@@ -156,13 +213,62 @@ pub async fn submit_form() -> impl IntoResponse {
 #[allow(dead_code)]
 fn _keep_feedback_doc_in_openapi(_: &FeedbackDocument) {}
 
-pub fn routes() -> Router<Arc<AppState>> {
-    Router::new()
+#[allow(clippy::result_large_err)]
+fn validate_create_feedback(body: &CreateFeedbackRequest) -> Result<(), Response> {
+    if body.estimation_session_id.trim().is_empty() {
+        return Err(validation_error("estimation_session_id must not be empty"));
+    }
+    if body.feedback_type.trim().is_empty() {
+        return Err(validation_error("feedback_type must not be empty"));
+    }
+    if !(1..=5).contains(&body.rating) {
+        return Err(validation_error("rating must be between 1 and 5"));
+    }
+    Ok(())
+}
+
+fn validation_error(msg: &'static str) -> Response {
+    (
+        StatusCode::BAD_REQUEST,
+        Json(ApiError::single(ErrorCode::ValidationFailed.as_str(), msg)),
+    )
+        .into_response()
+}
+
+fn internal_error() -> Response {
+    (
+        StatusCode::INTERNAL_SERVER_ERROR,
+        Json(ApiError::single(
+            "common.internal",
+            "An internal error occurred",
+        )),
+    )
+        .into_response()
+}
+
+/// Assemble the feedback router.
+///
+/// Layering, outer to inner:
+/// * `POST /v1/feedback` accepts either Supabase JWT or widget API key —
+///   contractor dashboards and embedded widgets both call this.
+/// * `GET /v1/feedback/summary` is dashboard-only; supabase_jwt enforced.
+/// * `POST /v1/feedback/email-requests` is dashboard-only (2E.3 stub).
+/// * `GET|POST /v1/feedback/forms/{token}` is public, token-gated (2E.4
+///   stub) — no auth layer applied here.
+pub fn routes(state: Arc<AppState>) -> Router<Arc<AppState>> {
+    let either_authed = Router::new()
         .route("/v1/feedback", post(create_feedback))
+        .route_layer(from_fn_with_state(state.auth.clone(), either_auth));
+
+    let dashboard = Router::new()
         .route("/v1/feedback/summary", get(feedback_summary))
         .route("/v1/feedback/email-requests", post(request_email))
-        .route(
-            "/v1/feedback/forms/{token}",
-            get(render_form).post(submit_form),
-        )
+        .route_layer(from_fn_with_state(state.auth.clone(), supabase_jwt));
+
+    let public = Router::new().route(
+        "/v1/feedback/forms/:token",
+        get(render_form).post(submit_form),
+    );
+
+    either_authed.merge(dashboard).merge(public)
 }

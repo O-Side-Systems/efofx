@@ -271,10 +271,7 @@ impl FeedbackRepo {
     /// Mirrors FastAPI's `FeedbackService.get_feedback_summary` minus
     /// the `recent_feedback` list — that field is a candidate for
     /// re-introduction when the dashboard asks for it.
-    pub async fn summary(
-        &self,
-        ctx: &TenantContext,
-    ) -> Result<FeedbackSummaryStats, StorageError> {
+    pub async fn summary(&self, ctx: &TenantContext) -> Result<FeedbackSummaryStats, StorageError> {
         use futures::stream::TryStreamExt;
 
         let cursor = self

@@ -23,8 +23,7 @@ pub mod widget;
 pub use chat::{ChatRepo, DEFAULT_SESSION_TTL_HOURS};
 pub use estimation::EstimationRepo;
 pub use feedback::{
-    EstimateSnapshotDoc, FeedbackRepo, FeedbackSummaryStats, NewFeedback,
-    NewFeedbackWithSnapshot,
+    EstimateSnapshotDoc, FeedbackRepo, FeedbackSummaryStats, NewFeedback, NewFeedbackWithSnapshot,
 };
 pub use health::HealthStatus;
 pub use magic_link::{

@@ -44,9 +44,9 @@ pub fn router(state: Arc<AppState>) -> Router<Arc<AppState>> {
         .merge(identity::routes(state.clone()))
         .merge(chat::routes(state.clone()))
         .merge(estimation::routes(state.clone()))
-        .merge(widget::routes(state))
+        .merge(widget::routes(state.clone()))
         .merge(leads::routes())
-        .merge(feedback::routes())
+        .merge(feedback::routes(state))
         .merge(calibration::routes())
         .merge(integration::routes())
 }

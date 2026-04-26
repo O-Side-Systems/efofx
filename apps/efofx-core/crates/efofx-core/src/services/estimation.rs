@@ -170,6 +170,11 @@ impl IntoResponse for EstimationServiceError {
 pub struct EstimationOutcome {
     pub session: EstimationSession,
     pub output: EstimationOutput,
+    /// The chat session's scoping context, captured at generation time.
+    /// Phase 2F.2 reads this to derive `routing_tags` for the SSE
+    /// `done` event without re-fetching the chat session. Cheap clone:
+    /// `ScopingContext` is five `Option<String>` fields.
+    pub scoping: ScopingContext,
 }
 
 /// Orchestrates the chat→estimate pipeline.
@@ -324,7 +329,11 @@ impl EstimationService {
             "estimation session persisted",
         );
 
-        Ok(EstimationOutcome { session, output })
+        Ok(EstimationOutcome {
+            session,
+            output,
+            scoping: chat_session.scoping_context,
+        })
     }
 
     /// Fetch a persisted estimation session by id for the authenticated

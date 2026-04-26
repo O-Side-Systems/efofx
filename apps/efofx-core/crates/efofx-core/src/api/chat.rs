@@ -21,7 +21,7 @@ use serde_json::json;
 use utoipa::ToSchema;
 use uuid::Uuid;
 
-use crate::services::{ChatService, ChatServiceError, EstimationServiceError};
+use crate::services::{routing, ChatService, ChatServiceError, EstimationServiceError};
 use crate::AppState;
 
 #[derive(Debug, Clone, Deserialize, ToSchema)]
@@ -361,10 +361,33 @@ pub async fn generate_estimate(
             );
         }
 
-        // 8. done
+        // 8. done — includes routing_tags for partner integrations
+        //    (Phase 2F.2). Empty array when routing is disabled or
+        //    unconfigured; the field is always present so partners
+        //    don't need conditional parsing.
+        let routing_cfg = match state.tenants.fetch_routing_config(&ctx).await {
+            Ok(cfg) => cfg,
+            Err(err) => {
+                tracing::warn!(
+                    tenant_id = %ctx.tenant_id(),
+                    error = %err,
+                    "fetch_routing_config failed; emitting done with empty routing_tags",
+                );
+                None
+            }
+        };
+        let routing_data = routing::derive(
+            &outcome.session,
+            &outcome.scoping,
+            &outcome.output,
+            routing_cfg.as_ref(),
+        );
         let done = Event::default()
             .event("done")
-            .json_data(json!({ "session_id": outcome.session.id.as_str() }))
+            .json_data(json!({
+                "session_id": outcome.session.id.as_str(),
+                "routing_tags": routing_data.tags,
+            }))
             .unwrap_or_else(|_| Event::default().event("done").data("{}"));
         yield Ok(done);
     };

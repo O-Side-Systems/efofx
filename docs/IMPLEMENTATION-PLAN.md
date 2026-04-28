@@ -1,5 +1,14 @@
 # Implementation Plan: Efofx Pivot MVP
 
+> **Status (2026-04-28): SUPERSEDED.** This plan was written against the
+> FastAPI codebase and the contractor-directory pivot, both of which
+> have since been reframed. The active plan lives in
+> [`RUST-PORT-PLAN.md`](./RUST-PORT-PLAN.md), with phase-by-phase
+> detail under [`docs/rust-port/`](./rust-port/). The contractor-routing
+> integration is deferred indefinitely; the project is back to the
+> original white-label widget. Retained here for historical context
+> only — do not act on it.
+
 **Last Updated:** 2026-04-15
 **Goal:** Get efofx to a demo-ready, deployable state for integration with Jeff's contractor-finding website and standalone marketing.
 **Approach:** Phased, building on existing codebase. No rewrites — fix what's broken, build what's missing, polish for credibility.

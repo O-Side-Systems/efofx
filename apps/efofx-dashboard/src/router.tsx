@@ -1,10 +1,11 @@
 import { createBrowserRouter, redirect } from 'react-router'
 import Dashboard from './pages/Dashboard'
 import Login from './pages/Login'
+import { supabase } from './lib/supabase'
 
-function requireAuth() {
-  const token = localStorage.getItem('access_token')
-  if (!token) throw redirect('/login')
+async function requireAuth() {
+  const { data: { session } } = await supabase.auth.getSession()
+  if (!session) throw redirect('/login')
   return null
 }
 

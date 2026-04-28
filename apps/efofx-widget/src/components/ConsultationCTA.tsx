@@ -3,7 +3,7 @@
  *
  * DEBT-04: Button now opens an inline contact form (ConsultationForm) within
  * the chat panel. On form submission, the form is replaced by a success message.
- * The form submits to POST /widget/consultation on the backend.
+ * The form submits to POST /v1/widget/consultations on the backend.
  */
 import { useState } from 'react';
 import { useWidget } from '../context/WidgetContext';

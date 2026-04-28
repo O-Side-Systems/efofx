@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { useNavigate } from 'react-router'
 import { useCalibration } from '../hooks/useCalibration'
 import { LoadingSkeleton } from '@efofx/ui'
 import ThresholdProgress from '../components/ThresholdProgress'
@@ -7,16 +8,28 @@ import AccuracyBucketBar from '../components/AccuracyBucketBar'
 import AccuracyTrendLine from '../components/AccuracyTrendLine'
 import ReferenceClassTable from '../components/ReferenceClassTable'
 import DateRangeFilter from '../components/DateRangeFilter'
+import { supabase } from '../lib/supabase'
 
 export default function Dashboard() {
+  const navigate = useNavigate()
   const [dateRange, setDateRange] = useState('all')
   const { data, isPending, isError, error, refetch } = useCalibration(dateRange)
+
+  async function handleSignOut() {
+    await supabase.auth.signOut()
+    await navigate('/login')
+  }
 
   return (
     <div className="dashboard">
       <header className="dashboard-header">
         <h1 className="dashboard-title">Calibration Dashboard</h1>
-        <DateRangeFilter value={dateRange} onChange={setDateRange} />
+        <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
+          <DateRangeFilter value={dateRange} onChange={setDateRange} />
+          <button type="button" onClick={handleSignOut} className="signout-button">
+            Sign out
+          </button>
+        </div>
       </header>
 
       {isPending && <LoadingSkeleton />}

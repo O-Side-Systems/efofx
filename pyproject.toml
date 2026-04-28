@@ -1,5 +1,8 @@
 [tool.uv.workspace]
+# Python workspace is retained only for the legacy FastAPI archive and
+# the shared Python helper package it depended on. The live backend
+# lives in apps/efofx-core (Rust) and has no Python dependencies.
 members = [
-    "apps/efofx-estimate",
+    "apps/archive/efofx-estimate-fastapi",
     "packages/efofx-shared",
 ]

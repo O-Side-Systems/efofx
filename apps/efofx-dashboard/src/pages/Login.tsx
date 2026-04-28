@@ -1,12 +1,6 @@
 import { useState, type FormEvent } from 'react'
 import { useNavigate } from 'react-router'
-import { apiClient } from '../api/client'
-
-interface LoginResponse {
-  access_token: string
-  refresh_token: string
-  token_type: string
-}
+import { supabase } from '../lib/supabase'
 
 export default function Login() {
   const navigate = useNavigate()
@@ -20,19 +14,18 @@ export default function Login() {
     setError('')
     setLoading(true)
 
-    try {
-      const { data } = await apiClient.post<LoginResponse>(
-        '/api/v1/auth/login',
-        { email, password },
-      )
-      localStorage.setItem('access_token', data.access_token)
-      localStorage.setItem('refresh_token', data.refresh_token)
-      await navigate('/')
-    } catch {
+    const { error: authError } = await supabase.auth.signInWithPassword({
+      email,
+      password,
+    })
+
+    if (authError) {
       setError('Invalid email or password. Please try again.')
-    } finally {
       setLoading(false)
+      return
     }
+
+    await navigate('/')
   }
 
   return (

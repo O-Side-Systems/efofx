@@ -1,7 +1,15 @@
 # Efofx Codebase State
 
-**Last Updated:** 2026-04-15
+**Last Updated:** 2026-04-28
 **Purpose:** Living reference for any developer or AI agent working in this codebase. Update this document as the codebase evolves.
+
+> **2026-04-28:** Phase 3 of the Rust port (`docs/RUST-PORT-PLAN.md`,
+> `docs/rust-port/phase-3-plan.md`) cut both clients over to the Rust
+> core and decommissioned the FastAPI service. The authoritative
+> backend is now **`apps/efofx-core`**. The original FastAPI app lives
+> at `apps/archive/efofx-estimate-fastapi/` for historical reference
+> only — it is not built, tested, or deployed. Sections below describe
+> the post-cutover state.
 
 ---
 
@@ -10,16 +18,19 @@
 ```
 efofx-workspace/              # npm workspaces monorepo
   apps/
-    efofx-estimate/           # FastAPI backend (Python) — the core service
+    efofx-core/               # Rust backend (Cargo workspace) — authoritative
     efofx-widget/             # Embeddable React chat widget
     efofx-dashboard/          # Tenant dashboard (React)
     estimator-mcp-functions/  # DigitalOcean serverless MCP functions (Node.js)
     estimator-project/        # Legacy reference implementation (unused)
     synthetic-data-generator/ # Reference class seed data scripts
+    archive/
+      efofx-estimate-fastapi/ # Decommissioned FastAPI backend — read-only
   packages/
-    efofx-shared/             # Shared Python package (enums, crypto)
+    efofx-shared/             # Python helpers — only consumed by the FastAPI archive
     efofx-ui/                 # Shared React components
   docs/                       # Living documentation (source of truth)
+    rust-port/                # Rust port phase plans + checkpoints
     archive/                  # Historical docs — NOT authoritative
   scripts/                    # Utility scripts (key generation)
   STANDARDS.md                # Code quality standards
@@ -27,121 +38,87 @@ efofx-workspace/              # npm workspaces monorepo
 
 ---
 
-## 1. efofx-estimate (FastAPI Backend)
+## 1. efofx-core (Rust Backend)
 
-**Path:** `apps/efofx-estimate/`
-**Stack:** FastAPI, Motor (async MongoDB), OpenAI v2 SDK, Pydantic v2
-**Status:** Substantially built and functional
+**Path:** `apps/efofx-core/`
+**Stack:** Rust (1.90), axum 0.7, tokio, mongodb, jsonwebtoken (Supabase JWKS), reqwest
+**Status:** Authoritative backend. Phase 2 complete; Phase 3 cuts clients
+over and decommissions FastAPI in the same phase.
 
-### Architecture
+### Cargo workspace layout
 
-```
-app/
-  api/           # 5 routers: routes, auth, widget, feedback_email, feedback_form, calibration
-  core/          # config.py (BaseSettings), constants.py, rate_limit.py, security.py
-  db/            # mongodb.py (connection, indexes, migrations), tenant_collection.py
-  middleware/    # TenantAwareCORSMiddleware
-  models/        # 9 Pydantic model files (chat, estimation, tenant, widget, feedback, etc.)
-  services/      # 16 service classes (see below)
-  templates/     # Jinja2 email templates (feedback magic link, consultation notification)
-  utils/         # crypto shims, calculation_utils, validation_utils
-  main.py        # App factory with lifespan (startup: MongoDB, indexes, migrations, prompts)
-config/
-  prompts/       # Versioned JSON prompt files (v1.0.0-scoping, -estimation, -narrative)
-tests/           # pytest (unit + integration markers)
-```
+| Crate | Role |
+|-------|------|
+| `efofx-core` | HTTP server (axum), route registration, app bootstrap |
+| `efofx-auth` | Supabase JWT verification + JWKS cache, widget API key auth, `TenantContext` |
+| `efofx-cache` | LLM response cache (Valkey/Redis-compatible) |
+| `efofx-config` | Figment-based config loader: `config/efofx-core.toml` + `EFOFX_*` env |
+| `efofx-crypto` | HKDF-SHA256 + AES-GCM for BYOK key envelope encryption |
+| `efofx-domain` | Domain types — chat, estimation, tenant, widget, feedback |
+| `efofx-email` | Resend HTTP client + no-op fallback sender |
+| `efofx-llm` | OpenAI client (chat completions + structured outputs + SSE streaming) |
+| `efofx-openapi` | OpenAPI 3.1 schema + contract test surface |
+| `efofx-prompts` | Versioned JSON prompt registry (immutable) |
+| `efofx-rcf` | Reference class matching engine |
+| `efofx-storage` | MongoDB repos (tenants, sessions, estimates, leads, feedback, calibration) |
 
-### API Endpoints
+### API endpoints
+
+All paths are under `/v1`. Auth column: `JWT` = Supabase JWT in
+`Authorization: Bearer`, `API key` = widget key in `x-api-key`.
 
 | Route | Method | Auth | Description |
 |-------|--------|------|-------------|
-| `/api/v1/chat/send` | POST | Tenant JWT/API key | Send message, get LLM follow-up |
-| `/api/v1/chat/{session_id}/generate-estimate` | POST | Tenant | SSE stream: thinking → estimate JSON → narrative tokens → done |
-| `/api/v1/chat/{session_id}/history` | GET | Tenant | Full conversation history |
-| `/api/v1/estimate/{session_id}` | GET | Tenant | Estimation session status |
-| `/api/v1/estimate/{session_id}/upload` | POST | Tenant | Image upload (endpoint exists, no vision model wired) |
-| `/api/v1/feedback/submit` | POST | Tenant | Submit outcome feedback |
-| `/api/v1/feedback/summary` | GET | Tenant | Feedback aggregate |
-| `/api/v1/widget/branding/{api_key_prefix}` | GET | **None** (public) | Fetch contractor branding (rate limited 30/min) |
-| `/api/v1/widget/lead` | POST | API key | Save lead capture form |
-| `/api/v1/widget/consultation` | POST | API key | Save consultation request + email notification |
-| `/api/v1/widget/analytics` | POST/GET | API key | Record/retrieve analytics events |
-| `/api/v1/calibration/*` | GET | Tenant | Calibration metrics and trends |
-| `/auth/register` | POST | None | Register new tenant (rate limited 10/hr) |
-| `/auth/verify` | GET | None | Email verification |
-| `/auth/login` | POST | None | JWT login |
-| `/auth/refresh` | POST | None | Refresh JWT |
-| `/auth/profile` | GET/PATCH | Tenant | Profile management |
-| `/auth/openai-key` | POST/GET | Tenant | BYOK key store/check |
+| `/v1/me` | GET/PATCH | JWT | Tenant profile (provisions on first call via `TenantResolver`) |
+| `/v1/me/openai-key` | POST/DELETE | JWT | BYOK key store/clear (validated via OpenAI before persist) |
+| `/v1/me/openai-key/status` | GET | JWT | BYOK presence check |
+| `/v1/me/api-keys:rotate` | POST | JWT | Mint/rotate widget API key (`sk_live_...`) |
+| `/v1/chat/sessions` | POST | API key | Create chat session (optionally with `initial_message`) |
+| `/v1/chat/sessions/{id}` | GET | API key | Session state + history |
+| `/v1/chat/sessions/{id}/messages` | POST | API key | Append user message, get assistant follow-up |
+| `/v1/chat/sessions/{id}:generate-estimate` | POST | API key | SSE: `thinking` → `estimate` → narrative tokens → `done` (incl. `routing_tags`) |
+| `/v1/widget/branding/{api_key_prefix}` | GET | None (rate-limited) | Public branding fetch |
+| `/v1/widget/leads` | POST | API key | Lead capture |
+| `/v1/widget/consultations` | POST | API key | Consultation request + Resend email |
+| `/v1/widget/events` | POST/GET | API key | Widget analytics |
+| `/v1/feedback/*` | various | mixed | Outcome feedback ingest + magic-link forms |
+| `/v1/calibration/metrics` | GET | JWT | Calibration accuracy aggregate |
+| `/v1/calibration/trend` | GET | JWT | Calibration time-series |
+| `/v1/integration/contractor-match` | POST | API key | Partner-routing handler (Phase 2F) |
 | `/health` | GET | None | Health check |
 
-### Services
+### Auth model
 
-| Service | File | Purpose |
-|---------|------|---------|
-| ChatService | `chat_service.py` | Multi-turn conversation state machine with LLM follow-ups |
-| LLMService | `llm_service.py` | OpenAI v2 integration — structured outputs via `.parse()`, streaming |
-| EstimationService | `estimation_service.py` | Estimation session lifecycle, generates from chat context |
-| RCFEngine | `rcf_engine.py` | Reference class matching (keyword extraction, scoring, caching) |
-| ReferenceService | `reference_service.py` | Reference class CRUD, modifier application |
-| CalibrationService | `calibration_service.py` | Accuracy tracking, metrics aggregation |
-| PromptService | `prompt_service.py` | Versioned immutable prompt registry (loaded at startup) |
-| AuthService | `auth_service.py` | JWT generation, email verification, profile management |
-| BYOKService | `byok_service.py` | Per-tenant Fernet key derivation (HKDF-SHA256), encrypt/decrypt OpenAI keys |
-| WidgetService | `widget_service.py` | Branding fetch, lead capture, analytics recording |
-| TenantService | `tenant_service.py` | Tenant CRUD |
-| FeedbackService | `feedback_service.py` | Feedback submission and querying |
-| FeedbackEmailService | `feedback_email_service.py` | Email notifications (fastapi-mail) |
-| MagicLinkService | `magic_link_service.py` | Feedback magic link generation (Resend API) |
-| ValkeyCache | `valkey_cache.py` | Redis-compatible LLM response cache (24h TTL) |
+- **Supabase** owns every credential operation (sign-up, sign-in,
+  refresh). The Rust core never sees a password.
+- **JWT verification** — `efofx-auth::jwks` fetches and caches
+  Supabase's RSA JWKS document (`{url}/auth/v1/.well-known/jwks.json`),
+  refreshed every 15 min by default.
+- **First-login provisioning** — `TenantResolver::resolve_or_provision`
+  upserts a tenant document keyed by the JWT `sub` claim on the first
+  authenticated call.
+- **Widget auth** — long-lived per-tenant API keys (`sk_live_<prefix>_<secret>`)
+  minted via `POST /v1/me/api-keys:rotate`. Verified in `efofx-auth`
+  via prefix lookup + constant-time secret compare against the stored
+  Argon2id hash.
 
-### Key Patterns
+### Estimation flow (SSE)
 
-**Multi-Tenancy:** `TenantAwareCollection` wraps Motor collections and auto-injects `tenant_id` on every query. Cross-tenant data leakage is structurally impossible.
+1. `thinking` event opens the stream.
+2. Validate chat session is in `ready` status (server-enforced — no
+   client gating).
+3. Generate structured estimate via OpenAI structured outputs.
+4. Emit `estimate` event with full `EstimationOutput` JSON.
+5. Stream narrative tokens via plain `data:` frames (escaped `\n`).
+6. Mark chat session `completed`.
+7. Emit `done` event — additionally carries `routing_tags` for partner
+   routing (Phase 2F).
 
-**BYOK (Bring Your Own Key):** Tenants supply their own OpenAI API key. Key is validated via `models.list()`, encrypted with per-tenant HKDF-derived Fernet key, stored as ciphertext. Decrypted only within request scope via `get_llm_service()` dependency. **No fallback to a platform key** — returns HTTP 402 when no key stored.
+### Configuration
 
-**Chat State Machine:** Status flow: `active` → `ready` → `completed` / `expired`. Readiness triggered by 4 populated scoping fields (project_type, size, location, timeline) or explicit trigger phrases. LLM generates context-aware follow-ups using versioned scoping prompt.
-
-**Estimation Flow (SSE):**
-1. Emit `thinking` event
-2. Retrieve chat session, validate status = "ready"
-3. Generate structured estimate via `llm_service.generate_estimation()` (non-streaming, `.parse()`)
-4. Emit `estimate` event with JSON `EstimationOutput`
-5. Stream narrative tokens via `stream_chat_completion()`
-6. Mark chat session completed
-7. Emit `done` event
-
-**Prompt Management:** 3 versioned JSON files in `config/prompts/` (scoping, estimation, narrative). Immutable — new version = new file. Registry loaded at startup (fail-fast).
-
-### Data Models
-
-**EstimationOutput** (OpenAI structured output):
-- `total_cost_p50`, `total_cost_p80` — P50/P80 cost range
-- `timeline_weeks_p50`, `timeline_weeks_p80` — Timeline range
-- `cost_breakdown` — List of category estimates (P50/P80 per category)
-- `adjustment_factors` — Named multipliers with reasons
-- `confidence_score` — 0-100
-- `assumptions` — Explicit list
-- `summary` — One-paragraph plain-language summary
-
-**ScopingContext** (extracted during chat):
-- `project_type`, `project_size`, `location`, `timeline`, `special_conditions`
-- `is_ready()` returns true when project_type + size + location + timeline are populated
-
-**Tenant:** company_name, email, hashed_password, hashed_api_key, tier (trial/paid), encrypted_openai_key, settings (branding, allowed_origins)
-
-### Dependencies (from pyproject.toml)
-FastAPI 0.116.1, Motor 3.3.2, Pydantic 2.11.7, OpenAI SDK, PyJWT, pwdlib[bcrypt], Valkey 6.1.0, slowapi, Resend, fastapi-mail, Jinja2
-
-### Environment Variables
-See `apps/efofx-estimate/.env.example` for the full list. Key vars:
-- `MONGO_URI`, `MONGO_DB_NAME` — MongoDB Atlas connection
-- `OPENAI_API_KEY`, `OPENAI_MODEL` (gpt-4o-mini default)
-- `MASTER_ENCRYPTION_KEY` — Root key for BYOK encryption
-- `JWT_SECRET_KEY` — Auth signing
-- `VALKEY_URL` — Redis cache (graceful degradation if absent)
-- `RESEND_API_KEY` — Magic link emails (optional)
+Merge order (high → low precedence): env (`EFOFX_*`, `__` for nested
+keys) → `config/efofx-core.toml` → struct defaults. See
+`apps/efofx-core/.env.example` for required keys.
 
 ---
 
@@ -149,7 +126,16 @@ See `apps/efofx-estimate/.env.example` for the full list. Key vars:
 
 **Path:** `apps/efofx-widget/`
 **Stack:** Vite + React 19 + TypeScript
-**Status:** Functional — core flow works but had bugs during demo
+**Status:** Repointed at `efofx-core` in Phase 3.1.
+
+### Wire shape (post-cutover)
+
+- Path prefix `/v1/...` (no outer `/api`).
+- Auth header `x-api-key: sk_live_...`.
+- Two-call chat flow: `POST /v1/chat/sessions` (create) →
+  `POST /v1/chat/sessions/{id}/messages` (append).
+- Plural widget paths: `/v1/widget/leads`, `/v1/widget/events`,
+  `/v1/widget/consultations`.
 
 ### Embedding
 
@@ -161,60 +147,58 @@ See `apps/efofx-estimate/.env.example` for the full list. Key vars:
 </script>
 ```
 
-Or programmatic: `efofxWidget.init({ apiKey: '...', mode: 'floating' })`
+Or programmatic: `efofxWidget.init({ apiKey: '...', mode: 'floating' })`.
 
-### Components
+### Components & hooks
 
-| Component | Purpose |
-|-----------|---------|
+| Module | Purpose |
+|--------|---------|
 | `App.tsx` | Root — fetches branding, applies CSS variables to Shadow root |
 | `ShadowDOMWrapper.tsx` | Creates Shadow DOM at mount, renders React tree inside |
-| `FloatingButton.tsx` | Floating widget toggle button (bottom-right) |
-| `ChatPanel.tsx` | Main orchestrator — state machine: idle → chatting → lead_capture → generating → result |
-| `LeadCaptureForm.tsx` | Name/email/phone form (after chat reaches "ready") |
-| `ConsultationForm.tsx` | Extended contact form with message field |
-| `ConsultationCTA.tsx` | Call-to-action button/modal for consultation |
-| `NarrativeStream.tsx` | Renders streaming narrative text during result phase |
-
-### Hooks
-
-| Hook | Purpose |
-|------|---------|
-| `useChat()` | Manages chat session, sends messages via `/chat/send`, tracks readiness |
-| `useEstimateStream()` | Handles SSE connection for estimate + narrative streaming |
-| `useBranding()` | Fetches branding from `/widget/branding/{prefix}` (public, no auth) |
-
-### Modes
-- **floating**: FloatingButton toggle, ChatPanel slides up (default)
-- **inline**: ChatPanel fills container, auto-starts on mount
-
-### Theming
-Branding is fetched from the backend and applied as CSS custom properties on the Shadow root: `--brand-primary`, `--brand-secondary`, `--brand-accent`. All CSS uses these variables for brand consistency.
+| `FloatingButton.tsx` | Floating widget toggle |
+| `ChatPanel.tsx` | State machine: idle → chatting → lead_capture → generating → result |
+| `LeadCaptureForm.tsx` | Name/email/phone form |
+| `ConsultationForm.tsx` | Extended contact form |
+| `ConsultationCTA.tsx` | Consultation modal trigger |
+| `NarrativeStream.tsx` | Streaming narrative renderer |
+| `useChat()` | Two-call create/append flow against `/v1/chat/sessions` |
+| `useEstimateStream()` | SSE consumer for `:generate-estimate` |
+| `useBranding()` | Public branding fetch |
 
 ---
 
 ## 3. efofx-dashboard (Tenant Dashboard)
 
 **Path:** `apps/efofx-dashboard/`
-**Stack:** Vite + React + TypeScript + TanStack Query + Recharts
-**Status:** Half-built — calibration metrics only, no lead management
+**Stack:** Vite + React + TypeScript + TanStack Query + Recharts +
+`@supabase/supabase-js`
+**Status:** Repointed at `efofx-core` and migrated to Supabase auth in
+Phase 3.2 / 3.3.
 
-### Current Pages
-- **Login** — JWT login (stub, not fully wired)
-- **Dashboard** — Calibration metrics only:
+### Auth
+
+- Sign-in via `supabase.auth.signInWithPassword`.
+- Session persisted by the Supabase SDK; the axios interceptor pulls
+  the JWT from `supabase.auth.getSession()` on every call (auto-refresh).
+- Sign-out clears the session and redirects to `/login`.
+
+### Pages
+- **Login** — Supabase email/password sign-in.
+- **Dashboard** — Calibration metrics:
   - ThresholdProgress (minimum outcome threshold)
   - CalibrationMetrics (accuracy stats)
   - AccuracyBucketBar (histogram)
   - AccuracyTrendLine (time-series chart via Recharts)
   - ReferenceClassTable (breakdown by class)
   - DateRangeFilter (all/1m/3m/1y)
+  - Sign-out button
 
-### What's Missing
+### What's missing (deferred to Phase 4)
 - Lead list and detail views
-- Tenant settings (branding configuration, BYOK key management)
+- Tenant settings (branding, BYOK)
 - API key management page
 - User profile / account settings
-- Any CRUD for reference classes or feedback
+- Reference-class CRUD
 
 ---
 
@@ -229,57 +213,38 @@ React component library exported as `@efofx/ui`:
 - **TypingIndicator** — Animated dots while waiting for LLM
 
 ### efofx-shared (`packages/efofx-shared/`)
-Pure Python package (zero FastAPI/Motor dependencies, verified by isolation test):
-- **Enums:** EstimationStatus, Region (8 California/Arizona/Nevada regions), ReferenceClassCategory, CostBreakdownCategory
-- **Crypto:** HKDF-SHA256 key derivation, Fernet encrypt/decrypt for BYOK keys, key masking
+Pure Python package consumed only by the archived FastAPI app. Retained
+as a workspace member solely so the archive remains buildable for
+historical reference. New work targets the Rust crates in
+`apps/efofx-core/crates/`.
 
 ---
 
 ## 5. Supporting Apps
 
 ### synthetic-data-generator (`apps/synthetic-data-generator/`)
-Scripts to seed MongoDB with reference class data:
-- 7 construction types (pools, ADUs, kitchens, bathrooms, landscaping, roofing, flooring)
-- 4 California regions
-- ~28 reference classes with P50/P80/P95 distributions and cost breakdowns
+Scripts to seed MongoDB with reference class data. The Rust core also
+ships `cargo run --bin seed-references` which is the authoritative
+seeder going forward.
 
 ### estimator-mcp-functions (`apps/estimator-mcp-functions/`)
-DigitalOcean Functions (Node.js) for reference class data via MCP protocol. Partially implemented — architecture defined but endpoints stubbed.
+DigitalOcean Functions (Node.js) for reference class data via MCP
+protocol. Partially implemented.
 
 ### estimator-project (`apps/estimator-project/`)
-Legacy reference implementation. Redundant with efofx-estimate. Kept for historical reference only.
+Legacy reference implementation. Kept for historical reference only.
+
+### apps/archive/efofx-estimate-fastapi/
+The original FastAPI backend, decommissioned 2026-04-28. **Not
+authoritative.** See `apps/archive/README.md`.
 
 ---
 
-## 6. What Works vs. What Doesn't
+## 6. CI
 
-### Fully Functional
-- Multi-tenant backend with hard isolation
-- BYOK key management (validate, encrypt, store, decrypt per-request)
-- Chat conversation state machine with LLM follow-ups
-- Estimation generation with structured outputs + SSE narrative streaming
-- Widget embedding with Shadow DOM isolation and dynamic branding
-- Lead capture and consultation forms
-- Widget analytics (widget_view, chat_start, estimate_complete)
-- Rate limiting (per-tier, per-IP for public endpoints)
-- Auth system (register, verify email, login, JWT refresh)
-- Feedback submission system
-- Synthetic data seeding
+`.github/workflows/ci.yml` runs:
+- **TypeScript Checks** — `@efofx/ui` typecheck, widget build, dashboard build.
+- **Rust Checks (efofx-core)** — `cargo fmt --check`, `cargo clippy -D warnings`, `cargo test`, `cargo build --release`.
 
-### Partially Built / Needs Work
-- Dashboard (only calibration metrics, no lead management or settings)
-- Login flow (page exists, auth integration incomplete)
-- Feedback email delivery (templates exist, Resend/SMTP partially configured)
-- Calibration service (data model exists, aggregation pipeline incomplete)
-- MCP functions (architecture defined, endpoints stubbed)
-
-### Not Built
-- Lead management dashboard (list, detail, export)
-- Tenant settings UI (branding config, BYOK management)
-- Marketing/demo site
-- Contractor routing (post-estimate → find contractors by type)
-- Chat length limits / abuse mitigation beyond rate limiting
-- Platform key fallback for alpha tenants
-- Image processing (upload endpoint exists, no vision model)
-- Deployment automation (config files exist, not tested end-to-end)
-- Monitoring/alerting (Sentry removed, no replacement)
+The previous `python-checks` job (FastAPI pytest, efofx-shared
+isolation test) was removed in Phase 3.5.

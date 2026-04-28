@@ -17,8 +17,8 @@ export function useEstimateStream() {
 
     try {
       const response = await fetch(
-        `${API_BASE}/api/v1/chat/${sessionId}/generate-estimate`,
-        { method: 'POST', headers: { Authorization: `Bearer ${apiKey}` } }
+        `${API_BASE}/v1/chat/sessions/${sessionId}:generate-estimate`,
+        { method: 'POST', headers: { 'x-api-key': apiKey } }
       );
       if (!response.ok || !response.body) {
         throw new Error(`Stream failed: ${response.status}`);

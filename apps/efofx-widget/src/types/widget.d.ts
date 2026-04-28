@@ -81,11 +81,38 @@ export interface ChatMessage {
   timestamp: string;
 }
 
-export interface ChatResponse {
+export interface ScopingContext {
+  project_type?: string;
+  project_size?: string;
+  location?: string;
+  timeline?: string;
+  special_conditions?: string;
+}
+
+export type ChatSessionStatus = 'active' | 'ready' | 'completed' | 'expired';
+
+export interface TokenUsage {
+  prompt_tokens: number;
+  completion_tokens: number;
+  total_tokens: number;
+}
+
+export interface ChatSession {
   session_id: string;
-  content: string;
-  timestamp: string;
+  tenant_id: string;
+  status: ChatSessionStatus;
+  messages: ChatMessage[];
+  scoping_context: ScopingContext;
   is_ready: boolean;
-  scoping_context: Record<string, string | null> | null;
-  status: string;
+  prompt_version?: string;
+  token_usage: TokenUsage;
+  created_at: string;
+  updated_at: string;
+  expires_at: string;
+}
+
+export interface AppendMessageResponse {
+  assistant_message: ChatMessage;
+  is_ready: boolean;
+  scoping_context: ScopingContext;
 }

@@ -1,7 +1,7 @@
 import { useState, useCallback } from 'react';
 import DOMPurify from 'dompurify';
-import { sendMessage, trackEvent } from '../api/chat';
-import type { ChatMessage, ChatResponse } from '../types/widget';
+import { appendMessage, createChatSession, trackEvent } from '../api/chat';
+import type { ChatMessage } from '../types/widget';
 
 /**
  * useChat — Chat state machine hook
@@ -9,6 +9,9 @@ import type { ChatMessage, ChatResponse } from '../types/widget';
  * Sanitizes user input via DOMPurify before sending (WSEC-03).
  * Tracks 'chat_start' analytics event on first message (WFTR-04).
  * Fire-and-forget analytics calls never block user experience.
+ *
+ * Two-call flow against the Rust core: first message creates the session
+ * with `initial_message`; subsequent messages append to it.
  */
 export function useChat(apiKey: string) {
   const [sessionId, setSessionId] = useState<string | null>(null);
@@ -36,24 +39,40 @@ export function useChat(apiKey: string) {
     setMessages((prev) => [...prev, userMsg]);
 
     try {
-      const response: ChatResponse = await sendMessage(apiKey, sanitized, sessionId);
+      let assistantContent: string;
+      let assistantTimestamp: string;
+      let nextIsReady: boolean;
 
       if (!sessionId) {
-        setSessionId(response.session_id);
+        const session = await createChatSession(apiKey, sanitized);
+        const last = session.messages[session.messages.length - 1];
+        if (!last || last.role !== 'assistant') {
+          throw new Error('Chat session returned without an assistant reply');
+        }
+        assistantContent = last.content;
+        assistantTimestamp = last.timestamp;
+        nextIsReady = session.is_ready;
+
+        setSessionId(session.session_id);
         // WFTR-04: Track chat_start on first message — fire-and-forget
         trackEvent(apiKey, 'chat_start');
+      } else {
+        const response = await appendMessage(apiKey, sessionId, sanitized);
+        assistantContent = response.assistant_message.content;
+        assistantTimestamp = response.assistant_message.timestamp;
+        nextIsReady = response.is_ready;
       }
 
-      // Add assistant response (from trusted API, sanitize as defense-in-depth)
-      const sanitizedContent = DOMPurify.sanitize(response.content, { ALLOWED_TAGS: [] });
+      // Defense-in-depth: sanitize assistant content from the API
+      const sanitizedContent = DOMPurify.sanitize(assistantContent, { ALLOWED_TAGS: [] });
       const assistantMsg: ChatMessage = {
         role: 'assistant',
         content: sanitizedContent,
-        timestamp: response.timestamp,
+        timestamp: assistantTimestamp,
       };
       setMessages((prev) => [...prev, assistantMsg]);
 
-      if (response.is_ready) {
+      if (nextIsReady) {
         setIsReady(true);
       }
     } catch (e: unknown) {

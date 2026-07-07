@@ -143,37 +143,31 @@ pub fn render_directory_url(data: &RoutingData, config: Option<&RoutingConfig>) 
     let template = config.and_then(|c| c.directory_url_template.as_deref())?;
     let tags_joined = data.tags.join(",");
     let mut out = String::with_capacity(template.len());
-    let bytes = template.as_bytes();
-    let mut i = 0usize;
-    while i < bytes.len() {
-        if bytes[i] == b'{' {
-            if let Some(end) = template[i + 1..].find('}') {
-                let name = &template[i + 1..i + 1 + end];
-                let replacement: Option<&str> = match name {
-                    "tags" => Some(tags_joined.as_str()),
-                    "region" => data.region.as_deref(),
-                    "project_type" => data.project_type.as_deref(),
-                    "cost_tier" => Some(data.cost_tier.as_str()),
-                    _ => None,
-                };
-                match replacement {
-                    Some(value) => {
-                        out.push_str(value);
-                        i += end + 2;
-                        continue;
-                    }
-                    None => {
-                        // Unknown placeholder — pass through as-is.
-                        out.push_str(&template[i..i + end + 2]);
-                        i += end + 2;
-                        continue;
-                    }
-                }
-            }
+    let mut rest = template;
+    while let Some(start) = rest.find('{') {
+        out.push_str(&rest[..start]);
+        let Some(end) = rest[start + 1..].find('}') else {
+            // Unbalanced `{` — emit the remainder verbatim.
+            out.push_str(&rest[start..]);
+            rest = "";
+            break;
+        };
+        let name = &rest[start + 1..start + 1 + end];
+        let replacement: Option<&str> = match name {
+            "tags" => Some(tags_joined.as_str()),
+            "region" => data.region.as_deref(),
+            "project_type" => data.project_type.as_deref(),
+            "cost_tier" => Some(data.cost_tier.as_str()),
+            _ => None,
+        };
+        match replacement {
+            Some(value) => out.push_str(value),
+            // Unknown placeholder — pass through as-is.
+            None => out.push_str(&rest[start..start + end + 2]),
         }
-        out.push(template.as_bytes()[i] as char);
-        i += 1;
+        rest = &rest[start + end + 2..];
     }
+    out.push_str(rest);
     Some(out)
 }
 
@@ -444,6 +438,42 @@ mod tests {
         };
         let url = render_directory_url(&data, Some(&cfg)).unwrap();
         assert_eq!(url, "https://x/X/{unknown_field}");
+    }
+
+    #[test]
+    fn render_directory_url_preserves_multibyte_utf8() {
+        let data = RoutingData {
+            tags: vec!["type:pool".into()],
+            region: Some("Köln".into()),
+            project_type: None,
+            cost_tier: CostTier::Low,
+            location: None,
+        };
+        let cfg = RoutingConfig {
+            enabled: true,
+            directory_url_template: Some("https://partner.example/寿司/{region}?ä={tags}&{nope}".into()),
+            ..RoutingConfig::default()
+        };
+        let url = render_directory_url(&data, Some(&cfg)).unwrap();
+        assert_eq!(url, "https://partner.example/寿司/Köln?ä=type:pool&{nope}");
+    }
+
+    #[test]
+    fn render_directory_url_handles_unbalanced_brace() {
+        let data = RoutingData {
+            tags: vec![],
+            region: None,
+            project_type: None,
+            cost_tier: CostTier::Low,
+            location: None,
+        };
+        let cfg = RoutingConfig {
+            enabled: true,
+            directory_url_template: Some("https://x/{tags".into()),
+            ..RoutingConfig::default()
+        };
+        let url = render_directory_url(&data, Some(&cfg)).unwrap();
+        assert_eq!(url, "https://x/{tags");
     }
 
     #[test]

@@ -91,5 +91,5 @@ pub async fn patch_lead() -> impl IntoResponse {
 pub fn routes() -> Router<Arc<AppState>> {
     Router::new()
         .route("/v1/leads", get(list_leads))
-        .route("/v1/leads/{lead_id}", get(get_lead).patch(patch_lead))
+        .route("/v1/leads/:lead_id", get(get_lead).patch(patch_lead))
 }

@@ -554,7 +554,9 @@ mod tests {
     #[test]
     fn generate_estimate_suffix_strips_cleanly() {
         assert_eq!(
-            strip_generate_estimate_suffix("0f8fad5b-d9cb-469f-a165-70867728950e:generate-estimate"),
+            strip_generate_estimate_suffix(
+                "0f8fad5b-d9cb-469f-a165-70867728950e:generate-estimate"
+            ),
             Some("0f8fad5b-d9cb-469f-a165-70867728950e")
         );
     }

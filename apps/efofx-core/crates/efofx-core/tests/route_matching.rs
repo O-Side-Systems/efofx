@@ -37,7 +37,11 @@ async fn chat_get_session_route_matches() {
     let harness = TestHarness::new().await;
     let uri = format!("/v1/chat/sessions/{SESSION_ID}");
     let status = status_of(&harness, "GET", &uri).await;
-    assert_eq!(status, StatusCode::UNAUTHORIZED, "route must match (401), not 404");
+    assert_eq!(
+        status,
+        StatusCode::UNAUTHORIZED,
+        "route must match (401), not 404"
+    );
 }
 
 #[tokio::test]
@@ -45,7 +49,11 @@ async fn chat_append_message_route_matches() {
     let harness = TestHarness::new().await;
     let uri = format!("/v1/chat/sessions/{SESSION_ID}/messages");
     let status = status_of(&harness, "POST", &uri).await;
-    assert_eq!(status, StatusCode::UNAUTHORIZED, "route must match (401), not 404");
+    assert_eq!(
+        status,
+        StatusCode::UNAUTHORIZED,
+        "route must match (401), not 404"
+    );
 }
 
 #[tokio::test]
@@ -53,7 +61,11 @@ async fn chat_generate_estimate_route_matches() {
     let harness = TestHarness::new().await;
     let uri = format!("/v1/chat/sessions/{SESSION_ID}:generate-estimate");
     let status = status_of(&harness, "POST", &uri).await;
-    assert_eq!(status, StatusCode::UNAUTHORIZED, "route must match (401), not 404");
+    assert_eq!(
+        status,
+        StatusCode::UNAUTHORIZED,
+        "route must match (401), not 404"
+    );
 }
 
 #[tokio::test]
@@ -61,7 +73,11 @@ async fn estimates_route_matches() {
     let harness = TestHarness::new().await;
     let uri = format!("/v1/estimates/{SESSION_ID}");
     let status = status_of(&harness, "GET", &uri).await;
-    assert_eq!(status, StatusCode::UNAUTHORIZED, "route must match (401), not 404");
+    assert_eq!(
+        status,
+        StatusCode::UNAUTHORIZED,
+        "route must match (401), not 404"
+    );
 }
 
 #[tokio::test]
@@ -71,7 +87,11 @@ async fn leads_item_route_matches() {
     let status = status_of(&harness, "GET", &uri).await;
     // Leads are Phase-4 stubs with no auth layer yet; reaching the 501
     // handler proves the parameterised path matches.
-    assert_eq!(status, StatusCode::NOT_IMPLEMENTED, "route must match (501), not 404");
+    assert_eq!(
+        status,
+        StatusCode::NOT_IMPLEMENTED,
+        "route must match (501), not 404"
+    );
 }
 
 #[tokio::test]

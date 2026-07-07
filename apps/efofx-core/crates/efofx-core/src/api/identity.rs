@@ -132,9 +132,7 @@ fn validate_origin(origin: &str) -> Result<(), String> {
         .strip_prefix("https://")
         .or_else(|| origin.strip_prefix("http://"))
         .ok_or_else(err)?;
-    if rest.is_empty()
-        || rest.contains(['/', '?', '#', '*', ' ', '@'])
-    {
+    if rest.is_empty() || rest.contains(['/', '?', '#', '*', ' ', '@']) {
         return Err(err());
     }
     Ok(())
@@ -447,14 +445,14 @@ mod tests {
     #[test]
     fn malformed_origins_rejected() {
         for o in [
-            "example.com",                  // no scheme
-            "ftp://example.com",            // wrong scheme
-            "https://example.com/",         // trailing slash never matches Origin
-            "https://example.com/widget",   // path
-            "https://*.example.com",        // wildcard
-            "https://",                     // empty host
-            "https://a b.com",              // space
-            "https://user@example.com",     // userinfo
+            "example.com",                // no scheme
+            "ftp://example.com",          // wrong scheme
+            "https://example.com/",       // trailing slash never matches Origin
+            "https://example.com/widget", // path
+            "https://*.example.com",      // wildcard
+            "https://",                   // empty host
+            "https://a b.com",            // space
+            "https://user@example.com",   // userinfo
         ] {
             assert!(validate_origin(o).is_err(), "{o} should be rejected");
         }

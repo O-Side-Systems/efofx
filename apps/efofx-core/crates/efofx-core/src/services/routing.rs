@@ -451,7 +451,9 @@ mod tests {
         };
         let cfg = RoutingConfig {
             enabled: true,
-            directory_url_template: Some("https://partner.example/寿司/{region}?ä={tags}&{nope}".into()),
+            directory_url_template: Some(
+                "https://partner.example/寿司/{region}?ä={tags}&{nope}".into(),
+            ),
             ..RoutingConfig::default()
         };
         let url = render_directory_url(&data, Some(&cfg)).unwrap();

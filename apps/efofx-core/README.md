@@ -45,4 +45,20 @@ cargo fmt                   # format
 
 ## Phase status
 
-Phase 0 — Foundations (in progress).
+Phase 3 — Client cutover & FastAPI decommission (complete, 2026-04-28).
+This crate is the authoritative backend; both the widget and the
+dashboard call it directly. See `docs/CODEBASE-STATE.md` for the living
+state document and `docs/rust-port/` for phase plans and checkpoints.
+
+Known Phase 4 deferrals: dashboard lead endpoints (`/v1/leads*`) return
+`501`, `EstimationOutput` is not yet persisted alongside the session
+(`GET /v1/estimates/{id}` returns `result: null`), and settings written
+via `PATCH /v1/me` are not yet echoed back on `GET /v1/me`.
+
+## Operational notes
+
+- Request bodies are capped by axum's default `DefaultBodyLimit`
+  (2 MB). No endpoint needs more; revisit if that changes.
+- Rate limiting covers the public widget surface (per-IP). Authenticated
+  chat/estimation endpoints rely on tenant auth + BYOK cost ownership;
+  per-tenant quotas are a Phase 4 item.

@@ -2,6 +2,11 @@
 //!
 //! New in Rust — FastAPI had no dashboard lead-read path. Tenants manage
 //! their captured leads from the dashboard via these routes.
+//!
+//! **Status: Phase 4.** Every handler below returns `501 Not Implemented`.
+//! The routes and OpenAPI schemas are registered now so the external
+//! surface is pinned; storage reads and auth land with the dashboard
+//! leads page.
 
 use std::sync::Arc;
 
@@ -91,5 +96,5 @@ pub async fn patch_lead() -> impl IntoResponse {
 pub fn routes() -> Router<Arc<AppState>> {
     Router::new()
         .route("/v1/leads", get(list_leads))
-        .route("/v1/leads/{lead_id}", get(get_lead).patch(patch_lead))
+        .route("/v1/leads/:lead_id", get(get_lead).patch(patch_lead))
 }

@@ -93,7 +93,7 @@ pub struct TenantSettingsDoc {
 /// partner's preferred wire string (e.g. `"swimming-pool"`). Cost-tier
 /// breakpoints are inclusive lower bounds for `mid` and `high` —
 /// values strictly below `cost_tier_breakpoints[0]` are `low`.
-#[derive(Debug, Clone, Default, Serialize, Deserialize)]
+#[derive(Debug, Clone, Default, Serialize, Deserialize, utoipa::ToSchema)]
 pub struct RoutingConfig {
     #[serde(default)]
     pub enabled: bool,
@@ -171,9 +171,43 @@ pub(crate) fn now_bson() -> (OffsetDateTime, BsonDateTime) {
 
 /// Profile patch accepted from `PATCH /v1/me`. Email and password are
 /// intentionally absent — those live in Supabase.
+///
+/// Settings subfields are replace-if-present: an omitted field leaves the
+/// stored value untouched, so a partial patch can never clobber sibling
+/// settings (`$set` targets `settings.<field>`, not the whole subdoc).
 #[derive(Debug, Clone, Default)]
 pub struct TenantProfilePatch {
     pub company_name: Option<String>,
+    pub branding: Option<BrandingConfig>,
+    pub allowed_origins: Option<Vec<String>>,
+    pub routing: Option<RoutingConfig>,
+}
+
+/// Build the `$set` document for [`TenantRepo::update_profile`]. Dotted
+/// `settings.<field>` paths mean Mongo materialises the `settings` subdoc
+/// on first write and sibling fields survive a partial patch.
+fn profile_set_doc(
+    patch: &TenantProfilePatch,
+    bson_now: BsonDateTime,
+) -> Result<Document, StorageError> {
+    let mut set_doc = doc! { "updated_at": bson_now };
+    if let Some(ref cn) = patch.company_name {
+        set_doc.insert("company_name", cn);
+    }
+    if let Some(ref branding) = patch.branding {
+        set_doc.insert("settings.branding", to_bson(branding)?);
+    }
+    if let Some(ref origins) = patch.allowed_origins {
+        set_doc.insert("settings.allowed_origins", to_bson(origins)?);
+    }
+    if let Some(ref routing) = patch.routing {
+        set_doc.insert("settings.routing", to_bson(routing)?);
+    }
+    Ok(set_doc)
+}
+
+fn to_bson<T: Serialize>(value: &T) -> Result<bson::Bson, StorageError> {
+    bson::serialize_to_bson(value).map_err(|e| StorageError::Bson(e.to_string()))
 }
 
 /// Summary of a tenant's stored BYOK OpenAI key, without decrypting.
@@ -221,12 +255,7 @@ impl TenantRepo {
         patch: &TenantProfilePatch,
     ) -> Result<Tenant, StorageError> {
         let (_, bson_now) = now_bson();
-        let mut set_doc = doc! { "updated_at": bson_now };
-        if let Some(ref cn) = patch.company_name {
-            set_doc.insert("company_name", cn);
-        }
-
-        let update = doc! { "$set": set_doc };
+        let update = doc! { "$set": profile_set_doc(patch, bson_now)? };
         let opts = mongodb::options::FindOneAndUpdateOptions::builder()
             .return_document(ReturnDocument::After)
             .build();
@@ -577,7 +606,7 @@ mod tests {
             ..RoutingConfig::default()
         };
         let bson = bson::serialize_to_document(&cfg).unwrap();
-        assert_eq!(bson.get_bool("enabled").unwrap(), true);
+        assert!(bson.get_bool("enabled").unwrap());
         assert!(!bson.contains_key("directory_url_template"));
         assert!(!bson.contains_key("tag_overrides"));
         assert!(!bson.contains_key("cost_tier_breakpoints"));
@@ -593,6 +622,43 @@ mod tests {
         };
         let settings: TenantSettingsDoc = bson::deserialize_from_document(bson).unwrap();
         assert!(settings.routing.is_none());
+    }
+
+    #[test]
+    fn profile_set_doc_company_only_leaves_settings_untouched() {
+        let (_, bson_now) = now_bson();
+        let patch = TenantProfilePatch {
+            company_name: Some("Acme".into()),
+            ..TenantProfilePatch::default()
+        };
+        let set_doc = profile_set_doc(&patch, bson_now).unwrap();
+        assert_eq!(set_doc.get_str("company_name").unwrap(), "Acme");
+        assert!(!set_doc.keys().any(|k| k.starts_with("settings.")));
+    }
+
+    #[test]
+    fn profile_set_doc_writes_dotted_settings_paths() {
+        let (_, bson_now) = now_bson();
+        let patch = TenantProfilePatch {
+            company_name: None,
+            branding: None,
+            allowed_origins: Some(vec!["https://example.com".into()]),
+            routing: Some(RoutingConfig {
+                enabled: true,
+                directory_url_template: Some("https://x/{tags}".into()),
+                tag_overrides: BTreeMap::new(),
+                cost_tier_breakpoints: Some([10_000, 100_000]),
+            }),
+        };
+        let set_doc = profile_set_doc(&patch, bson_now).unwrap();
+        // Dotted paths pinned: `fetch_allowed_origins` / `fetch_routing_config`
+        // project on these exact keys.
+        let origins = set_doc.get_array("settings.allowed_origins").unwrap();
+        assert_eq!(origins.len(), 1);
+        let routing = set_doc.get_document("settings.routing").unwrap();
+        assert!(routing.get_bool("enabled").unwrap());
+        assert!(!set_doc.contains_key("company_name"));
+        assert!(!set_doc.contains_key("settings.branding"));
     }
 
     #[test]

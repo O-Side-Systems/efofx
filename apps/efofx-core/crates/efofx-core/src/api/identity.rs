@@ -26,10 +26,131 @@ use crate::AppState;
 
 #[derive(Debug, Clone, Deserialize, ToSchema)]
 pub struct UpdateTenantRequest {
-    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[serde(default)]
     pub company_name: Option<String>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub settings: Option<serde_json::Value>,
+    #[serde(default)]
+    pub settings: Option<UpdateTenantSettings>,
+}
+
+/// Settings subfields settable over `PATCH /v1/me`. Each field is
+/// replace-if-present — an omitted field keeps its stored value, so a
+/// partial patch never clobbers sibling settings.
+#[derive(Debug, Clone, Default, Deserialize, ToSchema)]
+pub struct UpdateTenantSettings {
+    #[serde(default)]
+    pub branding: Option<efofx_domain::BrandingConfig>,
+    /// Exact-match origins the tenant's widget may embed from
+    /// (`scheme://host[:port]`, no path). Replaces the stored list.
+    #[serde(default)]
+    pub allowed_origins: Option<Vec<String>>,
+    #[serde(default)]
+    pub routing: Option<efofx_storage::tenants::RoutingConfig>,
+}
+
+const MAX_ALLOWED_ORIGINS: usize = 20;
+const MAX_ORIGIN_LEN: usize = 255;
+const MAX_URL_TEMPLATE_LEN: usize = 2048;
+const MAX_TAG_OVERRIDES: usize = 100;
+const MAX_TAG_LEN: usize = 100;
+const MAX_COMPANY_NAME_LEN: usize = 200;
+
+/// Reject malformed settings before they reach storage. Origins feed the
+/// per-tenant CORS allow-list and the routing template is echoed to
+/// partners, so both are validated for shape, scheme, and size.
+fn validate_settings(s: &UpdateTenantSettings) -> Result<(), String> {
+    if let Some(ref origins) = s.allowed_origins {
+        if origins.len() > MAX_ALLOWED_ORIGINS {
+            return Err(format!(
+                "settings.allowed_origins: at most {MAX_ALLOWED_ORIGINS} origins"
+            ));
+        }
+        for o in origins {
+            validate_origin(o)?;
+        }
+    }
+    if let Some(ref routing) = s.routing {
+        if let Some(ref template) = routing.directory_url_template {
+            if template.len() > MAX_URL_TEMPLATE_LEN {
+                return Err(format!(
+                    "settings.routing.directory_url_template: at most {MAX_URL_TEMPLATE_LEN} chars"
+                ));
+            }
+            if !template.starts_with("https://") && !template.starts_with("http://") {
+                return Err(
+                    "settings.routing.directory_url_template: must start with http(s)://".into(),
+                );
+            }
+        }
+        if routing.tag_overrides.len() > MAX_TAG_OVERRIDES {
+            return Err(format!(
+                "settings.routing.tag_overrides: at most {MAX_TAG_OVERRIDES} entries"
+            ));
+        }
+        for (k, v) in &routing.tag_overrides {
+            if k.is_empty() || k.len() > MAX_TAG_LEN || v.is_empty() || v.len() > MAX_TAG_LEN {
+                return Err(format!(
+                    "settings.routing.tag_overrides: keys and values must be 1-{MAX_TAG_LEN} chars"
+                ));
+            }
+        }
+        if let Some([mid, high]) = routing.cost_tier_breakpoints {
+            if mid >= high {
+                return Err(
+                    "settings.routing.cost_tier_breakpoints: mid bound must be below high bound"
+                        .into(),
+                );
+            }
+        }
+    }
+    if let Some(ref branding) = s.branding {
+        if let Some(ref url) = branding.logo_url {
+            if url.len() > MAX_URL_TEMPLATE_LEN
+                || (!url.starts_with("https://") && !url.starts_with("http://"))
+            {
+                return Err("settings.branding.logo_url: must be an http(s) URL".into());
+            }
+        }
+        if branding.welcome_message.len() > 1000
+            || branding.button_text.len() > 100
+            || branding.company_name.len() > MAX_COMPANY_NAME_LEN
+        {
+            return Err("settings.branding: text fields exceed length limits".into());
+        }
+    }
+    Ok(())
+}
+
+/// An allowed origin must look like `scheme://host[:port]` — exact-match
+/// CORS means anything with a path, query, wildcard, or trailing slash
+/// would never match a real `Origin` header and only mask config errors.
+fn validate_origin(origin: &str) -> Result<(), String> {
+    let err = || format!("settings.allowed_origins: '{origin}' is not a valid http(s) origin");
+    if origin.len() > MAX_ORIGIN_LEN {
+        return Err(err());
+    }
+    let rest = origin
+        .strip_prefix("https://")
+        .or_else(|| origin.strip_prefix("http://"))
+        .ok_or_else(err)?;
+    if rest.is_empty() || rest.contains(['/', '?', '#', '*', ' ', '@']) {
+        return Err(err());
+    }
+    // Optional `:port` must be a real port. IPv6 hosts (bracketed, more
+    // colons) are deliberately rejected — widget embeds are name-based,
+    // and any extra colon lands in the port slot and fails the parse.
+    let (host, port) = match rest.split_once(':') {
+        Some((h, p)) => (h, Some(p)),
+        None => (rest, None),
+    };
+    if host.is_empty() {
+        return Err(err());
+    }
+    if let Some(p) = port {
+        if !p.parse::<u16>().map(|n| n > 0).unwrap_or(false) {
+            return Err(err());
+        }
+    }
+    Ok(())
 }
 
 #[derive(Debug, Clone, Deserialize, ToSchema)]
@@ -119,7 +240,8 @@ pub async fn get_me(
     }
 }
 
-/// Update tenant-owned settings. Does not touch email or password (those
+/// Update tenant-owned profile fields and settings (branding,
+/// allowed_origins, routing). Does not touch email or password (those
 /// live in Supabase).
 #[utoipa::path(
     patch,
@@ -129,6 +251,7 @@ pub async fn get_me(
     security(("supabase_jwt" = [])),
     responses(
         (status = 200, description = "Updated profile", body = Tenant),
+        (status = 400, description = "Invalid settings payload", body = ApiError),
         (status = 401, description = "Authentication required", body = ApiError),
         (status = 404, description = "Tenant record missing", body = ApiError),
     ),
@@ -138,13 +261,46 @@ pub async fn patch_me(
     Extension(ctx): Extension<TenantContext>,
     Json(body): Json<UpdateTenantRequest>,
 ) -> Response {
+    if let Some(ref cn) = body.company_name {
+        if cn.is_empty() || cn.len() > MAX_COMPANY_NAME_LEN {
+            return validation_failed(&format!(
+                "company_name: must be 1-{MAX_COMPANY_NAME_LEN} chars"
+            ));
+        }
+    }
+    let settings = body.settings.unwrap_or_default();
+    if let Err(msg) = validate_settings(&settings) {
+        return validation_failed(&msg);
+    }
     let patch = TenantProfilePatch {
         company_name: body.company_name,
+        branding: settings.branding,
+        allowed_origins: settings.allowed_origins.clone(),
+        routing: settings.routing,
     };
     match state.tenants.update_profile(&ctx, &patch).await {
-        Ok(tenant) => Json(tenant).into_response(),
+        Ok(tenant) => {
+            // Newly-allowed origins take effect immediately. Removed
+            // origins stay in the process-wide cache until restart — the
+            // documented eviction gap in `tenant_cors.rs`.
+            if let Some(origins) = settings.allowed_origins {
+                state.origin_cache.insert_many(origins);
+            }
+            Json(tenant).into_response()
+        }
         Err(e) => storage_into_response(e),
     }
+}
+
+fn validation_failed(message: &str) -> Response {
+    (
+        StatusCode::BAD_REQUEST,
+        Json(ApiError::single(
+            ErrorCode::ValidationFailed.as_str(),
+            message,
+        )),
+    )
+        .into_response()
 }
 
 /// Store or rotate the tenant's BYOK OpenAI API key.
@@ -283,4 +439,89 @@ pub fn routes(state: Arc<AppState>) -> Router<Arc<AppState>> {
         .route_layer(from_fn_with_state(state.auth.clone(), either_auth));
 
     jwt_only.merge(either)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use efofx_storage::tenants::RoutingConfig;
+
+    #[test]
+    fn valid_origins_pass() {
+        for o in [
+            "https://example.com",
+            "http://localhost:5173",
+            "https://sub.partner-site.co.uk:8443",
+        ] {
+            assert!(validate_origin(o).is_ok(), "{o} should be valid");
+        }
+    }
+
+    #[test]
+    fn malformed_origins_rejected() {
+        for o in [
+            "example.com",                // no scheme
+            "ftp://example.com",          // wrong scheme
+            "https://example.com/",       // trailing slash never matches Origin
+            "https://example.com/widget", // path
+            "https://*.example.com",      // wildcard
+            "https://",                   // empty host
+            "https://a b.com",            // space
+            "https://user@example.com",   // userinfo
+            "https://example.com:abc",    // non-numeric port
+            "https://example.com:0",      // port zero
+            "https://example.com:70000",  // port out of range
+            "https://example.com:",       // empty port
+            "https://:8080",              // empty host
+            "https://[::1]:5173",         // IPv6 (unsupported by design)
+        ] {
+            assert!(validate_origin(o).is_err(), "{o} should be rejected");
+        }
+    }
+
+    #[test]
+    fn settings_with_bad_template_scheme_rejected() {
+        let s = UpdateTenantSettings {
+            routing: Some(RoutingConfig {
+                enabled: true,
+                directory_url_template: Some("javascript:alert(1)".into()),
+                ..RoutingConfig::default()
+            }),
+            ..UpdateTenantSettings::default()
+        };
+        assert!(validate_settings(&s).is_err());
+    }
+
+    #[test]
+    fn settings_with_inverted_breakpoints_rejected() {
+        let s = UpdateTenantSettings {
+            routing: Some(RoutingConfig {
+                enabled: true,
+                cost_tier_breakpoints: Some([250_000, 25_000]),
+                ..RoutingConfig::default()
+            }),
+            ..UpdateTenantSettings::default()
+        };
+        assert!(validate_settings(&s).is_err());
+    }
+
+    #[test]
+    fn well_formed_settings_pass() {
+        let s = UpdateTenantSettings {
+            branding: None,
+            allowed_origins: Some(vec!["https://contractor.example".into()]),
+            routing: Some(RoutingConfig {
+                enabled: true,
+                directory_url_template: Some("https://partner.example/find?tags={tags}".into()),
+                cost_tier_breakpoints: Some([25_000, 250_000]),
+                ..RoutingConfig::default()
+            }),
+        };
+        assert!(validate_settings(&s).is_ok());
+    }
+
+    #[test]
+    fn empty_settings_pass() {
+        assert!(validate_settings(&UpdateTenantSettings::default()).is_ok());
+    }
 }

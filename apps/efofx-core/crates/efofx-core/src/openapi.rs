@@ -75,6 +75,8 @@ use crate::api;
         Tenant,
         TenantTier,
         api::identity::UpdateTenantRequest,
+        api::identity::UpdateTenantSettings,
+        efofx_storage::tenants::RoutingConfig,
         api::identity::StoreOpenAiKeyRequest,
         api::identity::StoreOpenAiKeyResponse,
         api::identity::OpenAiKeyStatusResponse,

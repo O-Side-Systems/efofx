@@ -33,7 +33,7 @@ The table below uses the new Rust paths. Old FastAPI paths are given for referen
 | *(n/a)* | POST | — | **supabase** | — | `POST /auth/login` |
 | *(n/a)* | POST | — | **supabase** | — | `POST /auth/refresh` |
 | `/v1/me` | GET  | Supabase JWT OR API key | **rework** | `identity::me` | `GET /auth/profile` |
-| `/v1/me` | PATCH | Supabase JWT OR API key | **rework** | `identity::me` | `PATCH /auth/profile` |
+| `/v1/me` | PATCH | Supabase JWT only | **rework** | `identity::me` | `PATCH /auth/profile` |
 | `/v1/me/openai-key` | PUT | Supabase JWT | **rework** | `identity::byok` | `PUT /auth/openai-key` |
 | `/v1/me/openai-key/status` | GET | Supabase JWT OR API key | **rework** | `identity::byok` | `GET /auth/openai-key/status` |
 | `/v1/me/openai-key` | DELETE | Supabase JWT | **new** | `identity::byok` | — (not in FastAPI; add for key removal) |
@@ -42,7 +42,7 @@ The table below uses the new Rust paths. Old FastAPI paths are given for referen
 **Notes:**
 - Four endpoints (`/auth/register`, `/auth/verify`, `/auth/login`, `/auth/refresh`) are deleted outright — Supabase owns registration, email verify, login, and refresh. Dashboard calls Supabase JS SDK directly for these.
 - `/auth/profile` becomes `/v1/me` so the shape reads correctly: it's the authenticated principal's profile, merged from Supabase user claims + local tenant state.
-- PATCH `/v1/me` cannot modify email or password (those live in Supabase). It only touches tenant-owned settings: `company_name`, `settings.branding`, `settings.allowed_origins`, `settings.routing_config`.
+- PATCH `/v1/me` cannot modify email or password (those live in Supabase). It only touches tenant-owned settings: `company_name`, `settings.branding`, `settings.allowed_origins`, `settings.routing`. Mutation requires a Supabase JWT — widget API keys can read (`GET /v1/me`) but never write settings.
 - `DELETE /v1/me/openai-key` is new — FastAPI has no way to remove a stored BYOK key short of overwriting it. We should support explicit removal.
 - `POST /v1/me/api-keys:rotate` is new — widget API keys live only in our system; users need a way to rotate them. Issues a new plaintext key exactly once, invalidates the old.
 

@@ -63,6 +63,13 @@ async fn byok_plaintext(state: &AppState, ctx: &TenantContext) -> Result<String,
     }
 }
 
+/// Split the `:generate-estimate` custom-method suffix off a captured
+/// path segment. Returns the bare session-id portion, or `None` when the
+/// suffix is absent.
+fn strip_generate_estimate_suffix(segment: &str) -> Option<&str> {
+    segment.strip_suffix(":generate-estimate")
+}
+
 #[allow(clippy::result_large_err)]
 fn parse_session_id(raw: &str) -> Result<SessionId, Response> {
     match Uuid::parse_str(raw) {
@@ -229,10 +236,24 @@ fn chat_error_response(err: ChatServiceError) -> Response {
 pub async fn generate_estimate(
     State(state): State<Arc<AppState>>,
     Extension(ctx): Extension<TenantContext>,
-    Path(session_id): Path<String>,
+    Path(raw_path): Path<String>,
 ) -> Response {
+    // The route captures `<session_id>:generate-estimate` as one segment
+    // (see `routes`); a POST without the custom-method suffix is not a
+    // defined operation.
+    let Some(raw_id) = strip_generate_estimate_suffix(&raw_path) else {
+        return (
+            StatusCode::NOT_FOUND,
+            Json(ApiError::single(
+                "common.not_found",
+                "POST /v1/chat/sessions/{session_id} is not a supported operation; \
+                 did you mean :generate-estimate?",
+            )),
+        )
+            .into_response();
+    };
     // Pre-stream validation: bad path params return plain JSON, not SSE.
-    let session_id = match parse_session_id(&session_id) {
+    let session_id = match parse_session_id(raw_id) {
         Ok(id) => id,
         Err(resp) => return resp,
     };
@@ -511,14 +532,17 @@ fn _assert_chat_service_in_scope(_: &ChatService) {}
 pub fn routes(state: Arc<AppState>) -> Router<Arc<AppState>> {
     Router::new()
         .route("/v1/chat/sessions", post(create_session))
-        .route("/v1/chat/sessions/{session_id}", get(get_session_handler))
+        // Wire paths use `:generate-estimate` as an AIP-136 custom-method
+        // suffix. axum 0.7's matchit can't express "param + literal suffix"
+        // in one segment, so POST captures the whole segment and
+        // `generate_estimate` validates the suffix itself.
         .route(
-            "/v1/chat/sessions/{session_id}/messages",
-            post(append_message),
+            "/v1/chat/sessions/:session_id",
+            get(get_session_handler).post(generate_estimate),
         )
         .route(
-            "/v1/chat/sessions/{session_id}:generate-estimate",
-            post(generate_estimate),
+            "/v1/chat/sessions/:session_id/messages",
+            post(append_message),
         )
         .route_layer(from_fn_with_state(state.auth.clone(), either_auth))
 }
@@ -526,6 +550,25 @@ pub fn routes(state: Arc<AppState>) -> Router<Arc<AppState>> {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn generate_estimate_suffix_strips_cleanly() {
+        assert_eq!(
+            strip_generate_estimate_suffix(
+                "0f8fad5b-d9cb-469f-a165-70867728950e:generate-estimate"
+            ),
+            Some("0f8fad5b-d9cb-469f-a165-70867728950e")
+        );
+    }
+
+    #[test]
+    fn generate_estimate_suffix_missing_is_none() {
+        assert_eq!(
+            strip_generate_estimate_suffix("0f8fad5b-d9cb-469f-a165-70867728950e"),
+            None
+        );
+        assert_eq!(strip_generate_estimate_suffix(""), None);
+    }
 
     #[test]
     fn llm_invalid_key_maps_to_402() {

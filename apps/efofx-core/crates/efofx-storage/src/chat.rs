@@ -500,9 +500,11 @@ mod tests {
 
     fn sample_session() -> ChatSession {
         let now = OffsetDateTime::now_utc();
-        let mut scoping = ScopingContext::default();
-        scoping.project_type = Some("pool".into());
-        scoping.project_size = Some("15x30 feet".into());
+        let scoping = ScopingContext {
+            project_type: Some("pool".into()),
+            project_size: Some("15x30 feet".into()),
+            ..ScopingContext::default()
+        };
         let mut usage = TokenUsage::default();
         usage.add(120, 40);
         ChatSession {

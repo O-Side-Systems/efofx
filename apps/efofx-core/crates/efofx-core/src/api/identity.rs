@@ -135,6 +135,21 @@ fn validate_origin(origin: &str) -> Result<(), String> {
     if rest.is_empty() || rest.contains(['/', '?', '#', '*', ' ', '@']) {
         return Err(err());
     }
+    // Optional `:port` must be a real port. IPv6 hosts (bracketed, more
+    // colons) are deliberately rejected — widget embeds are name-based,
+    // and any extra colon lands in the port slot and fails the parse.
+    let (host, port) = match rest.split_once(':') {
+        Some((h, p)) => (h, Some(p)),
+        None => (rest, None),
+    };
+    if host.is_empty() {
+        return Err(err());
+    }
+    if let Some(p) = port {
+        if !p.parse::<u16>().map(|n| n > 0).unwrap_or(false) {
+            return Err(err());
+        }
+    }
     Ok(())
 }
 
@@ -453,6 +468,12 @@ mod tests {
             "https://",                   // empty host
             "https://a b.com",            // space
             "https://user@example.com",   // userinfo
+            "https://example.com:abc",    // non-numeric port
+            "https://example.com:0",      // port zero
+            "https://example.com:70000",  // port out of range
+            "https://example.com:",       // empty port
+            "https://:8080",              // empty host
+            "https://[::1]:5173",         // IPv6 (unsupported by design)
         ] {
             assert!(validate_origin(o).is_err(), "{o} should be rejected");
         }

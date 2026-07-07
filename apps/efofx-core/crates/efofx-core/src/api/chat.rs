@@ -63,7 +63,6 @@ async fn byok_plaintext(state: &AppState, ctx: &TenantContext) -> Result<String,
     }
 }
 
-#[allow(clippy::result_large_err)]
 /// Split the `:generate-estimate` custom-method suffix off a captured
 /// path segment. Returns the bare session-id portion, or `None` when the
 /// suffix is absent.
@@ -71,6 +70,7 @@ fn strip_generate_estimate_suffix(segment: &str) -> Option<&str> {
     segment.strip_suffix(":generate-estimate")
 }
 
+#[allow(clippy::result_large_err)]
 fn parse_session_id(raw: &str) -> Result<SessionId, Response> {
     match Uuid::parse_str(raw) {
         Ok(u) => Ok(SessionId(u)),

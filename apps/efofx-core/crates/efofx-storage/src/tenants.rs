@@ -606,7 +606,7 @@ mod tests {
             ..RoutingConfig::default()
         };
         let bson = bson::serialize_to_document(&cfg).unwrap();
-        assert_eq!(bson.get_bool("enabled").unwrap(), true);
+        assert!(bson.get_bool("enabled").unwrap());
         assert!(!bson.contains_key("directory_url_template"));
         assert!(!bson.contains_key("tag_overrides"));
         assert!(!bson.contains_key("cost_tier_breakpoints"));
@@ -656,7 +656,7 @@ mod tests {
         let origins = set_doc.get_array("settings.allowed_origins").unwrap();
         assert_eq!(origins.len(), 1);
         let routing = set_doc.get_document("settings.routing").unwrap();
-        assert_eq!(routing.get_bool("enabled").unwrap(), true);
+        assert!(routing.get_bool("enabled").unwrap());
         assert!(!set_doc.contains_key("company_name"));
         assert!(!set_doc.contains_key("settings.branding"));
     }

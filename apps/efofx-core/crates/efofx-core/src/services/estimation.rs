@@ -703,10 +703,12 @@ mod tests {
 
     #[test]
     fn description_joins_populated_fields_with_trailing_period() {
-        let mut ctx = ScopingContext::default();
-        ctx.project_type = Some("pool".into());
-        ctx.project_size = Some("15x30".into());
-        ctx.location = Some("SoCal - Coastal".into());
+        let ctx = ScopingContext {
+            project_type: Some("pool".into()),
+            project_size: Some("15x30".into()),
+            location: Some("SoCal - Coastal".into()),
+            ..ScopingContext::default()
+        };
         let out = build_description_from_context(&ctx);
         assert_eq!(
             out,
@@ -716,9 +718,11 @@ mod tests {
 
     #[test]
     fn description_skips_unset_fields() {
-        let mut ctx = ScopingContext::default();
-        ctx.project_type = Some("pool".into());
-        ctx.special_conditions = Some("steep grade".into());
+        let ctx = ScopingContext {
+            project_type: Some("pool".into()),
+            special_conditions: Some("steep grade".into()),
+            ..ScopingContext::default()
+        };
         let out = build_description_from_context(&ctx);
         assert_eq!(out, "Project type: pool. Special conditions: steep grade.");
     }

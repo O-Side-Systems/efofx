@@ -508,9 +508,11 @@ mod tests {
 
     #[test]
     fn format_scoping_lists_only_populated_fields() {
-        let mut ctx = ScopingContext::default();
-        ctx.project_type = Some("pool".into());
-        ctx.timeline = Some("spring 2026".into());
+        let ctx = ScopingContext {
+            project_type: Some("pool".into()),
+            timeline: Some("spring 2026".into()),
+            ..ScopingContext::default()
+        };
         let out = format_scoping(&ctx);
         assert!(out.contains("- project_type: pool"));
         assert!(out.contains("- timeline: spring 2026"));

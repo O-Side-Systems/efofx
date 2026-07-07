@@ -1,6 +1,18 @@
 # Efofx Codebase State
 
-**Last Updated:** 2026-04-28
+**Last Updated:** 2026-07-07
+
+> **2026-07-07 (quality pass):** A post-cutover review fixed three
+> correctness bugs on the `rust-port` line: (1) chat and leads routes
+> were registered with axum 0.8 `{param}` syntax, which axum 0.7 treats
+> as literals — the widget's chat → estimate flow 404'd; now `:param`
+> with route-matching regression tests. (2) `PATCH /v1/me` accepted a
+> `settings` payload but silently dropped it; settings (branding,
+> allowed_origins, routing) now validate and persist per-subfield.
+> (3) `render_directory_url` corrupted multi-byte UTF-8 in partner
+> directory templates. Known deferrals (leads 501 stubs, EstimationOutput
+> persistence, settings echo on `GET /v1/me`, per-tenant LLM quotas)
+> are tracked in `apps/efofx-core/README.md` under Phase status.
 **Purpose:** Living reference for any developer or AI agent working in this codebase. Update this document as the codebase evolves.
 
 > **2026-04-28:** Phase 3 of the Rust port (`docs/RUST-PORT-PLAN.md`,
